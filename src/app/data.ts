@@ -129,16 +129,74 @@ export const CHARTS = [
   { pos: 5, title: "Feather",            artist: "Sabrina Carpenter",      delta:  0, img: svgCover("#071226", "#60a5fa", 25) },
 ];
 
-export const LYRICS_DATA = [
-  { en: ["In", "the", "midnight", "hour,", "when", "silence", "speaks"], ru: "В полночный час, когда тишина говорит" },
-  { en: ["I", "hear", "the", "echo", "of", "forgotten", "weeks"], ru: "Я слышу эхо забытых недель" },
-  { en: ["Neon", "ghosts", "are", "dancing", "on", "the", "wall"], ru: "Неоновые призраки танцуют на стене" },
-  { en: ["Synthesized", "and", "dreaming", "through", "the", "fall"], ru: "Синтезированы и мечтают сквозь падение" },
-  { en: ["Glass", "reflections", "carry", "what", "we", "lost"], ru: "Отражения стекла несут то, что мы потеряли" },
-  { en: ["Electric", "memories", "at", "any", "cost"], ru: "Электрические воспоминания любой ценой" },
-  { en: ["And", "I", "dissolve", "into", "the", "frequency"], ru: "И я растворяюсь в частоте" },
-  { en: ["The", "midnight", "echo", "—", "all", "that's", "left", "of", "me"], ru: "Полночное эхо — всё, что осталось от меня" },
-];
+// У каждого трека каталога — свой текст со своим переводом
+const L = (s: string, ru: string) => ({ en: s.split(" "), ru });
+export const LYRICS: Record<number, { en: string[]; ru: string }[]> = {
+  1: [
+    L("In the midnight hour, when silence speaks", "В полночный час, когда тишина говорит"),
+    L("I hear the echo of forgotten weeks", "Я слышу эхо забытых недель"),
+    L("Neon ghosts are dancing on the wall", "Неоновые призраки танцуют на стене"),
+    L("Synthesized and dreaming through the fall", "Синтезированы и мечтают сквозь падение"),
+    L("And I dissolve into the frequency", "И я растворяюсь в частоте"),
+    L("The midnight echo — all that's left of me", "Полночное эхо — всё, что осталось от меня"),
+  ],
+  2: [
+    L("Glass city breathing under sodium light", "Стеклянный город дышит под натриевым светом"),
+    L("A million windows and not one of them mine", "Миллион окон — и ни одно не моё"),
+    L("I ride the bassline through the underpass", "Я еду по басовой линии сквозь подземку"),
+    L("The future's loud and it's arriving fast", "Будущее громкое — и оно приходит быстро"),
+    L("Concrete gardens where the signals grow", "Бетонные сады, где растут сигналы"),
+    L("Glass city, take me where the rivers glow", "Стеклянный город, отведи меня к светящимся рекам"),
+  ],
+  3: [
+    L("Neon drifting down an empty street", "Неон плывёт по пустой улице"),
+    L("Coffee's cold but the loop stays sweet", "Кофе остыл, но луп всё так же сладок"),
+    L("Rain on vinyl, static in my head", "Дождь по винилу, статика в голове"),
+    L("Half asleep on words I never said", "В полусне от слов, что я не сказал"),
+    L("Slow horizon, tape machine rewinds", "Медленный горизонт, плёнка мотает назад"),
+    L("Neon drift — I leave the world behind", "Неоновый дрейф — я оставляю мир позади"),
+  ],
+  4: [
+    L("Ivory keys under winter hands", "Клавиши слоновой кости под зимними руками"),
+    L("Every chord a country, every rest a land", "Каждый аккорд — страна, каждая пауза — земля"),
+    L("The room is dark, the pedal holds the light", "В комнате темно, педаль держит свет"),
+    L("Melodies like snowfall through the night", "Мелодии как снегопад сквозь ночь"),
+    L("If you listen close, the quiet sings", "Прислушайся — и тишина поёт"),
+    L("Ivory keys remember everything", "Клавиши помнят всё"),
+  ],
+  5: [
+    L("I dissolve like sugar in the rain", "Я растворяюсь, как сахар под дождём"),
+    L("Every colour running down the pane", "Все цвета стекают по стеклу"),
+    L("Dreaming in a language with no name", "Мечтаю на языке без имени"),
+    L("You and I were never quite the same", "Мы с тобой никогда не были одинаковыми"),
+    L("Hold me till the edges disappear", "Держи меня, пока края не исчезнут"),
+    L("Dissolution sounds a lot like here", "Растворение звучит совсем как «здесь»"),
+  ],
+  6: [
+    L("Carbon skies above the terminal", "Углеродные небеса над терминалом"),
+    L("Waiting for a sign that's personal", "Жду знака, который только для меня"),
+    L("Jet trails stitching wounds across the grey", "Инверсионные следы зашивают серость"),
+    L("Everyone I love is far away", "Все, кого я люблю, далеко"),
+    L("But dark matter holds us just the same", "Но тёмная материя всё равно держит нас"),
+    L("Carbon skies still whisper out my name", "Углеродные небеса всё шепчут моё имя"),
+  ],
+  7: [
+    L("Hollow ground beneath the old pine floor", "Пустота под старым сосновым полом"),
+    L("Echoes live where we don't live anymore", "Эхо живёт там, где нас больше нет"),
+    L("I sing into the hollow, hear it grow", "Я пою в пустоту и слышу, как она растёт"),
+    L("Resonance of everything we know", "Резонанс всего, что мы знаем"),
+    L("If the ground is empty, let it ring", "Если земля пуста — пусть звенит"),
+    L("Hollow ground can hold most anything", "Пустая земля может вместить почти всё"),
+  ],
+  8: [
+    L("Saltwater dream, I'm floating out again", "Солёный сон — я снова уплываю"),
+    L("The tide rewrites the letters that I penned", "Прилив переписывает мои письма"),
+    L("Sunlight breaking soft across the bay", "Солнце мягко ломается о залив"),
+    L("Every wave a word I couldn't say", "Каждая волна — слово, что я не смог сказать"),
+    L("Keep me in the shallows of your mind", "Оставь меня на отмели своей памяти"),
+    L("Saltwater dreams are easiest to find", "Солёные сны легче всего найти"),
+  ],
+};
 
 export const INITIAL_COMMENTS = [
   { pct: 16, user: "@neon_rabbit", text: "этот бит просто космос", likes: 142, avatar: "#8b5cf6" },

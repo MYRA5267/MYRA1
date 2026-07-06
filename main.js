@@ -5,6 +5,9 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    title: 'MYRA',
+    autoHideMenuBar: true,
+    backgroundColor: '#05050b',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

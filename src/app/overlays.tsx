@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
-  GripVertical, Shuffle,
+  GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -46,7 +46,7 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
             <span style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.03em" }}>{artist.name}</span>
             {artist.verified && <BadgeCheck size={20} style={{ color: artist.c2 }} />}
           </div>
-          <div className="text-xs mt-0.5" style={{ color: "rgba(242,242,248,0.55)", fontFamily: F.m }}>{artist.listeners} {t("ar.listeners")}</div>
+          <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.m }}>{artist.listeners} {t("ar.listeners")}</div>
         </div>
       </div>
 
@@ -60,7 +60,7 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
             whileTap={{ scale: 0.96 }}
             onClick={() => { onFollow(artist.name); toast(isFollowed ? t("ar.unfollowed") : t("ar.followed", artist.name)); }}
             className="flex-1 rounded-full text-sm font-semibold"
-            style={isFollowed ? { ...GLASS, color: artist.c2, fontFamily: F.b } : { background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", fontFamily: F.b }}
+            style={isFollowed ? { ...GLASS, color: artist.c2, fontFamily: F.b } : { background: "color-mix(in srgb, var(--wash) 10%, transparent)", border: "1px solid color-mix(in srgb, var(--wash) 20%, transparent)", fontFamily: F.b }}
           >
             {isFollowed ? t("ar.following") : t("ar.follow")}
           </motion.button>
@@ -84,10 +84,10 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
                 ) : (
                   <>
                     <div className="font-bold mb-1" style={{ fontFamily: F.d, fontSize: 16, letterSpacing: "-0.01em" }}>{t("don.title", artist.name)}</div>
-                    <div className="text-xs mb-4" style={{ color: "rgba(242,242,248,0.45)", fontFamily: F.b }}>{t("don.sub")}</div>
+                    <div className="text-xs mb-4" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("don.sub")}</div>
                     <div className="flex gap-2 mb-4 flex-wrap">
                       {[50, 100, 300, 500].map(a => (
-                        <button key={a} onClick={() => { setAmount(a); setCustom(""); }} className="px-4 py-2 rounded-full text-sm font-semibold transition-all" style={{ background: amount === a && !custom ? artist.c2 : "rgba(255,255,255,0.07)", color: amount === a && !custom ? "#fff" : "rgba(242,242,248,0.6)", fontFamily: F.b }}>
+                        <button key={a} onClick={() => { setAmount(a); setCustom(""); }} className="px-4 py-2 rounded-full text-sm font-semibold transition-all" style={{ background: amount === a && !custom ? artist.c2 : "color-mix(in srgb, var(--wash) 07%, transparent)", color: amount === a && !custom ? "#fff" : "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>
                           {a}₽
                         </button>
                       ))}
@@ -96,10 +96,10 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
                         onChange={e => setCustom(e.target.value.replace(/\D/g, "").slice(0, 6))}
                         placeholder={t("don.custom")}
                         className="w-24 px-3 py-2 rounded-full text-sm bg-transparent outline-none text-center"
-                        style={{ border: `1px solid ${custom ? artist.c2 : "rgba(255,255,255,0.12)"}`, color: "#f2f2f8", fontFamily: F.b }}
+                        style={{ border: `1px solid ${custom ? artist.c2 : "color-mix(in srgb, var(--wash) 12%, transparent)"}`, color: "var(--fg)", fontFamily: F.b }}
                       />
                     </div>
-                    <motion.button whileTap={{ scale: 0.97 }} disabled={finalAmount <= 0} onClick={() => { setSent(true); toast.success(t("don.sent", finalAmount, artist.name)); }} className="w-full py-3 rounded-full text-sm font-semibold" style={{ background: finalAmount > 0 ? `linear-gradient(135deg, ${artist.c2}, ${artist.c2}99)` : "rgba(255,255,255,0.06)", color: finalAmount > 0 ? "#fff" : "rgba(242,242,248,0.3)", fontFamily: F.b }}>
+                    <motion.button whileTap={{ scale: 0.97 }} disabled={finalAmount <= 0} onClick={() => { setSent(true); toast.success(t("don.sent", finalAmount, artist.name)); }} className="w-full py-3 rounded-full text-sm font-semibold" style={{ background: finalAmount > 0 ? `linear-gradient(135deg, ${artist.c2}, ${artist.c2}99)` : "color-mix(in srgb, var(--wash) 06%, transparent)", color: finalAmount > 0 ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}>
                       {t("don.send", finalAmount)}
                     </motion.button>
                   </>
@@ -121,9 +121,9 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
                 {tr.title}
                 {currentTrack.id === tr.id && playing && <EQ color={tr.c2} size={9} />}
               </div>
-              <button onClick={e => { e.stopPropagation(); onOpenAlbum(tr.album); }} className="text-xs hover:text-white transition-colors" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.b }}>{tr.album} · {tr.duration}</button>
+              <button onClick={e => { e.stopPropagation(); onOpenAlbum(tr.album); }} className="text-xs hover:text-white transition-colors" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.album} · {tr.duration}</button>
             </div>
-            <Play size={14} style={{ color: "rgba(242,242,248,0.35)" }} />
+            <Play size={14} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
           </div>
         ))}
 
@@ -137,9 +137,9 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-                  <div className="text-xs" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.b }}>{tr.artist}</div>
+                  <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.artist}</div>
                 </div>
-                <Play size={14} style={{ color: "rgba(242,242,248,0.35)" }} />
+                <Play size={14} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
               </div>
             ))}
           </>
@@ -187,9 +187,9 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
           <X size={16} />
         </button>
         <div className="absolute bottom-3 left-6 right-6">
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-1" style={{ color: "rgba(242,242,248,0.45)", fontFamily: F.m }}>{t("al.type")}</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>{t("al.type")}</div>
           <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 26, letterSpacing: "-0.03em" }}>{album}</div>
-          <button onClick={() => onOpenArtist(cover.artist)} className="text-xs mt-1 hover:text-white transition-colors" style={{ color: "rgba(242,242,248,0.55)", fontFamily: F.b }}>{cover.artist} · {t("al.nTracks", totalDur)}</button>
+          <button onClick={() => onOpenArtist(cover.artist)} className="text-xs mt-1 hover:text-white transition-colors" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>{cover.artist} · {t("al.nTracks", totalDur)}</button>
         </div>
       </div>
 
@@ -205,12 +205,12 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
 
         {tracks.map((tr, i) => (
           <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors mb-1">
-            <div className="w-6 text-center text-xs" style={{ color: currentTrack.id === tr.id && playing ? c2 : "rgba(242,242,248,0.3)", fontFamily: F.m }}>
+            <div className="w-6 text-center text-xs" style={{ color: currentTrack.id === tr.id && playing ? c2 : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>
               {currentTrack.id === tr.id && playing ? <EQ color={c2} size={10} /> : i + 1}
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-              <div className="text-xs" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{tr.duration}</div>
+              <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{tr.duration}</div>
             </div>
           </div>
         ))}
@@ -221,13 +221,14 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
 
 // ─── Плейлист с drag-n-drop ───────────────────────────────────────────────────
 
-export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playing, order, onReorder }: {
+export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playing, order, onReorder, playlists = PLAYLISTS }: {
   playlistId: string | null; onClose: () => void; onPlay: (t: Track) => void;
   currentTrack: Track; playing: boolean;
   order: number[]; onReorder: (ids: number[]) => void;
+  playlists?: typeof PLAYLISTS;
 }) {
   const { t } = useLang();
-  const pl = PLAYLISTS.find(p => p.id === playlistId) ?? null;
+  const pl = playlists.find(p => p.id === playlistId) ?? null;
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
 
@@ -247,17 +248,17 @@ export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playi
   return (
     <Sheet open={!!playlistId} onClose={onClose} z={56}>
       <div className="relative px-6 pt-7 pb-8">
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(255,255,255,0.07)" }}>
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
 
         <div className="flex gap-4 mb-6">
           <img src={pl.img} alt="" className="w-24 h-24 rounded-2xl object-cover flex-shrink-0" style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.4)" }} />
           <div className="pt-1">
-            <div className="text-[10px] uppercase tracking-[0.16em] mb-1" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("lib.playlists")}</div>
+            <div className="text-[10px] uppercase tracking-[0.16em] mb-1" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("lib.playlists")}</div>
             <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{pl.name}</div>
-            <div className="text-xs mt-1" style={{ color: "rgba(242,242,248,0.45)", fontFamily: F.b }}>{t("lib.nTracks", tracks.length)}</div>
-            <div className="text-[10px] mt-2" style={{ color: "rgba(242,242,248,0.3)", fontFamily: F.m }}>{t("pl.dragHint")}</div>
+            <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("lib.nTracks", tracks.length)}</div>
+            <div className="text-[10px] mt-2" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{t("pl.dragHint")}</div>
           </div>
         </div>
 
@@ -273,12 +274,12 @@ export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playi
               onClick={() => onPlay(tr)}
               className="flex items-center gap-3 p-2.5 rounded-2xl cursor-grab active:cursor-grabbing transition-colors"
               style={{
-                background: overIdx === i && dragIdx !== null ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)",
-                border: overIdx === i && dragIdx !== null ? "1px solid rgba(255,255,255,0.12)" : "1px solid transparent",
+                background: overIdx === i && dragIdx !== null ? "color-mix(in srgb, var(--wash) 08%, transparent)" : "color-mix(in srgb, var(--wash) 03%, transparent)",
+                border: overIdx === i && dragIdx !== null ? "1px solid color-mix(in srgb, var(--wash) 12%, transparent)" : "1px solid transparent",
                 opacity: dragIdx === i ? 0.5 : 1,
               }}
             >
-              <GripVertical size={14} style={{ color: "rgba(242,242,248,0.25)", flexShrink: 0 }} />
+              <GripVertical size={14} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />
               <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
                 <img src={tr.img} alt="" className="w-full h-full object-cover" />
               </div>
@@ -287,9 +288,9 @@ export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playi
                   {tr.title}
                   {currentTrack.id === tr.id && playing && <EQ color={tr.c2} size={9} />}
                 </div>
-                <div className="text-xs truncate" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.b }}>{tr.artist}</div>
+                <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.artist}</div>
               </div>
-              <span className="text-[10px]" style={{ color: "rgba(242,242,248,0.3)", fontFamily: F.m }}>{tr.duration}</span>
+              <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{tr.duration}</span>
             </motion.div>
           ))}
         </div>
@@ -319,7 +320,7 @@ export function BlendSheet({ friend, onClose, onPlay, currentTrack, playing, ava
       <div className="relative px-6 pt-8 pb-8 overflow-hidden">
         <Aurora c2={c2} opacity={0.5} />
 
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "rgba(255,255,255,0.07)" }}>
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
 
@@ -333,16 +334,16 @@ export function BlendSheet({ friend, onClose, onPlay, currentTrack, playing, ava
           <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("bl.title", finst)}</div>
           <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, ...SPRING }} className="inline-flex items-baseline gap-2 mt-2 px-4 py-1.5 rounded-full" style={{ background: `${c2}1c`, border: `1px solid ${c2}38` }}>
             <span style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, color: c2 }}>{friend.match}%</span>
-            <span className="text-xs" style={{ color: "rgba(242,242,248,0.55)", fontFamily: F.b }}>{t("bl.match")}</span>
+            <span className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>{t("bl.match")}</span>
           </motion.div>
         </div>
 
         {/* Общие жанры */}
         <div className="relative z-10 mb-6">
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("bl.genres")}</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("bl.genres")}</div>
           <div className="flex gap-2 flex-wrap">
             {["Lo-fi", "Synthwave", "Indie"].map(g => (
-              <span key={g} className="px-3.5 py-1.5 rounded-full text-xs font-medium" style={{ ...GLASS, fontFamily: F.b, color: "rgba(242,242,248,0.75)" }}>{g}</span>
+              <span key={g} className="px-3.5 py-1.5 rounded-full text-xs font-medium" style={{ ...GLASS, fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{g}</span>
             ))}
           </div>
         </div>
@@ -350,8 +351,8 @@ export function BlendSheet({ friend, onClose, onPlay, currentTrack, playing, ava
         {/* Плейлист */}
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-2.5">
-            <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("bl.playlist")}</div>
-            <div className="text-[10px]" style={{ color: "rgba(242,242,248,0.3)", fontFamily: F.m }}>{t("bl.updates")}</div>
+            <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("bl.playlist")}</div>
+            <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{t("bl.updates")}</div>
           </div>
           <BlendTracks ids={shared} onPlay={onPlay} currentTrack={currentTrack} playing={playing} c2={c2} />
 
@@ -391,9 +392,9 @@ function BlendTracks({ ids, onPlay, currentTrack, playing, c2 }: {
               {tr.title}
               {currentTrack.id === tr.id && playing && <EQ color={c2} size={9} />}
             </div>
-            <div className="text-xs truncate" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.b }}>{tr.artist}</div>
+            <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.artist}</div>
           </div>
-          <Play size={13} style={{ color: "rgba(242,242,248,0.3)" }} />
+          <Play size={13} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
         </motion.div>
       ))}
     </div>
@@ -402,9 +403,9 @@ function BlendTracks({ ids, onPlay, currentTrack, playing, c2 }: {
 
 // ─── Аккаунт ──────────────────────────────────────────────────────────────────
 
-export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onAvatar, onDeleted }: {
+export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onAvatar, onDeleted, onOpenImport }: {
   open: boolean; onClose: () => void; userName: string; onRename: (n: string) => void;
-  avatarIdx: number; onAvatar: (i: number) => void; onDeleted: () => void;
+  avatarIdx: number; onAvatar: (i: number) => void; onDeleted: () => void; onOpenImport: () => void;
 }) {
   const { t } = useLang();
   const [name, setName] = useState(userName);
@@ -417,17 +418,40 @@ export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onA
         <div className="px-6 pt-7 pb-8">
           <div className="flex items-center justify-between mb-6">
             <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("acc.title")}</div>
-            <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.07)" }}>
+            <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
               <X size={16} />
             </button>
           </div>
 
+          {/* Уровень меломана */}
+          <div className="relative rounded-[22px] overflow-hidden p-4 mb-5" style={GLASS}>
+            <Aurora c2="#8b5cf6" opacity={0.35} />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold" style={{ fontFamily: F.d, letterSpacing: "-0.01em" }}>{t("acc.level", 3)}</span>
+                <span className="text-[10px]" style={{ fontFamily: F.m, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>1 240 / 2 000 XP</span>
+              </div>
+              <div className="rounded-full overflow-hidden mb-3" style={{ height: 6, background: "color-mix(in srgb, var(--wash) 10%, transparent)" }}>
+                <motion.div initial={{ width: 0 }} animate={{ width: "62%" }} transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }} className="h-full rounded-full" style={{ background: "linear-gradient(90deg, #8b5cf6, #c4b5fd)" }} />
+              </div>
+              <div className="flex gap-2">
+                {[["247", t("acc.stMin")], ["21", t("acc.stStreak")], ["Synthwave", t("acc.stGenre")]].map(([v, l]) => (
+                  <div key={l} className="flex-1 rounded-xl px-2 py-2 text-center" style={{ background: "color-mix(in srgb, var(--wash) 06%, transparent)" }}>
+                    <div className="text-xs font-bold truncate" style={{ fontFamily: F.d, color: "#a78bfa" }}>{v}</div>
+                    <div className="text-[9px] mt-0.5 truncate" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+
           {/* Аватар */}
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("acc.avatar")}</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.avatar")}</div>
           <div className="flex gap-3 mb-6">
             {AVATARS.map((a, i) => (
               <motion.button key={a} whileTap={{ scale: 0.9 }} onClick={() => onAvatar(i)} className="relative rounded-full">
-                <img src={a} alt="" className="w-14 h-14 rounded-full object-cover" style={{ border: avatarIdx === i ? "2.5px solid #8b5cf6" : "2.5px solid rgba(255,255,255,0.1)", opacity: avatarIdx === i ? 1 : 0.6 }} />
+                <img src={a} alt="" className="w-14 h-14 rounded-full object-cover" style={{ border: avatarIdx === i ? "2.5px solid #8b5cf6" : "2.5px solid color-mix(in srgb, var(--wash) 10%, transparent)", opacity: avatarIdx === i ? 1 : 0.6 }} />
                 {avatarIdx === i && (
                   <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "#8b5cf6" }}>
                     <Check size={11} />
@@ -438,13 +462,13 @@ export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onA
           </div>
 
           {/* Имя */}
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("acc.name")}</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.name")}</div>
           <div className="flex gap-2.5 mb-5">
             <input
               value={name}
               onChange={e => setName(e.target.value)}
               className="flex-1 px-4 py-3 rounded-2xl bg-transparent outline-none text-sm"
-              style={{ ...GLASS, color: "#f2f2f8", fontFamily: F.b }}
+              style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
             />
             <motion.button whileTap={{ scale: 0.95 }} onClick={() => { if (name.trim()) { onRename(name.trim()); toast(t("acc.saved")); } }} className="px-5 rounded-2xl text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
               {t("acc.save")}
@@ -454,22 +478,30 @@ export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onA
           {/* Почта, подписка, поддержка */}
           <div className="flex flex-col gap-1.5 mb-6">
             <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl" style={GLASS}>
-              <Mail size={15} style={{ color: "rgba(242,242,248,0.4)" }} />
+              <Mail size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} />
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.email")}</div>
-              <div className="text-xs" style={{ color: "rgba(242,242,248,0.45)", fontFamily: F.m }}>alex@myra.app</div>
+              <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>alex@myra.app</div>
             </div>
             <motion.div whileTap={{ scale: 0.99 }} onClick={() => toast(t("acc.planTap"))} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
               <Crown size={15} style={{ color: "#facc15" }} />
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.plan")}</div>
               <div className="text-xs" style={{ color: "#facc15", fontFamily: F.m }}>{t("acc.planVal")}</div>
             </motion.div>
+            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenImport(); }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+              <ImportIcon size={15} style={{ color: "#8b5cf6" }} />
+              <div className="flex-1">
+                <div className="text-sm" style={{ fontFamily: F.b }}>{t("im2.row")}</div>
+                <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("im2.rowSub")}</div>
+              </div>
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+            </motion.div>
             <motion.div whileTap={{ scale: 0.99 }} onClick={() => toast(t("acc.supportGo"))} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
               <MessageCircle size={15} style={{ color: "#34d399" }} />
               <div className="flex-1">
                 <div className="text-sm" style={{ fontFamily: F.b }}>{t("acc.support")}</div>
-                <div className="text-[10px]" style={{ color: "rgba(242,242,248,0.35)", fontFamily: F.m }}>{t("acc.supportSub")}</div>
+                <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("acc.supportSub")}</div>
               </div>
-              <ChevronRight size={15} style={{ color: "rgba(242,242,248,0.3)" }} />
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
           </div>
 
@@ -514,7 +546,7 @@ export function CreatorPlusSheet({ open, onClose, active, onActivate, onCancelSu
     <Sheet open={open} onClose={onClose} z={65}>
       <div className="relative px-6 pt-8 pb-8 overflow-hidden">
         <Aurora c2="#8b5cf6" opacity={0.6} />
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "rgba(255,255,255,0.07)" }}>
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
 
@@ -525,8 +557,8 @@ export function CreatorPlusSheet({ open, onClose, active, onActivate, onCancelSu
                 <Check size={34} style={{ color: "#34d399" }} />
               </motion.div>
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("cp.done")}</div>
-              <div className="text-sm mt-2 mb-2" style={{ color: "rgba(242,242,248,0.5)", fontFamily: F.b }}>{t("cp.doneSub")}</div>
-              <div className="text-xs mb-7" style={{ color: "rgba(242,242,248,0.35)", fontFamily: F.m }}>{t("cp.cancel")}</div>
+              <div className="text-sm mt-2 mb-2" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("cp.doneSub")}</div>
+              <div className="text-xs mb-7" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("cp.cancel")}</div>
               <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="px-10 py-3 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
                 {t("cp.great")}
               </motion.button>
@@ -541,7 +573,7 @@ export function CreatorPlusSheet({ open, onClose, active, onActivate, onCancelSu
                 <span className="text-xs font-semibold" style={{ color: "#c4b5fd", fontFamily: F.m }}>{t("cp.title")}</span>
               </div>
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 27, letterSpacing: "-0.03em", lineHeight: 1.1 }} className="mb-2">{t("cr.earn")}</div>
-              <div className="text-sm mb-6" style={{ color: "rgba(242,242,248,0.5)", fontFamily: F.b }}>{t("cp.sub")}</div>
+              <div className="text-sm mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("cp.sub")}</div>
 
               <div className="flex flex-col gap-2.5 mb-7">
                 {BENEFITS.map((b, i) => (
@@ -615,7 +647,7 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[70] flex items-center justify-center lg:p-8"
-          style={{ background: "rgba(3,3,8,0.88)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
+          style={{ background: "var(--dim)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
         >
           <motion.div
             initial={{ scale: 0.92, opacity: 0 }}
@@ -623,14 +655,14 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
             exit={{ scale: 0.95, opacity: 0 }}
             transition={SPRING}
             className="relative w-full h-full lg:max-w-[420px] lg:h-[86vh] lg:rounded-[32px] overflow-hidden"
-            style={{ background: `linear-gradient(165deg, ${S.c1} 0%, #05050b 90%)`, transition: "background 0.8s ease" }}
+            style={{ background: `linear-gradient(165deg, ${S.c1} 0%, var(--bg) 90%)`, transition: "background 0.8s ease" }}
           >
             <Aurora c2={S.c2} />
 
             {/* Прогресс-бары сторис */}
             <div className="absolute top-4 inset-x-4 flex gap-1.5 z-30" style={{ paddingTop: "env(safe-area-inset-top)" }}>
               {SLIDES.map((_, i) => (
-                <div key={i} className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.18)" }}>
+                <div key={i} className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: "color-mix(in srgb, var(--wash) 18%, transparent)" }}>
                   <div
                     key={`fill-${i}-${i === idx ? idx : "x"}`}
                     className="h-full rounded-full bg-white"
@@ -656,7 +688,7 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
                   <img src={S.img} alt="" className="w-36 h-36 rounded-[28px] object-cover mx-auto mb-6" style={{ boxShadow: `0 24px 70px ${S.c2}55` }} />
                 )}
                 <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 44, letterSpacing: "-0.04em", lineHeight: 1.04 }}>{S.big}</div>
-                {S.sub && <div className="text-base mt-3" style={{ color: "rgba(242,242,248,0.55)", fontFamily: F.b }}>{S.sub}</div>}
+                {S.sub && <div className="text-base mt-3" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>{S.sub}</div>}
                 {S.share && (
                   <motion.button
                     whileTap={{ scale: 0.95 }}
@@ -669,7 +701,7 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
                 )}
               </motion.div>
               {idx === 0 && (
-                <div className="absolute bottom-8 inset-x-0 text-center text-[10px]" style={{ color: "rgba(242,242,248,0.35)", fontFamily: F.m }}>{t("wr.tap")}</div>
+                <div className="absolute bottom-8 inset-x-0 text-center text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("wr.tap")}</div>
               )}
             </div>
           </motion.div>
@@ -704,14 +736,14 @@ export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose
       <div className="px-6 pt-7 pb-8">
         <div className="flex items-center justify-between mb-6">
           <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{t("st.title")}</div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.07)" }}>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
             <X size={16} />
           </button>
         </div>
 
         {/* 30 дней */}
         <div className="rounded-[20px] p-4 mb-4" style={GLASS}>
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("st.days30")}</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.days30")}</div>
           <svg viewBox="0 0 100 46" className="w-full" style={{ height: 84 }} preserveAspectRatio="none">
             <defs>
               <linearGradient id="stArea" x1="0" y1="0" x2="0" y2="1">
@@ -726,14 +758,14 @@ export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose
 
         {/* Топ треков */}
         <div className="rounded-[20px] p-4 mb-4" style={GLASS}>
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("st.topTracks")}</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.topTracks")}</div>
           {TOP.map(({ tr, plays, delta, up }) => (
             <div key={tr.id} className="flex items-center gap-3 py-2">
               <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0">
                 <img src={tr.img} alt="" className="w-full h-full object-cover" />
               </div>
               <div className="flex-1 min-w-0 text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-              <div className="text-xs" style={{ color: "rgba(242,242,248,0.5)", fontFamily: F.m }}>{plays}</div>
+              <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.m }}>{plays}</div>
               <div className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold" style={{ fontFamily: F.m, color: up ? "#34d399" : "#f87171", background: up ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)" }}>{delta}</div>
             </div>
           ))}
@@ -741,16 +773,16 @@ export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose
 
         {/* Источники */}
         <div className="rounded-[20px] p-4 mb-4" style={GLASS}>
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("st.sources")}</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.sources")}</div>
           <div className="flex h-2.5 rounded-full overflow-hidden mb-3">
             {SOURCES.map(([label, v, c]) => <div key={label} style={{ width: `${v}%`, background: c }} />)}
           </div>
           <div className="grid grid-cols-2 gap-y-1.5 gap-x-3">
             {SOURCES.map(([label, v, c]) => (
-              <div key={label} className="flex items-center gap-2 text-xs" style={{ fontFamily: F.b, color: "rgba(242,242,248,0.65)" }}>
+              <div key={label} className="flex items-center gap-2 text-xs" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 65%, transparent)" }}>
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c }} />
                 <span className="truncate">{label}</span>
-                <span className="ml-auto" style={{ fontFamily: F.m, color: "rgba(242,242,248,0.4)" }}>{v}%</span>
+                <span className="ml-auto" style={{ fontFamily: F.m, color: "color-mix(in srgb, var(--fg) 40%, transparent)" }}>{v}%</span>
               </div>
             ))}
           </div>
@@ -759,25 +791,122 @@ export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose
         {/* Города + донаты */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="rounded-[20px] p-4" style={GLASS}>
-            <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("st.cities")}</div>
+            <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.cities")}</div>
             {CITIES.map(([city, v]) => (
               <div key={city} className="mb-2.5">
                 <div className="flex justify-between text-xs mb-1" style={{ fontFamily: F.b }}>
-                  <span style={{ color: "rgba(242,242,248,0.75)" }}>{city}</span>
-                  <span style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{v}%</span>
+                  <span style={{ color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{city}</span>
+                  <span style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{v}%</span>
                 </div>
-                <div className="h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <div className="h-1.5 rounded-full" style={{ background: "color-mix(in srgb, var(--wash) 08%, transparent)" }}>
                   <div className="h-full rounded-full" style={{ width: `${v * 2.5}%`, background: `linear-gradient(90deg, ${c2}, ${c2}66)` }} />
                 </div>
               </div>
             ))}
           </div>
           <div className="rounded-[20px] p-4 flex flex-col justify-center" style={GLASS}>
-            <div className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("st.donations")}</div>
+            <div className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.donations")}</div>
             <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.03em", color: c2 }}>1 240₽</div>
             <div className="flex items-center gap-1 mt-1 text-xs font-semibold" style={{ color: "#34d399", fontFamily: F.m }}>+38%</div>
           </div>
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Импорт музыки списком (работает с экспортом любой площадки) ─────────────
+
+export function ImportSheet({ open, onClose, onImported }: {
+  open: boolean; onClose: () => void; onImported: (name: string, trackIds: number[]) => void;
+}) {
+  const { t } = useLang();
+  const [text, setText] = useState("");
+  const [result, setResult] = useState<{ matched: Track[]; missed: string[] } | null>(null);
+
+  useEffect(() => { if (open) { setText(""); setResult(null); } }, [open]);
+
+  // Строки вида «Артист — Название», «Артист - Название» или «Название»
+  const parse = (raw: string) => {
+    const lines = raw.split(/\r?\n|;/).map(s => s.replace(/^\d+[.)]\s*/, "").trim()).filter(Boolean);
+    const matched: Track[] = [];
+    const missed: string[] = [];
+    for (const line of lines) {
+      const norm = line.toLowerCase();
+      const hit = ALL_TRACKS.find(tr =>
+        norm.includes(tr.title.toLowerCase()) ||
+        (norm.includes(tr.artist.toLowerCase()) && tr.title.toLowerCase().split(" ").some(w => w.length > 3 && norm.includes(w)))
+      );
+      if (hit && !matched.some(m => m.id === hit.id)) matched.push(hit);
+      else if (!hit) missed.push(line);
+    }
+    setResult({ matched, missed });
+  };
+
+  const onFile = (f: File) => {
+    const r = new FileReader();
+    r.onload = () => { const s = String(r.result ?? ""); setText(s); parse(s); };
+    r.readAsText(f);
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose} z={66}>
+      <div className="px-6 pt-7 pb-8">
+        <div className="flex items-center justify-between mb-1.5">
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{t("im2.title")}</div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
+            <X size={16} />
+          </button>
+        </div>
+        <div className="text-xs mb-4" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("im2.sub")}</div>
+
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder={"Luna Wave — Midnight Echo\nKRVT — Glass City\n…"}
+          rows={5}
+          className="w-full px-4 py-3 rounded-2xl bg-transparent outline-none text-sm mb-3 resize-none"
+          style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m, fontSize: 12 }}
+        />
+
+        <div className="flex gap-2.5 mb-4">
+          <label className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer" style={{ ...GLASS, fontFamily: F.b }}>
+            <FileUp size={14} /> {t("im2.file")}
+            <input type="file" accept=".txt,.csv,.m3u,.m3u8" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
+          </label>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => parse(text)} disabled={!text.trim()} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: text.trim() ? "linear-gradient(135deg, #8b5cf6, #a78bfa)" : "color-mix(in srgb, var(--wash) 6%, transparent)", color: text.trim() ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}>
+            <ClipboardPaste size={14} /> {t("im2.scan")}
+          </motion.button>
+        </div>
+
+        {result && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="rounded-[20px] p-4 mb-3" style={GLASS}>
+              <div className="text-sm font-bold mb-2" style={{ fontFamily: F.d }}>{t("im2.found", result.matched.length, result.missed.length)}</div>
+              {result.matched.slice(0, 5).map(tr => (
+                <div key={tr.id} className="flex items-center gap-2.5 py-1.5">
+                  <img src={tr.img} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                  <div className="flex-1 min-w-0 text-xs font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
+                  <Check size={13} style={{ color: "#34d399" }} />
+                </div>
+              ))}
+              {result.missed.length > 0 && (
+                <div className="text-[10px] mt-2" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>
+                  {t("im2.missed")}: {result.missed.slice(0, 3).join(" · ")}{result.missed.length > 3 ? "…" : ""}
+                </div>
+              )}
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              disabled={!result.matched.length}
+              onClick={() => { onImported(t("im2.plName"), result.matched.map(tr => tr.id)); toast.success(t("im2.done", result.matched.length)); onClose(); }}
+              className="w-full py-3.5 rounded-full text-sm font-bold"
+              style={{ background: result.matched.length ? "linear-gradient(135deg, #34d399, #6ee7b7)" : "color-mix(in srgb, var(--wash) 6%, transparent)", color: result.matched.length ? "#04120c" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}
+            >
+              {t("im2.create")}
+            </motion.button>
+          </motion.div>
+        )}
       </div>
     </Sheet>
   );

@@ -3,13 +3,15 @@ import { SkipBack, SkipForward, Play, Pause } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
-import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, type Track, type Friend } from "./data";
-import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ } from "./lib";
+import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, type Track, type Friend, type Playlist } from "./data";
+import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, type ThemeName } from "./lib";
+import { smartNext, pushHistory } from "./smart";
+import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow } from "./auth";
 import { HomeScreen, BrowseScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, NAV } from "./player";
-import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet } from "./overlays";
+import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet } from "./overlays";
 import { LiveSessionSheet } from "./live";
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
@@ -21,7 +23,23 @@ const LOCAL_PALETTE: [string, string][] = [
 type Tab = "home" | "browse" | "library" | "creator" | "profile";
 
 function AppInner() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+
+  const [theme, setTheme] = useState<ThemeName>(() => ls.get<ThemeName>("theme", "dark"));
+  const toggleTheme = useCallback(() => {
+    setTheme(th => {
+      const next = th === "dark" ? "light" : "dark";
+      ls.set("theme", next);
+      return next;
+    });
+  }, []);
+
+  const [crossfade, setCrossfade] = useState(() => ls.get("crossfade", true));
+  const fadeRef = useRef(crossfade);
+  fadeRef.current = crossfade;
+  const toggleCrossfade = useCallback(() => {
+    setCrossfade(c => { ls.set("crossfade", !c); return !c; });
+  }, []);
 
   const [onboarded, setOnboarded] = useState(() => ls.get("onboarded", false));
   const [userName, setUserName] = useState(() => ls.get("userName", "Алекс"));
@@ -51,9 +69,21 @@ function AppInner() {
   const [sleepLeft, setSleepLeft] = useState<number | null>(null);
   const [myTracks, setMyTracks] = useState<Track[]>([]);
 
+  const [downloads, setDownloads] = useState<Map<number, string>>(new Map());
+  const [customPls, setCustomPls] = useState<Playlist[]>(() => ls.get<Playlist[]>("customPls", []));
+  const [importOpen, setImportOpen] = useState(false);
+  const allPlaylists = [...customPls, ...PLAYLISTS];
+
   const loadedRef = useRef(false);
   const nextRef = useRef<() => void>(() => {});
-  const audio = useAudio(() => nextRef.current());
+  const audio = useAudio(() => nextRef.current(), () => fadeRef.current);
+
+  // Скачанные для офлайна треки каталога
+  useEffect(() => {
+    loadDownloads().then(recs => {
+      if (recs.length) setDownloads(new Map(recs.map(r => [r.id, URL.createObjectURL(r.blob)])));
+    });
+  }, []);
 
   const avatar = AVATARS[avatarIdx] ?? AVATARS[0];
 
@@ -74,6 +104,11 @@ function AppInner() {
     });
   }, []);
 
+  // Скачанный офлайн-файл важнее стрима
+  const downloadsRef = useRef(downloads);
+  downloadsRef.current = downloads;
+  const resolveUrl = useCallback((tr: Track) => downloadsRef.current.get(tr.id) ?? tr.url, []);
+
   const playTrack = useCallback((tr: Track) => {
     setCurrentTrack(prev => {
       if (prev.id === tr.id && loadedRef.current) {
@@ -81,19 +116,21 @@ function AppInner() {
         return prev;
       }
       loadedRef.current = true;
-      audio.load(tr.url);
+      audio.load(resolveUrl(tr));
+      pushHistory(tr.id);
       return tr;
     });
-  }, [audio]);
+  }, [audio, resolveUrl]);
 
   const togglePlay = useCallback(() => {
     if (!loadedRef.current) {
       loadedRef.current = true;
-      audio.load(currentTrack.url);
+      audio.load(resolveUrl(currentTrack));
+      pushHistory(currentTrack.id);
     } else {
       audio.toggle();
     }
-  }, [audio, currentTrack.url]);
+  }, [audio, currentTrack, resolveUrl]);
 
   // Очередь = локальные файлы + каталог
   const queueRef = useRef<Track[]>(TRACKS);
@@ -105,13 +142,59 @@ function AppInner() {
       const idx = q.findIndex(tr => tr.id === prev.id);
       const next = q[(idx + dir + q.length) % q.length] ?? q[0];
       loadedRef.current = true;
-      audio.load(next.url);
+      audio.load(resolveUrl(next));
+      pushHistory(next.id);
       return next;
     });
-  }, [audio]);
+  }, [audio, resolveUrl]);
 
   const handleNext = useCallback(() => step(1), [step]);
   const handlePrev = useCallback(() => step(-1), [step]);
+
+  // «Моя волна»: умный подбор без повторов + причина выбора
+  const likedRef = useRef(likedIds); likedRef.current = likedIds;
+  const followedRef = useRef(followed); followedRef.current = followed;
+  const langRef = useRef(lang); langRef.current = lang;
+  const playWave = useCallback((silent = false) => {
+    setCurrentTrack(prev => {
+      const { track, reason } = smartNext(queueRef.current, likedRef.current, followedRef.current, prev.id, langRef.current);
+      loadedRef.current = true;
+      audio.load(resolveUrl(track));
+      pushHistory(track.id);
+      if (!silent) toast(`MYRA AI · ${track.title} — ${reason}`);
+      return track;
+    });
+  }, [audio, resolveUrl]);
+
+  // Загрузка трека для офлайна
+  const downloadTrack = useCallback(async (tr: Track) => {
+    if (downloadsRef.current.has(tr.id)) {
+      const url = downloadsRef.current.get(tr.id)!;
+      URL.revokeObjectURL(url);
+      setDownloads(prev => { const m = new Map(prev); m.delete(tr.id); return m; });
+      deleteDownload(tr.id).catch(() => {});
+      toast(t("dl.removed"));
+      return;
+    }
+    toast(t("dl.loading", tr.title));
+    try {
+      const res = await fetch(tr.url);
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      await saveDownload(tr.id, blob).catch(() => {});
+      setDownloads(prev => new Map(prev).set(tr.id, URL.createObjectURL(blob)));
+      toast.success(t("dl.done", tr.title));
+    } catch {
+      toast(t("dl.fail"));
+    }
+  }, [t]);
+
+  // Свои плейлисты (создание + импорт)
+  const createPlaylist = useCallback((name: string, trackIds: number[]) => {
+    const pl: Playlist = { id: "u" + Date.now(), name, img: svgCover("#12083a", "#8b5cf6", Date.now() % 97), trackIds };
+    setCustomPls(prev => { const next = [pl, ...prev]; ls.set("customPls", next); return next; });
+    return pl;
+  }, []);
 
   // Добавление своих аудиофайлов (клик или drag-n-drop)
   const addFiles = useCallback(async (files: FileList | File[]) => {
@@ -143,7 +226,39 @@ function AppInner() {
     if (!(currentTrack.id === f.track.id && audio.playing)) playTrack(f.track);
   }, [currentTrack.id, audio.playing, playTrack]);
 
-  useEffect(() => { nextRef.current = handleNext; }, [handleNext]);
+  // Автопереход = умная волна (без повторов), ручной next — по очереди
+  useEffect(() => { nextRef.current = () => playWave(true); }, [playWave]);
+
+  // Управление с локскрина/шторки (Android/десктоп)
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentTrack.title,
+      artist: currentTrack.artist,
+      album: currentTrack.album,
+      artwork: [{ src: currentTrack.img, sizes: "500x500", type: "image/svg+xml" }],
+    });
+    navigator.mediaSession.setActionHandler("play", () => togglePlay());
+    navigator.mediaSession.setActionHandler("pause", () => togglePlay());
+    navigator.mediaSession.setActionHandler("nexttrack", () => handleNext());
+    navigator.mediaSession.setActionHandler("previoustrack", () => handlePrev());
+  }, [currentTrack, togglePlay, handleNext, handlePrev]);
+
+  // Скрыть брендовый лоадер из index.html после первого рендера
+  useEffect(() => {
+    const boot = document.getElementById("boot");
+    if (!boot) return;
+    boot.style.opacity = "0";
+    const to = setTimeout(() => boot.remove(), 500);
+    return () => clearTimeout(to);
+  }, []);
+
+  // Пауза фоновых анимаций, когда приложение свёрнуто — экономия батареи
+  useEffect(() => {
+    const onVis = () => document.documentElement.classList.toggle("app-hidden", document.hidden);
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
 
   useEffect(() => {
     if (sleepLeft === null) return;
@@ -191,7 +306,7 @@ function AppInner() {
   }, []);
 
   const plOrder = playlistId
-    ? (plOrders[playlistId] ?? PLAYLISTS.find(p => p.id === playlistId)?.trackIds ?? [])
+    ? (plOrders[playlistId] ?? allPlaylists.find(p => p.id === playlistId)?.trackIds ?? [])
     : [];
   const reorderPlaylist = useCallback((ids: number[]) => {
     if (!playlistId) return;
@@ -229,8 +344,40 @@ function AppInner() {
     setSleepLeft(minutes === null ? null : minutes * 60);
   }, []);
 
+  // Тема оборачивает и онбординг, и приложение; Toaster общий
+  const themedRoot = (children: React.ReactNode) => (
+    <ThemeCtx.Provider value={{ theme, toggleTheme }}>
+      <div className="h-screen w-full" style={{ ...(THEMES[theme] as React.CSSProperties), background: "var(--bg)", color: "var(--fg)", fontFamily: F.b, transition: "background 0.4s ease, color 0.4s ease" }}>
+        {children}
+        <Toaster
+          position="top-center"
+          gap={10}
+          toastOptions={{
+            duration: 2800,
+            style: {
+              borderRadius: 20,
+              width: "fit-content",
+              maxWidth: "90vw",
+              margin: "0 auto",
+              padding: "12px 22px",
+              background: theme === "dark" ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.75)",
+              backdropFilter: "blur(40px) saturate(1.9)",
+              WebkitBackdropFilter: "blur(40px) saturate(1.9)",
+              border: "1px solid var(--glass-border)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+              color: "var(--fg)",
+              fontFamily: F.b,
+              fontSize: 13,
+              fontWeight: 500,
+            },
+          }}
+        />
+      </div>
+    </ThemeCtx.Provider>
+  );
+
   if (!onboarded) {
-    return <OnboardingFlow onDone={finishOnboarding} />;
+    return themedRoot(<OnboardingFlow onDone={finishOnboarding} />);
   }
 
   const screens: Record<Tab, React.ReactNode> = {
@@ -242,6 +389,7 @@ function AppInner() {
         onNavigate={id => setTab(id as Tab)}
         onOpenBlend={setBlendFriend}
         onOpenLive={openLive}
+        onPlayWave={() => playWave()}
         avatar={avatar}
       />
     ),
@@ -258,6 +406,8 @@ function AppInner() {
         onOpenPlaylist={setPlaylistId}
         myTracks={myTracks}
         onDeleteLocal={removeLocal}
+        playlists={allPlaylists}
+        onCreatePlaylist={name => { createPlaylist(name, []); }}
       />
     ),
     creator: (
@@ -281,12 +431,14 @@ function AppInner() {
         onOpenAccount={() => setAccountOpen(true)}
         onOpenWrapped={() => setWrappedOpen(true)}
         onLogout={handleLogout}
+        crossfade={crossfade}
+        onToggleCrossfade={toggleCrossfade}
       />
     ),
   };
 
-  return (
-    <div className="flex h-screen w-full overflow-hidden relative" style={{ background: "#030308", fontFamily: F.b, color: "#f4f4fa" }}>
+  return themedRoot(
+    <div className="flex h-full w-full overflow-hidden relative">
       <style>{`
         @keyframes drift1 { 0%,100%{transform:translate(-8%,-6%) scale(1)} 50%{transform:translate(8%,10%) scale(1.2)} }
         @keyframes drift2 { 0%,100%{transform:translate(10%,6%) scale(1.1)} 50%{transform:translate(-10%,-10%) scale(0.9)} }
@@ -298,9 +450,10 @@ function AppInner() {
         @keyframes orbSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         @keyframes waveBounce { from{transform:scaleY(0.7)} to{transform:scaleY(1.18)} }
         @keyframes storyFill { from{width:0%} to{width:100%} }
+        .app-hidden *{animation-play-state:paused!important}
         ::-webkit-scrollbar{display:none}
         *{-webkit-tap-highlight-color:transparent}
-        input::placeholder{color:rgba(244,244,250,0.28)}
+        input::placeholder{color:color-mix(in srgb, var(--fg) 28%, transparent)}
         button{font-family:inherit}
         /* ТВ и большие экраны: крупнее база, видимый фокус для пульта/клавиатуры */
         @media (min-width: 1920px) { html { font-size: 19px; } }
@@ -310,7 +463,7 @@ function AppInner() {
       <DynamicBg track={currentTrack} />
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col py-8 gap-1 flex-shrink-0 relative z-10" style={{ width: 224, borderRight: "1px solid rgba(255,255,255,0.05)", background: "rgba(3,3,10,0.55)", backdropFilter: "blur(32px)" }}>
+      <aside className="hidden lg:flex flex-col py-8 gap-1 flex-shrink-0 relative z-10" style={{ width: 224, borderRight: "1px solid color-mix(in srgb, var(--wash) 05%, transparent)", background: "var(--island)", backdropFilter: "blur(32px)" }}>
         <div className="px-6 mb-9 flex items-baseline gap-2">
           <span style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.05em" }}>MYRA</span>
           <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ fontFamily: F.m, color: currentTrack.c2, background: `${currentTrack.c2}18` }}>beta</span>
@@ -319,7 +472,7 @@ function AppInner() {
           const Icon = n.icon;
           const active = tab === n.id;
           return (
-            <button key={n.id} onClick={() => setTab(n.id as Tab)} className="relative flex items-center gap-3 mx-3 px-4 py-3 rounded-2xl text-sm font-medium text-left" style={{ fontFamily: F.b, color: active ? "#fff" : "rgba(244,244,250,0.42)" }}>
+            <button key={n.id} onClick={() => setTab(n.id as Tab)} className="relative flex items-center gap-3 mx-3 px-4 py-3 rounded-2xl text-sm font-medium text-left" style={{ fontFamily: F.b, color: active ? "#fff" : "color-mix(in srgb, var(--fg) 42%, transparent)" }}>
               {active && <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="absolute inset-0 rounded-2xl" style={{ background: `${currentTrack.c2}1a`, border: `1px solid ${currentTrack.c2}30` }} />}
               <Icon size={17} className="relative z-10" style={{ color: active ? currentTrack.c2 : undefined }} />
               <span className="relative z-10">{t(n.label)}</span>
@@ -334,18 +487,18 @@ function AppInner() {
               <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${currentTrack.c1}ee, transparent)` }} />
               <div className="absolute bottom-2.5 left-3.5 right-3.5">
                 <div className="text-xs font-bold truncate" style={{ fontFamily: F.b }}>{currentTrack.title}</div>
-                <div className="text-[10px] truncate" style={{ color: "rgba(244,244,250,0.55)", fontFamily: F.b }}>{currentTrack.artist}</div>
+                <div className="text-[10px] truncate" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>{currentTrack.artist}</div>
               </div>
               {audio.playing && <div className="absolute top-2.5 right-2.5"><EQ color={currentTrack.c2} size={10} /></div>}
             </div>
             <div className="p-3">
               <Waveform progress={audio.progress} color={currentTrack.c2} onSeek={audio.seek} height={22} seed={currentTrack.id + 3} bars={40} dim playing={audio.playing} />
               <div className="flex items-center justify-between mt-2.5">
-                <motion.button whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); handlePrev(); }}><SkipBack size={14} style={{ color: "rgba(244,244,250,0.5)" }} /></motion.button>
+                <motion.button whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); handlePrev(); }}><SkipBack size={14} style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }} /></motion.button>
                 <motion.button whileTap={{ scale: 0.85 }} onClick={e => { e.stopPropagation(); togglePlay(); }} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${currentTrack.c2}, ${currentTrack.c2}aa)` }}>
                   {audio.playing ? <Pause size={13} fill="white" stroke="none" /> : <Play size={13} fill="white" stroke="none" className="ml-0.5" />}
                 </motion.button>
-                <motion.button whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); handleNext(); }}><SkipForward size={14} style={{ color: "rgba(244,244,250,0.5)" }} /></motion.button>
+                <motion.button whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); handleNext(); }}><SkipForward size={14} style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }} /></motion.button>
               </div>
             </div>
           </div>
@@ -414,6 +567,8 @@ function AppInner() {
               onOpenAlbum={openAlbum}
               sleepLeft={sleepLeft}
               onSleep={handleSleep}
+              downloaded={downloads.has(currentTrack.id)}
+              onDownload={() => downloadTrack(currentTrack)}
             />
           </motion.div>
         )}
@@ -448,6 +603,7 @@ function AppInner() {
         playing={audio.playing}
         order={plOrder}
         onReorder={reorderPlaylist}
+        playlists={allPlaylists}
       />
 
       <BlendSheet
@@ -467,6 +623,13 @@ function AppInner() {
         avatarIdx={avatarIdx}
         onAvatar={i => { setAvatarIdx(i); ls.set("avatarIdx", i); }}
         onDeleted={handleDeleteAccount}
+        onOpenImport={() => setImportOpen(true)}
+      />
+
+      <ImportSheet
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={(name, ids) => { createPlaylist(name, ids); }}
       />
 
       <CreatorPlusSheet
@@ -492,30 +655,7 @@ function AppInner() {
 
       <WrappedModal open={wrappedOpen} onClose={() => setWrappedOpen(false)} />
 
-      <Toaster
-        position="top-center"
-        gap={10}
-        toastOptions={{
-          duration: 2800,
-          style: {
-            borderRadius: 20,
-            width: "fit-content",
-            maxWidth: "90vw",
-            margin: "0 auto",
-            padding: "12px 22px",
-            background: "rgba(255,255,255,0.12)",
-            backdropFilter: "blur(40px) saturate(1.9)",
-            WebkitBackdropFilter: "blur(40px) saturate(1.9)",
-            border: "1px solid rgba(255,255,255,0.22)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.15)",
-            color: "#f4f4fa",
-            fontFamily: F.b,
-            fontSize: 13,
-            fontWeight: 500,
-          },
-        }}
-      />
-    </div>
+    </div>,
   );
 }
 

@@ -13,18 +13,59 @@ export interface LocalTrackRecord {
 
 const DB_NAME = "myra-local";
 const STORE = "tracks";
+const DL_STORE = "downloads";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(DB_NAME, 2);
     req.onupgradeneeded = () => {
       if (!req.result.objectStoreNames.contains(STORE)) {
         req.result.createObjectStore(STORE, { keyPath: "id" });
+      }
+      if (!req.result.objectStoreNames.contains(DL_STORE)) {
+        req.result.createObjectStore(DL_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
+}
+
+// ── Скачанные треки каталога (офлайн-режим) ──
+
+export async function saveDownload(id: number, blob: Blob): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(DL_STORE, "readwrite");
+    tx.objectStore(DL_STORE).put({ id, blob });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+export async function loadDownloads(): Promise<{ id: number; blob: Blob }[]> {
+  try {
+    const db = await openDb();
+    const recs = await new Promise<{ id: number; blob: Blob }[]>((resolve, reject) => {
+      const req = db.transaction(DL_STORE, "readonly").objectStore(DL_STORE).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    db.close();
+    return recs;
+  } catch { return []; }
+}
+
+export async function deleteDownload(id: number): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(DL_STORE, "readwrite");
+    tx.objectStore(DL_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
 }
 
 export async function saveLocalTrack(rec: LocalTrackRecord): Promise<void> {

@@ -2,22 +2,23 @@ import { useState, useRef } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat,
   ChevronDown, MoreHorizontal, Volume2, VolumeX, Globe,
-  MessageCircle, Send, Timer, BadgeCheck,
+  MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, LYRICS_DATA, INITIAL_COMMENTS, artistByName, type Track } from "./data";
+import { TRACKS, LYRICS, INITIAL_COMMENTS, artistByName, type Track } from "./data";
 import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ } from "./lib";
 import { useLang } from "./i18n";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
-export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep }: {
+export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload }: {
   track: Track; playing: boolean; onToggle: () => void; onClose: () => void;
   progress: number; duration: number; onSeek: (p: number) => void; onNext: () => void; onPrev: () => void;
   liked: boolean; onLike: () => void; volume: number; onVolume: (v: number) => void;
   onPlayTrack: (t: Track) => void; onOpenArtist: (name: string) => void; onOpenAlbum: (album: string) => void;
   sleepLeft: number | null; onSleep: (minutes: number | null) => void;
+  downloaded: boolean; onDownload: () => void;
 }) {
   const { t, lang } = useLang();
   const [tab, setTab] = useState<"player" | "lyrics" | "comments" | "queue">("player");
@@ -29,8 +30,9 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   const volRef = useRef<HTMLDivElement>(null);
   const volDragging = useRef(false);
 
-  const lyricIndex = Math.min(LYRICS_DATA.length - 1, Math.floor((progress / 100) * LYRICS_DATA.length));
-  const wordIndex = Math.floor(((progress / 100) * LYRICS_DATA.length - lyricIndex) * (LYRICS_DATA[lyricIndex]?.en.length ?? 1));
+  const lines = LYRICS[track.id];
+  const lyricIndex = Math.min((lines?.length ?? 1) - 1, Math.floor((progress / 100) * (lines?.length ?? 1)));
+  const wordIndex = Math.floor(((progress / 100) * (lines?.length ?? 1) - lyricIndex) * (lines?.[lyricIndex]?.en.length ?? 1));
   const curSec = (progress / 100) * (duration || 0);
   const verified = artistByName(track.artist)?.verified;
 
@@ -57,11 +59,11 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   ] as const;
 
   return (
-    <div className="absolute inset-0 flex flex-col overflow-hidden" style={{ background: "#05050b" }}>
+    <div className="absolute inset-0 flex flex-col overflow-hidden" style={{ background: "var(--bg)" }}>
       <div className="absolute inset-0 overflow-hidden">
         <img src={track.img} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ filter: "blur(80px) saturate(1.7) brightness(0.25)", transform: "scale(1.25)" }} />
         <Aurora c2={track.c2} />
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center 30%, transparent 0%, #05050b 85%)" }} />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center 30%, transparent 0%, var(--bg) 85%)" }} />
       </div>
 
       {/* Header */}
@@ -71,7 +73,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
         </motion.button>
         <div className="flex gap-0.5 p-1 rounded-full" style={GLASS}>
           {TABS.map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id)} className="relative px-3 py-1.5 rounded-full text-xs font-medium" style={{ fontFamily: F.b, color: tab === id ? "#fff" : "rgba(242,242,248,0.45)" }}>
+            <button key={id} onClick={() => setTab(id)} className="relative px-3 py-1.5 rounded-full text-xs font-medium" style={{ fontFamily: F.b, color: tab === id ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
               {tab === id && <motion.div layoutId="playertab" className="absolute inset-0 rounded-full" style={{ background: track.c2 }} transition={SPRING} />}
               <span className="relative z-10">{label}</span>
             </button>
@@ -92,23 +94,26 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
             <div className="flex items-start justify-between mb-5">
               <div className="min-w-0">
                 <div style={{ fontFamily: F.d, fontWeight: 700, fontSize: 22, lineHeight: 1.15, letterSpacing: "-0.03em" }}>{track.title}</div>
-                <button onClick={() => onOpenArtist(track.artist)} className="flex items-center gap-1.5 text-sm mt-1.5 truncate transition-colors hover:text-white" style={{ color: "rgba(244,244,250,0.55)", fontFamily: F.b }}>
+                <button onClick={() => onOpenArtist(track.artist)} className="flex items-center gap-1.5 text-sm mt-1.5 truncate transition-colors hover:text-white" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>
                   {track.artist}
                   {verified && <BadgeCheck size={13} style={{ color: track.c2 }} />}
                 </button>
-                <button onClick={() => onOpenAlbum(track.album)} className="text-xs mt-0.5 truncate transition-colors hover:text-white block" style={{ color: "rgba(244,244,250,0.35)", fontFamily: F.m }}>
+                <button onClick={() => onOpenAlbum(track.album)} className="text-xs mt-0.5 truncate transition-colors hover:text-white block" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>
                   {track.album}
                 </button>
               </div>
+              <motion.button whileTap={{ scale: 0.8 }} onClick={onDownload} className="mt-1 ml-3 flex-shrink-0" title="offline">
+                {downloaded ? <CheckCircle2 size={22} style={{ color: "#34d399" }} /> : <ArrowDownToLine size={22} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} />}
+              </motion.button>
               <motion.button whileTap={{ scale: 0.7 }} onClick={onLike} className="mt-1 ml-3 flex-shrink-0">
-                <Heart size={24} fill={liked ? track.c2 : "none"} stroke={liked ? track.c2 : "rgba(255,255,255,0.35)"} />
+                <Heart size={24} fill={liked ? track.c2 : "none"} stroke={liked ? track.c2 : "color-mix(in srgb, var(--wash) 35%, transparent)"} />
               </motion.button>
             </div>
 
             {/* Волна */}
             <div className="mb-5">
               <Waveform progress={progress} color={track.c2} onSeek={onSeek} height={56} seed={track.id + 3} playing={playing} />
-              <div className="flex justify-between mt-2 text-xs" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>
+              <div className="flex justify-between mt-2 text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>
                 <span>{fmtSec(curSec)}</span>
                 <span>{duration ? fmtSec(duration) : track.duration}</span>
               </div>
@@ -117,7 +122,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
             {/* Управление */}
             <div className="flex items-center justify-between mb-6">
               <motion.button whileTap={{ scale: 0.8 }} onClick={() => { setShuffle(s => !s); toast(shuffle ? t("pl.shuffleOff") : t("pl.shuffleOn")); }}>
-                <Shuffle size={20} style={{ color: shuffle ? track.c2 : "rgba(255,255,255,0.35)" }} />
+                <Shuffle size={20} style={{ color: shuffle ? track.c2 : "color-mix(in srgb, var(--wash) 35%, transparent)" }} />
               </motion.button>
               <motion.button whileTap={{ scale: 0.85 }} onClick={onPrev} className="w-12 h-12 rounded-full flex items-center justify-center" style={GLASS}>
                 <SkipBack size={20} fill="currentColor" />
@@ -129,14 +134,14 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                 <SkipForward size={20} fill="currentColor" />
               </motion.button>
               <motion.button whileTap={{ scale: 0.8 }} onClick={() => { setRepeat(r => !r); toast(repeat ? t("pl.repeatOff") : t("pl.repeatOn")); }}>
-                <Repeat size={20} style={{ color: repeat ? track.c2 : "rgba(255,255,255,0.35)" }} />
+                <Repeat size={20} style={{ color: repeat ? track.c2 : "color-mix(in srgb, var(--wash) 35%, transparent)" }} />
               </motion.button>
             </div>
 
             {/* Громкость + таймер сна */}
             <div className="flex items-center gap-3 pb-8 relative">
               <button onClick={() => onVolume(volume > 0 ? 0 : 0.75)}>
-                {volume === 0 ? <VolumeX size={15} style={{ color: "rgba(255,255,255,0.35)" }} /> : <Volume2 size={15} style={{ color: "rgba(255,255,255,0.35)" }} />}
+                {volume === 0 ? <VolumeX size={15} style={{ color: "color-mix(in srgb, var(--wash) 35%, transparent)" }} /> : <Volume2 size={15} style={{ color: "color-mix(in srgb, var(--wash) 35%, transparent)" }} />}
               </button>
               <div
                 ref={volRef}
@@ -146,7 +151,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                 onPointerMove={e => { if (volDragging.current) setVol(e.clientX); }}
                 onPointerUp={() => { volDragging.current = false; }}
               >
-                <div className="rounded-full" style={{ height: 4, background: "rgba(255,255,255,0.1)" }}>
+                <div className="rounded-full" style={{ height: 4, background: "color-mix(in srgb, var(--wash) 10%, transparent)" }}>
                   <div className="h-full rounded-full relative" style={{ width: `${volume * 100}%`, background: `linear-gradient(90deg, ${track.c2}77, ${track.c2})` }}>
                     <div className="absolute right-0 top-1/2 w-3 h-3 rounded-full bg-white" style={{ transform: "translate(50%,-50%)", boxShadow: "0 1px 6px rgba(0,0,0,0.5)" }} />
                   </div>
@@ -154,20 +159,20 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
               </div>
 
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => setSleepOpen(o => !o)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full" style={{ ...GLASS, background: sleepLeft !== null ? `${track.c2}26` : GLASS.background }}>
-                <Timer size={14} style={{ color: sleepLeft !== null ? track.c2 : "rgba(255,255,255,0.4)" }} />
+                <Timer size={14} style={{ color: sleepLeft !== null ? track.c2 : "color-mix(in srgb, var(--wash) 40%, transparent)" }} />
                 {sleepLeft !== null && <span className="text-[11px] font-semibold" style={{ color: track.c2, fontFamily: F.m }}>{Math.ceil(sleepLeft / 60)}м</span>}
               </motion.button>
 
               {sleepOpen && (
-                <motion.div initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="absolute bottom-14 right-0 rounded-2xl p-3 z-20" style={{ background: "rgba(18,18,32,0.9)", backdropFilter: "blur(30px)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 16px 50px rgba(0,0,0,0.6)" }}>
-                  <div className="text-[10px] uppercase tracking-[0.14em] mb-2 px-1" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("pl.sleep")}</div>
+                <motion.div initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="absolute bottom-14 right-0 rounded-2xl p-3 z-20" style={{ background: "var(--panel)", backdropFilter: "blur(30px)", border: "1px solid color-mix(in srgb, var(--wash) 12%, transparent)", boxShadow: "0 16px 50px rgba(0,0,0,0.6)" }}>
+                  <div className="text-[10px] uppercase tracking-[0.14em] mb-2 px-1" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("pl.sleep")}</div>
                   <div className="flex gap-1.5">
                     {SLEEP_OPTIONS.map(m => (
-                      <button key={m} onClick={() => { onSleep(m); setSleepOpen(false); toast(t("pl.sleepSet", m)); }} className="px-3 py-2 rounded-xl text-xs font-semibold" style={{ background: "rgba(255,255,255,0.07)", fontFamily: F.b }}>
+                      <button key={m} onClick={() => { onSleep(m); setSleepOpen(false); toast(t("pl.sleepSet", m)); }} className="px-3 py-2 rounded-xl text-xs font-semibold" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)", fontFamily: F.b }}>
                         {m}{lang === "ru" ? "м" : "m"}
                       </button>
                     ))}
-                    <button onClick={() => { onSleep(null); setSleepOpen(false); toast(t("pl.sleepUnset")); }} className="px-3 py-2 rounded-xl text-xs font-semibold" style={{ background: "rgba(255,255,255,0.07)", color: "rgba(242,242,248,0.5)", fontFamily: F.b }}>
+                    <button onClick={() => { onSleep(null); setSleepOpen(false); toast(t("pl.sleepUnset")); }} className="px-3 py-2 rounded-xl text-xs font-semibold" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)", color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>
                       {t("pl.sleepOff")}
                     </button>
                   </div>
@@ -183,7 +188,13 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
               <Globe size={12} style={{ color: track.c2 }} />
               <span style={{ color: track.c2 }}>{t("pl.translate")}</span>
             </div>
-            {LYRICS_DATA.map((line, li) => {
+            {!lines && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Music2 size={28} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)" }} />
+                <div className="mt-3 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("pl.noLyrics")}</div>
+              </div>
+            )}
+            {(lines ?? []).map((line, li) => {
               const isActive = li === lyricIndex;
               return (
                 <div key={li} className="mb-6 transition-all duration-500" style={{ opacity: li < lyricIndex ? 0.28 : isActive ? 1 : 0.45 }}>
@@ -197,7 +208,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                           fontWeight: isActive ? 700 : 500,
                           fontSize: isActive ? 21 : 17,
                           letterSpacing: "-0.02em",
-                          color: isActive && wi <= wordIndex ? "#fff" : isActive ? "rgba(242,242,248,0.55)" : "rgba(242,242,248,0.7)",
+                          color: isActive && wi <= wordIndex ? "#fff" : isActive ? "color-mix(in srgb, var(--fg) 55%, transparent)" : "color-mix(in srgb, var(--fg) 70%, transparent)",
                           textShadow: isActive && wi <= wordIndex ? `0 0 22px ${track.c2}88` : "none",
                         }}
                       >
@@ -238,9 +249,9 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                       <span className="text-xs font-semibold" style={{ color: track.c2, fontFamily: F.b }}>{c.user}</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: `${track.c2}22`, color: track.c2, fontFamily: F.m }}>{fmtSec((c.pct / 100) * (duration || 372))}</span>
                     </div>
-                    <div className="text-sm" style={{ color: "rgba(242,242,248,0.78)", fontFamily: F.b }}>{c.text}</div>
+                    <div className="text-sm" style={{ color: "color-mix(in srgb, var(--fg) 78%, transparent)", fontFamily: F.b }}>{c.text}</div>
                   </div>
-                  <div className="flex items-center gap-1 text-xs flex-shrink-0" style={{ color: "rgba(242,242,248,0.3)" }}>
+                  <div className="flex items-center gap-1 text-xs flex-shrink-0" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }}>
                     <Heart size={10} /> {c.likes}
                   </div>
                 </motion.div>
@@ -254,10 +265,10 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                   onKeyDown={e => { if (e.key === "Enter") addComment(); }}
                   placeholder={t("pl.comment", fmtSec(curSec))}
                   className="flex-1 bg-transparent outline-none text-sm min-w-0"
-                  style={{ color: "#f2f2f8", fontFamily: F.b }}
+                  style={{ color: "var(--fg)", fontFamily: F.b }}
                 />
-                <motion.button whileTap={{ scale: 0.8 }} onClick={addComment} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: commentText.trim() ? track.c2 : "rgba(255,255,255,0.08)" }}>
-                  <Send size={13} style={{ color: commentText.trim() ? "#fff" : "rgba(242,242,248,0.3)" }} />
+                <motion.button whileTap={{ scale: 0.8 }} onClick={addComment} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: commentText.trim() ? track.c2 : "color-mix(in srgb, var(--wash) 08%, transparent)" }}>
+                  <Send size={13} style={{ color: commentText.trim() ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
                 </motion.button>
               </div>
             </div>
@@ -266,30 +277,30 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
 
         {tab === "queue" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }} className="flex-1 overflow-y-auto px-6 py-4 w-full max-w-xl mx-auto" style={{ scrollbarWidth: "none" }}>
-            <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("pl.nowPlays")}</div>
+            <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("pl.nowPlays")}</div>
             <div className="flex items-center gap-3 p-3 rounded-2xl mb-5" style={{ ...GLASS, border: `1px solid ${track.c2}44` }}>
               <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
                 <img src={track.img} alt="" className="w-full h-full object-cover" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{track.title}</div>
-                <div className="text-xs truncate" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.b }}>{track.artist}</div>
+                <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{track.artist}</div>
               </div>
               {playing && <EQ color={track.c2} size={12} />}
             </div>
 
-            <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("pl.upNext")}</div>
+            <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("pl.upNext")}</div>
             {upNext.map((q, i) => (
               <motion.div key={q.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} onClick={() => onPlayTrack(q)} className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors">
-                <div className="w-5 text-center text-xs" style={{ color: "rgba(242,242,248,0.3)", fontFamily: F.m }}>{i + 1}</div>
+                <div className="w-5 text-center text-xs" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{i + 1}</div>
                 <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
                   <img src={q.img} alt="" className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate" style={{ fontFamily: F.b }}>{q.title}</div>
-                  <div className="text-xs truncate" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.b }}>{q.artist} · {q.duration}</div>
+                  <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{q.artist} · {q.duration}</div>
                 </div>
-                <Play size={13} style={{ color: "rgba(242,242,248,0.3)" }} />
+                <Play size={13} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
               </motion.div>
             ))}
             <div className="h-6" />
@@ -327,7 +338,7 @@ export function BottomIsland({ track, playing, onToggle, onOpen, progress, onSee
         animate={{ y: 0, opacity: 1 }}
         transition={SPRING}
         className="pointer-events-auto rounded-[20px] overflow-hidden cursor-pointer"
-        style={{ ...GLASS, background: "rgba(14,14,26,0.72)", boxShadow: "0 18px 50px rgba(0,0,0,0.55)" }}
+        style={{ ...GLASS, background: "var(--island)", boxShadow: "0 18px 50px rgba(0,0,0,0.55)" }}
         onClick={onOpen}
       >
         <div className="flex items-center gap-3 px-3 py-2.5">
@@ -336,13 +347,13 @@ export function BottomIsland({ track, playing, onToggle, onOpen, progress, onSee
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{track.title}</div>
-            <div className="text-xs truncate flex items-center gap-2" style={{ color: "rgba(242,242,248,0.45)", fontFamily: F.b }}>
+            <div className="text-xs truncate flex items-center gap-2" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>
               {playing && <EQ color={track.c2} size={9} />}
               {track.artist}
             </div>
           </div>
           <motion.button whileTap={{ scale: 0.75 }} onClick={e => { e.stopPropagation(); onLike(); }} className="p-1">
-            <Heart size={17} fill={liked ? track.c2 : "none"} stroke={liked ? track.c2 : "rgba(255,255,255,0.3)"} />
+            <Heart size={17} fill={liked ? track.c2 : "none"} stroke={liked ? track.c2 : "color-mix(in srgb, var(--wash) 30%, transparent)"} />
           </motion.button>
           <motion.button whileTap={{ scale: 0.85 }} onClick={e => { e.stopPropagation(); onToggle(); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${track.c2}, ${track.c2}aa)` }}>
             {playing ? <Pause size={15} fill="white" stroke="none" /> : <Play size={15} fill="white" stroke="none" className="ml-0.5" />}
@@ -360,20 +371,20 @@ export function BottomIsland({ track, playing, onToggle, onOpen, progress, onSee
             onSeek(Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)));
           }}
         >
-          <div style={{ height: 3, background: "rgba(255,255,255,0.07)" }}>
+          <div style={{ height: 3, background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
             <div className="h-full rounded-r-full" style={{ width: `${progress}%`, background: track.c2, transition: "width 0.3s linear" }} />
           </div>
         </div>
       </motion.div>
 
-      <div className="pointer-events-auto mx-auto flex items-center gap-1 p-1.5 rounded-full" style={{ ...GLASS, background: "rgba(14,14,26,0.78)", boxShadow: "0 18px 50px rgba(0,0,0,0.55)" }}>
+      <div className="pointer-events-auto mx-auto flex items-center gap-1 p-1.5 rounded-full" style={{ ...GLASS, background: "var(--island)", boxShadow: "0 18px 50px rgba(0,0,0,0.55)" }}>
         {NAV.map(n => {
           const active = activeTab === n.id;
           const Icon = n.icon;
           return (
             <motion.button key={n.id} layout onClick={() => onTab(n.id)} className="relative flex items-center gap-1.5 rounded-full px-3.5 py-2.5" transition={SPRING}>
               {active && <motion.div layoutId="mobnav" className="absolute inset-0 rounded-full" style={{ background: `${track.c2}2e`, border: `1px solid ${track.c2}44` }} transition={SPRING} />}
-              <Icon size={17} className="relative z-10" style={{ color: active ? track.c2 : "rgba(242,242,248,0.4)" }} />
+              <Icon size={17} className="relative z-10" style={{ color: active ? track.c2 : "color-mix(in srgb, var(--fg) 40%, transparent)" }} />
               {active && (
                 <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 text-xs font-semibold whitespace-nowrap" style={{ color: track.c2, fontFamily: F.b }}>
                   {t(n.label)}

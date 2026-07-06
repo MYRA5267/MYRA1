@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { Track } from "./data";
 
@@ -11,11 +11,47 @@ export const F = {
   s: "'Sora', sans-serif",
 };
 
+// ─── Темы (тёмная / светлая) ──────────────────────────────────────────────────
+
+export type ThemeName = "dark" | "light";
+
+export const THEMES: Record<ThemeName, Record<string, string>> = {
+  dark: {
+    "--fg": "#f2f2f8",
+    "--wash": "#ffffff",
+    "--bg": "#05050b",
+    "--bg2": "#0a0a16",
+    "--sheet": "rgba(13,13,26,0.92)",
+    "--island": "rgba(14,14,26,0.78)",
+    "--panel": "rgba(18,18,32,0.72)",
+    "--glass-bg": "rgba(255,255,255,0.055)",
+    "--glass-border": "rgba(255,255,255,0.09)",
+    "--cover-filter": "blur(90px) saturate(1.6) brightness(0.22)",
+    "--dim": "rgba(5,5,12,0.55)",
+  },
+  light: {
+    "--fg": "#1a1a28",
+    "--wash": "#101020",
+    "--bg": "#f3f2f9",
+    "--bg2": "#ffffff",
+    "--sheet": "rgba(252,252,255,0.96)",
+    "--island": "rgba(255,255,255,0.88)",
+    "--panel": "rgba(255,255,255,0.94)",
+    "--glass-bg": "rgba(16,16,32,0.05)",
+    "--glass-border": "rgba(16,16,32,0.1)",
+    "--cover-filter": "blur(90px) saturate(1.15) brightness(1.12) opacity(0.4)",
+    "--dim": "rgba(24,24,40,0.4)",
+  },
+};
+
+export const ThemeCtx = createContext<{ theme: ThemeName; toggleTheme: () => void }>({ theme: "dark", toggleTheme: () => {} });
+export const useTheme = () => useContext(ThemeCtx);
+
 export const GLASS: React.CSSProperties = {
-  background: "rgba(255,255,255,0.055)",
+  background: "var(--glass-bg)",
   backdropFilter: "blur(24px) saturate(1.6)",
   WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-  border: "1px solid rgba(255,255,255,0.09)",
+  border: "1px solid var(--glass-border)",
 };
 
 export const SPRING = { type: "spring" as const, damping: 26, stiffness: 320 };
@@ -27,20 +63,30 @@ export const fmtSec = (sec: number) => {
 
 // ─── Аудио-движок ─────────────────────────────────────────────────────────────
 
-export function useAudio(onEnded: () => void) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+// Два аудиоэлемента: при смене трека старый плавно затухает, новый нарастает.
+// getFade() читает настройку кроссфейда из профиля.
+export function useAudio(onEnded: () => void, getFade: () => boolean = () => true) {
+  const players = useRef<[HTMLAudioElement, HTMLAudioElement] | null>(null);
+  const activeIdx = useRef(0);
+  const fadeIv = useRef<ReturnType<typeof setInterval> | null>(null);
+  const volRef = useRef(0.75);
   const endedRef = useRef(onEnded);
   endedRef.current = onEnded;
+  const fadeRef = useRef(getFade);
+  fadeRef.current = getFade;
+
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.75);
 
-  // Резервный режим: если файл не грузится (нет сети/стрим недоступен),
-  // прогресс идёт по таймеру — волны, орб и текст всё равно живут.
+  // Резервный режим: если файл не грузится (нет сети), прогресс идёт по таймеру —
+  // волны, орб и текст всё равно живут.
   const simRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const modeRef = useRef<"real" | "sim">("real");
   const SIM_DURATION = 226;
+
+  const active = () => players.current?.[activeIdx.current];
 
   const stopSim = useCallback(() => {
     if (simRef.current) { clearInterval(simRef.current); simRef.current = null; }
@@ -60,45 +106,86 @@ export function useAudio(onEnded: () => void) {
     }, 500);
   }, [stopSim]);
 
+  const stopFade = () => {
+    if (fadeIv.current) { clearInterval(fadeIv.current); fadeIv.current = null; }
+  };
+
   useEffect(() => {
-    const a = new Audio();
-    a.preload = "auto";
-    a.volume = 0.75;
-    audioRef.current = a;
-    const onTime = () => setProgress(a.duration ? (a.currentTime / a.duration) * 100 : 0);
-    const onMeta = () => setDuration(a.duration || 0);
-    const onEnd = () => endedRef.current();
-    const onPlay = () => { modeRef.current = "real"; stopSim(); setPlaying(true); };
-    const onPause = () => { if (modeRef.current === "real") setPlaying(false); };
-    const onErr = () => { if (a.src) startSim(); };
-    a.addEventListener("timeupdate", onTime);
-    a.addEventListener("loadedmetadata", onMeta);
-    a.addEventListener("ended", onEnd);
-    a.addEventListener("play", onPlay);
-    a.addEventListener("pause", onPause);
-    a.addEventListener("error", onErr);
-    return () => {
-      a.pause();
-      stopSim();
-      a.removeEventListener("timeupdate", onTime);
-      a.removeEventListener("loadedmetadata", onMeta);
-      a.removeEventListener("ended", onEnd);
-      a.removeEventListener("play", onPlay);
-      a.removeEventListener("pause", onPause);
-      a.removeEventListener("error", onErr);
-      a.src = "";
-    };
+    const mk = () => { const a = new Audio(); a.preload = "auto"; a.volume = 0.75; return a; };
+    const pair: [HTMLAudioElement, HTMLAudioElement] = [mk(), mk()];
+    players.current = pair;
+
+    const handlers = pair.map(a => {
+      const isActive = () => a === active();
+      const onTime = () => { if (isActive()) setProgress(a.duration ? (a.currentTime / a.duration) * 100 : 0); };
+      const onMeta = () => { if (isActive()) setDuration(a.duration || 0); };
+      const onEnd = () => { if (isActive()) endedRef.current(); };
+      const onPlay = () => { if (isActive()) { modeRef.current = "real"; stopSim(); setPlaying(true); } };
+      const onPause = () => { if (isActive() && modeRef.current === "real" && !fadeIv.current) setPlaying(false); };
+      const onErr = () => { if (isActive() && a.src) startSim(); };
+      a.addEventListener("timeupdate", onTime);
+      a.addEventListener("loadedmetadata", onMeta);
+      a.addEventListener("ended", onEnd);
+      a.addEventListener("play", onPlay);
+      a.addEventListener("pause", onPause);
+      a.addEventListener("error", onErr);
+      return () => {
+        a.pause();
+        a.removeEventListener("timeupdate", onTime);
+        a.removeEventListener("loadedmetadata", onMeta);
+        a.removeEventListener("ended", onEnd);
+        a.removeEventListener("play", onPlay);
+        a.removeEventListener("pause", onPause);
+        a.removeEventListener("error", onErr);
+        a.src = "";
+      };
+    });
+    return () => { stopSim(); stopFade(); handlers.forEach(h => h()); };
   }, [startSim, stopSim]);
 
   const load = useCallback((url: string) => {
     stopSim();
     modeRef.current = "real";
-    const a = audioRef.current;
-    if (!a) return;
-    a.src = url;
-    a.currentTime = 0;
+    const pair = players.current;
+    if (!pair) return;
+    const cur = pair[activeIdx.current];
+    const wantFade = fadeRef.current() && !cur.paused && cur.src;
+
+    stopFade();
     setProgress(0);
-    a.play().catch(() => startSim());
+
+    if (!wantFade) {
+      cur.pause();
+      cur.src = url;
+      cur.currentTime = 0;
+      cur.volume = volRef.current;
+      cur.play().catch(() => startSim());
+      return;
+    }
+
+    // Кроссфейд: новый трек стартует на нуле громкости и нарастает, старый затухает
+    const nextIdx = 1 - activeIdx.current;
+    const nxt = pair[nextIdx];
+    nxt.src = url;
+    nxt.currentTime = 0;
+    nxt.volume = 0;
+    activeIdx.current = nextIdx;
+    nxt.play().catch(() => startSim());
+
+    const DUR = 1400, STEP = 50;
+    let tms = 0;
+    fadeIv.current = setInterval(() => {
+      tms += STEP;
+      const k = Math.min(1, tms / DUR);
+      nxt.volume = volRef.current * k;
+      cur.volume = volRef.current * (1 - k);
+      if (k >= 1) {
+        stopFade();
+        cur.pause();
+        cur.src = "";
+        cur.volume = volRef.current;
+      }
+    }, STEP);
   }, [startSim, stopSim]);
 
   const toggle = useCallback(() => {
@@ -107,7 +194,7 @@ export function useAudio(onEnded: () => void) {
       else startSim();
       return;
     }
-    const a = audioRef.current;
+    const a = active();
     if (!a || !a.src) return;
     if (a.paused) a.play().catch(() => startSim());
     else a.pause();
@@ -115,20 +202,21 @@ export function useAudio(onEnded: () => void) {
 
   const pause = useCallback(() => {
     if (modeRef.current === "sim") { stopSim(); setPlaying(false); return; }
-    audioRef.current?.pause();
+    active()?.pause();
   }, [stopSim]);
 
   const seek = useCallback((pct: number) => {
     if (modeRef.current === "sim") { setProgress(pct); return; }
-    const a = audioRef.current;
+    const a = active();
     if (!a || !a.duration) return;
     a.currentTime = (pct / 100) * a.duration;
     setProgress(pct);
   }, []);
 
   const setVolume = useCallback((v: number) => {
-    const a = audioRef.current;
-    if (a) a.volume = v;
+    volRef.current = v;
+    const a = active();
+    if (a && !fadeIv.current) a.volume = v;
     setVolumeState(v);
   }, []);
 
@@ -198,12 +286,12 @@ export function DynamicBg({ track }: { track: Track }) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 1.4 }}
-          style={{ filter: "blur(90px) saturate(1.6) brightness(0.22)", transform: "scale(1.2)" }}
+          style={{ filter: "var(--cover-filter)", transform: "scale(1.2)" }}
         />
       </AnimatePresence>
       <Aurora c2={track.c2} opacity={0.7} />
-      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 0%, #05050b 78%)" }} />
-      <div className="absolute bottom-0 left-0 right-0 h-72" style={{ background: "linear-gradient(to top, #05050b 0%, transparent 100%)" }} />
+      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 0%, var(--bg) 78%)" }} />
+      <div className="absolute bottom-0 left-0 right-0 h-72" style={{ background: "linear-gradient(to top, var(--bg) 0%, transparent 100%)" }} />
     </div>
   );
 }
@@ -248,7 +336,7 @@ export function Waveform({ progress, color, onSeek, height = 52, seed = 7, bars 
             style={{
               height: `${h * 100}%`,
               minWidth: 2,
-              background: played ? `linear-gradient(to top, ${color}, ${color}88)` : dim ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.13)",
+              background: played ? `linear-gradient(to top, ${color}, ${color}88)` : dim ? "color-mix(in srgb, var(--wash) 08%, transparent)" : "color-mix(in srgb, var(--wash) 13%, transparent)",
               transition: "background 0.2s",
               animation: nearHead ? `waveBounce ${0.45 + (i % 3) * 0.12}s ease-in-out infinite alternate` : "none",
             }}
@@ -259,9 +347,12 @@ export function Waveform({ progress, color, onSeek, height = 52, seed = 7, bars 
   );
 }
 
-/** Живая частотная сфера — вместо пластинки/объёмной обложки */
+/** Живая частотная сфера — объёмная: параллакс, двойные кольца, частицы, тень-подиум */
 export function FrequencyOrb({ track, playing, progress }: { track: Track; playing: boolean; progress: number }) {
   const bars = 48;
+  const ref = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
+
   const heights = useMemo(
     () => Array.from({ length: bars }, (_, i) => {
       const base = Math.abs(Math.sin(i * 0.42 + track.id) * 0.55 + Math.sin(i * 1.1) * 0.35);
@@ -271,58 +362,122 @@ export function FrequencyOrb({ track, playing, progress }: { track: Track; playi
     [bars, track.id, progress],
   );
 
+  const particles = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => ({
+      angle: (i / 7) * 360 + track.id * 31,
+      r: 116 + (i % 3) * 12,
+      size: 3 + (i % 3),
+      dur: 9 + i * 2.4,
+    })),
+    [track.id],
+  );
+
+  const onMove = (e: React.PointerEvent) => {
+    const el = ref.current;
+    if (!el || e.pointerType === "touch") return;
+    const r = el.getBoundingClientRect();
+    setTilt({ rx: -((e.clientY - r.top) / r.height - 0.5) * 16, ry: ((e.clientX - r.left) / r.width - 0.5) * 16 });
+  };
+
   return (
-    <div className="relative flex items-center justify-center" style={{ width: 280, height: 280 }}>
-      <motion.div
-        animate={{ opacity: playing ? 0.7 : 0.25, scale: playing ? 1 : 0.92 }}
-        transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
-        className="absolute rounded-full"
+    <div
+      ref={ref}
+      className="relative flex items-center justify-center"
+      style={{ width: 280, height: 300, perspective: 700 }}
+      onPointerMove={onMove}
+      onPointerLeave={() => setTilt({ rx: 0, ry: 0 })}
+    >
+      {/* Сцена с лёгким 3D-наклоном за курсором */}
+      <div
+        className="relative flex items-center justify-center"
         style={{
-          width: 260, height: 260,
-          background: `radial-gradient(circle, ${track.c2}35 0%, transparent 68%)`,
-          filter: "blur(24px)",
-          animation: playing ? "orbPulse 3s ease-in-out infinite" : "none",
+          width: 280, height: 280,
+          transform: `rotateX(${8 + tilt.rx}deg) rotateY(${tilt.ry}deg)`,
+          transformStyle: "preserve-3d",
+          transition: "transform 0.35s cubic-bezier(0.22,1,0.36,1)",
         }}
-      />
-      <motion.div
-        animate={{ rotate: playing ? 360 : 0 }}
-        transition={{ duration: playing ? 24 : 0, repeat: playing ? Infinity : 0, ease: "linear" }}
-        className="absolute rounded-full"
-        style={{ width: 220, height: 220, border: `1px dashed ${track.c2}28` }}
-      />
-      <div className="absolute rounded-full flex items-center justify-center" style={{ width: 200, height: 200, background: "rgba(255,255,255,0.04)", backdropFilter: "blur(20px)", border: `1px solid ${track.c2}30`, boxShadow: `0 0 60px ${track.c2}22, inset 0 0 40px ${track.c2}08` }}>
-        {heights.map((b, i) => {
-          const angle = (i / bars) * 360;
-          return (
+      >
+        {/* Дальний ореол */}
+        <motion.div
+          animate={{ opacity: playing ? 0.8 : 0.3, scale: playing ? 1 : 0.9 }}
+          transition={{ duration: 0.6 }}
+          className="absolute rounded-full"
+          style={{ width: 272, height: 272, background: `radial-gradient(circle, ${track.c2}40 0%, transparent 66%)`, filter: "blur(28px)", animation: playing ? "orbPulse 3s ease-in-out infinite" : "none" }}
+        />
+        {/* Внешнее кольцо — по часовой */}
+        <motion.div
+          animate={{ rotate: playing ? 360 : 0 }}
+          transition={{ duration: 26, repeat: playing ? Infinity : 0, ease: "linear" }}
+          className="absolute rounded-full"
+          style={{ width: 236, height: 236, border: `1px dashed ${track.c2}30` }}
+        />
+        {/* Внутреннее кольцо — против часовой */}
+        <motion.div
+          animate={{ rotate: playing ? -360 : 0 }}
+          transition={{ duration: 18, repeat: playing ? Infinity : 0, ease: "linear" }}
+          className="absolute rounded-full"
+          style={{ width: 212, height: 212, border: `1px solid ${track.c2}1c` }}
+        />
+        {/* Частицы на орбитах */}
+        {playing && particles.map((p, i) => (
+          <div key={i} className="absolute" style={{ width: p.r * 2, height: p.r * 2, animation: `orbSpin ${p.dur}s linear infinite`, animationDirection: i % 2 ? "reverse" : "normal" }}>
             <div
-              key={i}
-              className="absolute origin-bottom rounded-full"
+              className="absolute rounded-full"
               style={{
-                width: 3,
-                height: `${b.h * 72}px`,
-                bottom: "50%",
-                left: "50%",
-                marginLeft: -1.5,
-                transform: `rotate(${angle}deg)`,
-                background: b.active
-                  ? `linear-gradient(to top, ${track.c2}, ${track.c2}55)`
-                  : "rgba(255,255,255,0.12)",
-                opacity: playing ? (b.active ? 1 : 0.45) : 0.3,
-                transition: "background 0.25s, opacity 0.4s",
-                boxShadow: b.active && playing ? `0 0 8px ${track.c2}66` : "none",
+                width: p.size, height: p.size,
+                left: "50%", top: 0,
+                marginLeft: -p.size / 2,
+                transform: `rotate(${p.angle}deg)`,
+                background: track.c2,
+                boxShadow: `0 0 8px ${track.c2}`,
+                opacity: 0.8,
               }}
             />
-          );
-        })}
-        <motion.div
-          animate={{ scale: playing ? [1, 1.03, 1] : 1 }}
-          transition={{ duration: 2, repeat: playing ? Infinity : 0, ease: "easeInOut" }}
-          className="relative z-10 rounded-2xl overflow-hidden"
-          style={{ width: 72, height: 72, boxShadow: `0 8px 28px ${track.c2}44` }}
-        >
-          <img src={track.img} alt="" className="w-full h-full object-cover" />
-        </motion.div>
+          </div>
+        ))}
+        {/* Стеклянная сфера с эквалайзером */}
+        <div className="absolute rounded-full flex items-center justify-center" style={{ width: 200, height: 200, background: "var(--glass-bg)", backdropFilter: "blur(20px)", border: `1px solid ${track.c2}30`, boxShadow: `0 0 70px ${track.c2}2e, inset 0 -18px 40px ${track.c2}14, inset 0 14px 30px color-mix(in srgb, var(--wash) 06%, transparent)` }}>
+          {heights.map((b, i) => {
+            const angle = (i / bars) * 360;
+            return (
+              <div
+                key={i}
+                className="absolute origin-bottom rounded-full"
+                style={{
+                  width: 3,
+                  height: `${b.h * 72}px`,
+                  bottom: "50%",
+                  left: "50%",
+                  marginLeft: -1.5,
+                  transform: `rotate(${angle}deg)`,
+                  transformOrigin: "bottom center",
+                  background: b.active ? `linear-gradient(to top, ${track.c2}, ${track.c2}55)` : "var(--glass-border)",
+                  opacity: playing ? (b.active ? 1 : 0.45) : 0.3,
+                  transition: "background 0.25s, opacity 0.4s",
+                  boxShadow: b.active && playing ? `0 0 8px ${track.c2}66` : "none",
+                  animation: playing && b.active ? `waveBounce ${0.5 + (i % 5) * 0.11}s ease-in-out infinite alternate` : "none",
+                }}
+              />
+            );
+          })}
+          {/* Блик сверху — стеклянный объём */}
+          <div className="absolute rounded-full pointer-events-none" style={{ width: 150, height: 70, top: 14, background: "linear-gradient(to bottom, color-mix(in srgb, var(--wash) 10%, transparent), transparent)", filter: "blur(6px)", borderRadius: "50%" }} />
+          <motion.div
+            animate={{ scale: playing ? [1, 1.04, 1] : 1 }}
+            transition={{ duration: 2, repeat: playing ? Infinity : 0, ease: "easeInOut" }}
+            className="relative z-10 rounded-2xl overflow-hidden"
+            style={{ width: 76, height: 76, boxShadow: `0 10px 32px ${track.c2}55, 0 2px 8px rgba(0,0,0,0.4)` }}
+          >
+            <img src={track.img} alt="" className="w-full h-full object-cover" />
+          </motion.div>
+        </div>
       </div>
+      {/* Тень-подиум под сферой */}
+      <motion.div
+        animate={{ opacity: playing ? 0.55 : 0.3, scaleX: playing ? 1 : 0.8 }}
+        className="absolute rounded-full"
+        style={{ width: 170, height: 26, bottom: -6, background: `radial-gradient(ellipse, ${track.c2}55 0%, transparent 70%)`, filter: "blur(10px)" }}
+      />
     </div>
   );
 }
@@ -341,7 +496,7 @@ export function EQ({ color, size = 12 }: { color: string; size?: number }) {
 /** iOS-переключатель */
 export function Toggle({ on, onChange, color }: { on: boolean; onChange: () => void; color: string }) {
   return (
-    <button onClick={onChange} className="relative rounded-full flex-shrink-0 transition-colors duration-300" style={{ width: 46, height: 27, background: on ? color : "rgba(255,255,255,0.13)" }}>
+    <button onClick={onChange} className="relative rounded-full flex-shrink-0 transition-colors duration-300" style={{ width: 46, height: 27, background: on ? color : "color-mix(in srgb, var(--wash) 13%, transparent)" }}>
       <motion.div animate={{ x: on ? 20 : 0 }} transition={{ type: "spring", stiffness: 500, damping: 32 }} className="absolute top-[3px] left-[3px] w-[21px] h-[21px] rounded-full bg-white" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.35)" }} />
     </button>
   );
@@ -356,7 +511,7 @@ export function Sheet({ open, onClose, children, z = 60, center = false }: {
       {open && (
         <motion.div
           className={`fixed inset-0 flex justify-center ${center ? "items-center p-6" : "items-end lg:items-center"}`}
-          style={{ zIndex: z, background: "rgba(5,5,12,0.55)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}
+          style={{ zIndex: z, background: "var(--dim)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -369,7 +524,7 @@ export function Sheet({ open, onClose, children, z = 60, center = false }: {
             transition={SPRING}
             onClick={e => e.stopPropagation()}
             className={`w-full max-h-[92vh] overflow-y-auto ${center ? "max-w-xs rounded-[28px]" : "lg:max-w-md rounded-t-[30px] lg:rounded-[30px]"}`}
-            style={{ background: "rgba(13,13,26,0.92)", backdropFilter: "blur(40px) saturate(1.6)", WebkitBackdropFilter: "blur(40px) saturate(1.6)", border: "1px solid rgba(255,255,255,0.11)", boxShadow: center ? "0 30px 90px rgba(0,0,0,0.65)" : "0 -20px 80px rgba(0,0,0,0.6)", scrollbarWidth: "none" }}
+            style={{ background: "var(--sheet)", backdropFilter: "blur(40px) saturate(1.6)", WebkitBackdropFilter: "blur(40px) saturate(1.6)", border: "1px solid color-mix(in srgb, var(--wash) 11%, transparent)", boxShadow: center ? "0 30px 90px rgba(0,0,0,0.65)" : "0 -20px 80px rgba(0,0,0,0.6)", scrollbarWidth: "none" }}
           >
             {children}
           </motion.div>
@@ -398,7 +553,7 @@ export function ConfirmSheet({ open, onClose, title, sub, confirmLabel, cancelLa
     <Sheet open={open} onClose={onClose} z={80} center>
       <div className="p-7 text-center">
         <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em" }}>{title}</div>
-        <div className="text-sm mt-2 mb-6" style={{ color: "rgba(242,242,248,0.5)", fontFamily: F.b }}>{sub}</div>
+        <div className="text-sm mt-2 mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{sub}</div>
         <div className="flex gap-3">
           <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="flex-1 py-3.5 rounded-full text-sm font-semibold" style={{ ...GLASS, fontFamily: F.b }}>
             {cancelLabel}

@@ -50,7 +50,7 @@ export function LiveSessionSheet({ friend, onClose, currentTrack, playing, progr
       <div className="relative px-6 pt-7 pb-8 overflow-hidden">
         <Aurora c2={c2} opacity={0.55} />
 
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "rgba(255,255,255,0.07)" }}>
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
 
@@ -60,7 +60,7 @@ export function LiveSessionSheet({ friend, onClose, currentTrack, playing, progr
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#f87171", animation: "orbPulse 1.6s ease-in-out infinite" }} />
             LIVE
           </span>
-          <span className="text-[10px]" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("live.sync")}</span>
+          <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("live.sync")}</span>
         </div>
 
         <div className="relative z-10 mb-6">
@@ -70,7 +70,7 @@ export function LiveSessionSheet({ friend, onClose, currentTrack, playing, progr
               <img src={avatar} alt="" className="w-10 h-10 rounded-full object-cover relative z-10" style={{ border: `2px solid ${c2}` }} />
               <img src={friend.img} alt="" className="w-10 h-10 rounded-full object-cover" style={{ border: "2px solid #8b5cf6" }} />
             </div>
-            <span className="text-xs" style={{ color: "rgba(242,242,248,0.5)", fontFamily: F.b }}>{t("live.listeners", 2)}</span>
+            <span className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("live.listeners", 2)}</span>
           </div>
         </div>
 
@@ -108,7 +108,7 @@ export function LiveSessionSheet({ friend, onClose, currentTrack, playing, progr
                 {currentTrack.title}
                 {playing && <EQ color={c2} size={10} />}
               </div>
-              <div className="text-xs truncate mb-2" style={{ color: "rgba(242,242,248,0.45)", fontFamily: F.b }}>{currentTrack.artist}</div>
+              <div className="text-xs truncate mb-2" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{currentTrack.artist}</div>
               <Waveform progress={progress} color={c2} height={22} seed={currentTrack.id + 3} bars={40} dim playing={playing} />
             </div>
             <motion.button whileTap={{ scale: 0.85 }} onClick={onToggle} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}aa)` }}>
@@ -119,7 +119,7 @@ export function LiveSessionSheet({ friend, onClose, currentTrack, playing, progr
 
         {/* Реакции */}
         <div className="relative z-10 mb-6">
-          <div className="text-[10px] mb-2.5" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("live.react", lang === "ru" ? friend.name : friend.en)}</div>
+          <div className="text-[10px] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("live.react", lang === "ru" ? friend.name : friend.en)}</div>
           <div className="flex gap-2.5">
             {REACTIONS.map(r => {
               const Icon = r.Icon;
@@ -134,7 +134,7 @@ export function LiveSessionSheet({ friend, onClose, currentTrack, playing, progr
 
         {/* Дальше у друга */}
         <div className="relative z-10 mb-6">
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.m }}>{t("live.upNext", lang === "ru" ? friend.name : friend.en)}</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("live.upNext", lang === "ru" ? friend.name : friend.en)}</div>
           {queue.map(tr => (
             <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors">
               <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
@@ -142,9 +142,9 @@ export function LiveSessionSheet({ friend, onClose, currentTrack, playing, progr
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-                <div className="text-xs truncate" style={{ color: "rgba(242,242,248,0.4)", fontFamily: F.b }}>{tr.artist}</div>
+                <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.artist}</div>
               </div>
-              <Play size={13} style={{ color: "rgba(242,242,248,0.3)" }} />
+              <Play size={13} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </div>
           ))}
         </div>
@@ -153,7 +153,7 @@ export function LiveSessionSheet({ friend, onClose, currentTrack, playing, progr
           <motion.button whileTap={{ scale: 0.96 }} onClick={() => toast(t("live.invited"))} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}>
             <UserPlus size={13} /> {t("live.invite")}
           </motion.button>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => { toast(t("live.left")); onClose(); }} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ ...GLASS, color: "rgba(242,242,248,0.65)", fontFamily: F.b }}>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => { toast(t("live.left")); onClose(); }} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ ...GLASS, color: "color-mix(in srgb, var(--fg) 65%, transparent)", fontFamily: F.b }}>
             <LogOut size={13} /> {t("live.leave")}
           </motion.button>
         </div>
