@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
-  GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste,
+  GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -403,9 +403,9 @@ function BlendTracks({ ids, onPlay, currentTrack, playing, c2 }: {
 
 // ─── Аккаунт ──────────────────────────────────────────────────────────────────
 
-export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onAvatar, onDeleted, onOpenImport }: {
+export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport }: {
   open: boolean; onClose: () => void; userName: string; onRename: (n: string) => void;
-  avatarIdx: number; onAvatar: (i: number) => void; onDeleted: () => void; onOpenImport: () => void;
+  avatarIdx: number; onAvatar: (i: number) => void; customAvatar: string | null; onAvatarFile: (dataUrl: string) => void; onDeleted: () => void; onOpenImport: () => void;
 }) {
   const { t } = useLang();
   const [name, setName] = useState(userName);
@@ -449,16 +449,40 @@ export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onA
           {/* Аватар */}
           <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.avatar")}</div>
           <div className="flex gap-3 mb-6">
+            {customAvatar && (
+              <div className="relative rounded-full">
+                <img src={customAvatar} alt="" className="w-14 h-14 rounded-full object-cover" style={{ border: "2.5px solid #8b5cf6" }} />
+                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "#8b5cf6" }}><Check size={11} /></div>
+              </div>
+            )}
             {AVATARS.map((a, i) => (
               <motion.button key={a} whileTap={{ scale: 0.9 }} onClick={() => onAvatar(i)} className="relative rounded-full">
-                <img src={a} alt="" className="w-14 h-14 rounded-full object-cover" style={{ border: avatarIdx === i ? "2.5px solid #8b5cf6" : "2.5px solid color-mix(in srgb, var(--wash) 10%, transparent)", opacity: avatarIdx === i ? 1 : 0.6 }} />
-                {avatarIdx === i && (
+                <img src={a} alt="" className="w-14 h-14 rounded-full object-cover" style={{ border: avatarIdx === i && !customAvatar ? "2.5px solid #8b5cf6" : "2.5px solid color-mix(in srgb, var(--wash) 10%, transparent)", opacity: avatarIdx === i && !customAvatar ? 1 : 0.6 }} />
+                {avatarIdx === i && !customAvatar && (
                   <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "#8b5cf6" }}>
                     <Check size={11} />
                   </div>
                 )}
               </motion.button>
             ))}
+            <label className="w-14 h-14 rounded-full flex items-center justify-center cursor-pointer flex-shrink-0" style={{ border: "2px dashed color-mix(in srgb, var(--fg) 25%, transparent)" }} title="upload">
+              <ImagePlus size={18} style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)" }} />
+              <input type="file" accept="image/*" className="hidden" onChange={e => {
+                const f = e.target.files?.[0]; e.target.value = "";
+                if (!f) return;
+                const img = new Image();
+                img.onload = () => {
+                  const s = 160, cv = document.createElement("canvas");
+                  cv.width = s; cv.height = s;
+                  const cx = cv.getContext("2d")!;
+                  const k = Math.max(s / img.width, s / img.height);
+                  cx.drawImage(img, (s - img.width * k) / 2, (s - img.height * k) / 2, img.width * k, img.height * k);
+                  onAvatarFile(cv.toDataURL("image/jpeg", 0.85));
+                  toast(t("acc.photoSet"));
+                };
+                img.src = URL.createObjectURL(f);
+              }} />
+            </label>
           </div>
 
           {/* Имя */}
@@ -527,13 +551,13 @@ export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onA
 
 // ─── Creator+ (монетизация) ───────────────────────────────────────────────────
 
-export function CreatorPlusSheet({ open, onClose, active, onActivate, onCancelSub }: {
-  open: boolean; onClose: () => void; active: boolean; onActivate: () => void; onCancelSub: () => void;
+export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSub, onResume }: {
+  open: boolean; onClose: () => void; status: "none" | "active" | "grace"; onActivate: () => void; onCancelSub: () => void; onResume: () => void;
 }) {
   const { t } = useLang();
   const [state, setState] = useState<"offer" | "paying" | "done">("offer");
   const [cancelQ, setCancelQ] = useState(false);
-  useEffect(() => { if (open) setState(active ? "done" : "offer"); }, [open, active]);
+  useEffect(() => { if (open) setState(status !== "none" ? "done" : "offer"); }, [open, status]);
 
   const pay = () => {
     setState("paying");
@@ -558,13 +582,19 @@ export function CreatorPlusSheet({ open, onClose, active, onActivate, onCancelSu
               </motion.div>
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("cp.done")}</div>
               <div className="text-sm mt-2 mb-2" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("cp.doneSub")}</div>
-              <div className="text-xs mb-7" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("cp.cancel")}</div>
+              <div className="text-xs mb-7" style={{ color: status === "grace" ? "#fb923c" : "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{status === "grace" ? t("cp.graceNote") : t("cp.cancel")}</div>
               <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="px-10 py-3 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
                 {t("cp.great")}
               </motion.button>
-              <button onClick={() => setCancelQ(true)} className="block mx-auto mt-4 text-xs transition-colors hover:text-red-300" style={{ color: "rgba(248,113,113,0.75)", fontFamily: F.b }}>
-                {t("cp.cancelBtn")}
-              </button>
+              {status === "grace" ? (
+                <button onClick={() => { onResume(); toast.success(t("cp.resumed")); }} className="block mx-auto mt-4 text-xs font-semibold" style={{ color: "#34d399", fontFamily: F.b }}>
+                  {t("cp.resume")}
+                </button>
+              ) : (
+                <button onClick={() => setCancelQ(true)} className="block mx-auto mt-4 text-xs transition-colors hover:text-red-300" style={{ color: "rgba(248,113,113,0.75)", fontFamily: F.b }}>
+                  {t("cp.cancelBtn")}
+                </button>
+              )}
             </motion.div>
           ) : (
             <>

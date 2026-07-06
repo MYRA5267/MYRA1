@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { Track } from "./data";
 
@@ -117,7 +117,7 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
 
     const handlers = pair.map(a => {
       const isActive = () => a === active();
-      const onTime = () => { if (isActive()) setProgress(a.duration ? (a.currentTime / a.duration) * 100 : 0); };
+      const onTime = () => { if (!isActive()) return; const p = a.duration ? (a.currentTime / a.duration) * 100 : 0; setProgress(prev => Math.abs(p - prev) < 0.35 && p > prev ? prev : p); };
       const onMeta = () => { if (isActive()) setDuration(a.duration || 0); };
       const onEnd = () => { if (isActive()) endedRef.current(); };
       const onPlay = () => { if (isActive()) { modeRef.current = "real"; stopSim(); setPlaying(true); } };
@@ -297,11 +297,27 @@ export function DynamicBg({ track }: { track: Track }) {
 }
 
 /** Волновая дорожка с сиком; playing — бары у плейхеда пульсируют */
-export function Waveform({ progress, color, onSeek, height = 52, seed = 7, bars = 72, dim = false, playing = false }: {
+export const Waveform = React.memo(function Waveform({ progress, color, onSeek, height = 52, seed = 7, bars = 72, dim = false, playing = false }: {
   progress: number; color: string; onSeek?: (p: number) => void; height?: number; seed?: number; bars?: number; dim?: boolean; playing?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
+
+  // Плавное перетекание: показываемый прогресс догоняет реальный через rAF
+  const [disp, setDisp] = useState(progress);
+  const dispRef = useRef(progress);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const target = progress;
+      const d = dispRef.current;
+      const nd = Math.abs(target - d) < 0.08 ? target : d + (target - d) * 0.14;
+      if (nd !== d) { dispRef.current = nd; setDisp(nd); }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [progress]);
 
   const heights = useMemo(
     () => Array.from({ length: bars }, (_, i) => {
@@ -326,8 +342,8 @@ export function Waveform({ progress, color, onSeek, height = 52, seed = 7, bars 
       onPointerUp={() => { dragging.current = false; }}
     >
       {heights.map((h, i) => {
-        const played = (i / bars) * 100 <= progress;
-        const headIdx = Math.floor((progress / 100) * bars);
+        const played = (i / bars) * 100 <= disp;
+        const headIdx = Math.floor((disp / 100) * bars);
         const nearHead = playing && Math.abs(i - headIdx) <= 2;
         return (
           <div
@@ -345,7 +361,7 @@ export function Waveform({ progress, color, onSeek, height = 52, seed = 7, bars 
       })}
     </div>
   );
-}
+});
 
 /** Живая частотная сфера — объёмная: параллакс, двойные кольца, частицы, тень-подиум */
 export function FrequencyOrb({ track, playing, progress }: { track: Track; playing: boolean; progress: number }) {

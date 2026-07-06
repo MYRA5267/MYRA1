@@ -27,4 +27,12 @@ export default defineConfig({
     },
   },
   assetsInclude: ['**/*.svg', '**/*.csv'],
+  build: {
+    rollupOptions: {
+      output: {
+        // отдельный vendor-чанк: кэшируется между версиями приложения
+        manualChunks: { vendor: ['react', 'react-dom', 'motion', 'lucide-react', 'sonner'] },
+      },
+    },
+  },
 })

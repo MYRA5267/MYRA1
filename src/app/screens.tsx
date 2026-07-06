@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, PODCASTS, GENRE_TILES, svgCover, type Track, type Friend } from "./data";
+import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, PODCASTS, GENRE_TILES, svgCover, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme } from "./lib";
 import { useLang, type Lang } from "./i18n";
 
@@ -552,6 +552,8 @@ export function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats,
   const { t } = useLang();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [wdOpen, setWdOpen] = useState(false);
+  const [balance, setBalance] = useState(() => ls.get("balance", 1240));
 
   const WEEK = [24, 38, 31, 52, 46, 71, 64];
   const max = Math.max(...WEEK);
@@ -602,8 +604,8 @@ export function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats,
         </div>
 
         <div className="grid grid-cols-3 gap-2.5">
-          {[["18", t("cr.fans"), Users], ["1 240₽", t("cr.donations"), Wallet], [String(3 + myTracks.length), t("cr.releases"), Music2]].map(([v, l, Icon]: any) => (
-            <motion.div key={l} whileTap={{ scale: 0.95 }} onClick={onOpenStats} className="rounded-[20px] p-4 cursor-pointer" style={GLASS}>
+          {[["18", t("cr.fans"), Users, onOpenStats], [balance.toLocaleString("ru-RU") + "₽", t("cr.donations"), Wallet, () => setWdOpen(true)], [String(3 + myTracks.length), t("cr.releases"), Music2, onOpenStats]].map(([v, l, Icon, act]: any) => (
+            <motion.div key={l} whileTap={{ scale: 0.95 }} onClick={act} className="rounded-[20px] p-4 cursor-pointer" style={GLASS}>
               <Icon size={15} style={{ color: c2 }} className="mb-2" />
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 17, letterSpacing: "-0.02em" }}>{v}</div>
               <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{l}</div>
@@ -692,6 +694,8 @@ export function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats,
           </div>
         </TiltCard>
       </div>
+
+      <WithdrawSheet open={wdOpen} onClose={() => setWdOpen(false)} balance={balance} c2={c2} onDone={amt => { const nb = balance - amt; setBalance(nb); ls.set("balance", nb); }} />
     </Page>
   );
 }
@@ -861,4 +865,60 @@ function SettingRow({ icon, label, sub, children }: { icon: React.ReactNode; lab
 
 function Mic2Icon() {
   return <Mic2 size={12} />;
+}
+
+// ─── Вывод средств артиста ────────────────────────────────────────────────────
+
+export function WithdrawSheet({ open, onClose, balance, c2, onDone }: {
+  open: boolean; onClose: () => void; balance: number; c2: string; onDone: (amt: number) => void;
+}) {
+  const { t } = useLang();
+  const [amt, setAmt] = useState("");
+  const [method, setMethod] = useState<"card" | "sbp">("card");
+  const [state, setState] = useState<"form" | "processing" | "done">("form");
+  const val = Math.min(balance, parseInt(amt) || 0);
+
+  const reset = () => { setState("form"); setAmt(""); };
+  const submit = () => {
+    if (val < 100) { toast(t("wd.min")); return; }
+    setState("processing");
+    setTimeout(() => { onDone(val); setState("done"); }, 1300);
+  };
+
+  return (
+    <Sheet open={open} onClose={() => { onClose(); setTimeout(reset, 300); }} z={64} center>
+      <div className="p-6">
+        {state === "done" ? (
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="text-center py-4">
+            <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: "rgba(52,211,153,0.13)", border: "1.5px solid rgba(52,211,153,0.4)" }}>
+              <Check size={26} style={{ color: "#34d399" }} />
+            </div>
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 19 }}>{t("wd.done", val.toLocaleString("ru-RU"))}</div>
+            <div className="text-xs mt-2 mb-5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("wd.doneSub")}</div>
+            <motion.button whileTap={{ scale: 0.96 }} onClick={() => { onClose(); reset(); }} className="px-8 py-3 rounded-full text-sm font-semibold" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}>{t("cp.great")}</motion.button>
+          </motion.div>
+        ) : (
+          <>
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em" }}>{t("wd.title")}</div>
+            <div className="text-xs mt-1 mb-4" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("wd.balance", balance.toLocaleString("ru-RU"))}</div>
+            <div className="flex gap-2 mb-3">
+              {(["card", "sbp"] as const).map(m => (
+                <button key={m} onClick={() => setMethod(m)} className="flex-1 py-2.5 rounded-2xl text-xs font-semibold" style={{ background: method === m ? `${c2}22` : "color-mix(in srgb, var(--wash) 6%, transparent)", border: `1px solid ${method === m ? c2 + "55" : "transparent"}`, color: method === m ? c2 : "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>
+                  {m === "card" ? t("wd.card") : t("wd.sbp")}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 mb-4">
+              <input value={amt} onChange={e => setAmt(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder={t("wd.amount")} inputMode="numeric" className="flex-1 px-4 py-3 rounded-2xl bg-transparent outline-none text-sm min-w-0" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }} />
+              <button onClick={() => setAmt(String(balance))} className="px-4 rounded-2xl text-xs font-semibold flex-shrink-0" style={{ ...GLASS, color: c2, fontFamily: F.b }}>{t("wd.all")}</button>
+            </div>
+            <motion.button whileTap={{ scale: 0.97 }} disabled={state === "processing"} onClick={submit} className="w-full py-3.5 rounded-full text-sm font-bold" style={{ background: val >= 100 ? `linear-gradient(135deg, ${c2}, ${c2}99)` : "color-mix(in srgb, var(--wash) 6%, transparent)", color: val >= 100 ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}>
+              {state === "processing" ? t("wd.processing") : t("wd.send", val ? val.toLocaleString("ru-RU") : "0")}
+            </motion.button>
+            <div className="text-[10px] text-center mt-3" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("wd.fee")}</div>
+          </>
+        )}
+      </div>
+    </Sheet>
+  );
 }

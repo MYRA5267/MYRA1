@@ -44,7 +44,14 @@ function AppInner() {
   const [onboarded, setOnboarded] = useState(() => ls.get("onboarded", false));
   const [userName, setUserName] = useState(() => ls.get("userName", "Алекс"));
   const [avatarIdx, setAvatarIdx] = useState(() => ls.get("avatarIdx", 0));
-  const [creatorPlus, setCreatorPlus] = useState(() => ls.get("creatorPlus", false));
+  // Подписка: none → active → grace (отменена, но действует до конца периода)
+  const [cpStatus, setCpStatus] = useState<"none" | "active" | "grace">(() => {
+    const raw = ls.get<"none" | "active" | "grace" | boolean>("cpStatus", ls.get("creatorPlus", false) ? "active" : "none");
+    return raw === true ? "active" : raw === false ? "none" : raw;
+  });
+  const setCp = useCallback((s: "none" | "active" | "grace") => { setCpStatus(s); ls.set("cpStatus", s); }, []);
+  const creatorPlus = cpStatus !== "none";
+  const [customAvatar, setCustomAvatar] = useState<string | null>(() => ls.get<string | null>("customAvatar", null));
   const [followed, setFollowed] = useState<Set<string>>(() => new Set(ls.get<string[]>("followed", [])));
 
   const [tab, setTabState] = useState<Tab>(() => ls.get<Tab>("tab", "home"));
@@ -85,7 +92,7 @@ function AppInner() {
     });
   }, []);
 
-  const avatar = AVATARS[avatarIdx] ?? AVATARS[0];
+  const avatar = customAvatar ?? AVATARS[avatarIdx] ?? AVATARS[0];
 
   // dev-хук для интеграционных проверок
   if ((import.meta as any).env?.DEV) {
@@ -243,15 +250,6 @@ function AppInner() {
     navigator.mediaSession.setActionHandler("nexttrack", () => handleNext());
     navigator.mediaSession.setActionHandler("previoustrack", () => handlePrev());
   }, [currentTrack, togglePlay, handleNext, handlePrev]);
-
-  // Скрыть брендовый лоадер из index.html после первого рендера
-  useEffect(() => {
-    const boot = document.getElementById("boot");
-    if (!boot) return;
-    boot.style.opacity = "0";
-    const to = setTimeout(() => boot.remove(), 500);
-    return () => clearTimeout(to);
-  }, []);
 
   // Пауза фоновых анимаций, когда приложение свёрнуто — экономия батареи
   useEffect(() => {
@@ -621,7 +619,9 @@ function AppInner() {
         userName={userName}
         onRename={n => { setUserName(n); ls.set("userName", n); }}
         avatarIdx={avatarIdx}
-        onAvatar={i => { setAvatarIdx(i); ls.set("avatarIdx", i); }}
+        onAvatar={i => { setAvatarIdx(i); ls.set("avatarIdx", i); setCustomAvatar(null); ls.set("customAvatar", null); }}
+        customAvatar={customAvatar}
+        onAvatarFile={dataUrl => { setCustomAvatar(dataUrl); ls.set("customAvatar", dataUrl); }}
         onDeleted={handleDeleteAccount}
         onOpenImport={() => setImportOpen(true)}
       />
@@ -635,9 +635,10 @@ function AppInner() {
       <CreatorPlusSheet
         open={creatorPlusOpen}
         onClose={() => setCreatorPlusOpen(false)}
-        active={creatorPlus}
-        onActivate={() => { setCreatorPlus(true); ls.set("creatorPlus", true); }}
-        onCancelSub={() => { setCreatorPlus(false); ls.set("creatorPlus", false); }}
+        status={cpStatus}
+        onActivate={() => setCp("active")}
+        onCancelSub={() => setCp("grace")}
+        onResume={() => setCp("active")}
       />
 
       <StudioStatsSheet open={statsOpen} onClose={() => setStatsOpen(false)} c2={currentTrack.c2} />
