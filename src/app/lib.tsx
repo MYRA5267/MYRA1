@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, useId, createContext, useContext } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { Track } from "./data";
 
@@ -29,6 +29,7 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     "--glass-shadow": "0 10px 30px rgba(0,0,0,0.35)",
     "--cover-filter": "blur(90px) saturate(1.6) brightness(0.22)",
     "--dim": "rgba(5,5,12,0.55)",
+    "--aurora-fade": "78%",
   },
   light: {
     // Светлая тема: настоящий белый глянцевый glass + видимая тень вместо еле
@@ -43,8 +44,9 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     "--glass-bg": "rgba(255,255,255,0.62)",
     "--glass-border": "rgba(30,20,60,0.12)",
     "--glass-shadow": "0 1px 2px rgba(30,20,60,0.05), 0 12px 28px rgba(30,20,60,0.09)",
-    "--cover-filter": "blur(70px) saturate(1.9) brightness(1.03) opacity(0.55)",
+    "--cover-filter": "blur(70px) saturate(1.55) brightness(1.08) opacity(0.32)",
     "--dim": "rgba(30,20,55,0.38)",
+    "--aurora-fade": "56%",
   },
 };
 
@@ -58,6 +60,12 @@ export const GLASS: React.CSSProperties = {
   border: "1px solid var(--glass-border)",
   boxShadow: "var(--glass-shadow)",
 };
+
+/** Фиксированный светлый текст для карточек с ВСЕГДА тёмным фоном (обложка/градиент
+    трека) — они не подстраиваются под тему, поэтому не должны наследовать var(--fg),
+    иначе в светлой теме текст становится нечитаемым на тёмном фоне */
+export const ON_DARK = "#f4f4fa";
+export const onDark = (pct: number) => `rgba(244,244,250,${pct / 100})`;
 
 /** Копирует текст в буфер обмена с запасным вариантом для WebView без Clipboard API */
 export async function copyText(text: string): Promise<boolean> {
@@ -323,7 +331,7 @@ export function DynamicBg({ track }: { track: Track }) {
         />
       </AnimatePresence>
       <Aurora c2={track.c2} opacity={0.7} />
-      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 0%, var(--bg) 78%)" }} />
+      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 0%, var(--bg) var(--aurora-fade))" }} />
       <div className="absolute bottom-0 left-0 right-0 h-72" style={{ background: "linear-gradient(to top, var(--bg) 0%, transparent 100%)" }} />
     </div>
   );
@@ -395,6 +403,104 @@ export const Waveform = React.memo(function Waveform({ progress, color, onSeek, 
     </div>
   );
 });
+
+/** Catmull-Rom → кубический Безье: гладкая кривая через все точки без внешних либ */
+function smoothPath(points: [number, number][]): string {
+  if (points.length < 2) return "";
+  let d = `M${points[0][0]},${points[0][1]}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] ?? points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] ?? p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x},${c1y} ${c2x},${c2y} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+
+/** Интерактивный сглаженный график: жми и веди пальцем/курсором, чтобы посмотреть
+    значение в любой точке — с плавающей подсказкой и вертикальной направляющей */
+export function InteractiveChart({ data, labels, color, height = 84, markIndex, valueLabel }: {
+  data: number[]; labels?: string[]; color: string; height?: number; markIndex?: number; valueLabel?: (v: number, i: number) => string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const [active, setActive] = useState<number | null>(null);
+  const gradId = `ic-area-${useId()}`;
+
+  const W = 300, H = 100, PAD = 8;
+  const { pts, path, areaPath } = useMemo(() => {
+    const max = Math.max(...data), min = Math.min(0, ...data);
+    const range = max - min || 1;
+    const pts: [number, number][] = data.map((v, i) => [
+      data.length > 1 ? (i / (data.length - 1)) * W : W / 2,
+      PAD + (1 - (v - min) / range) * (H - PAD * 2),
+    ]);
+    const path = smoothPath(pts);
+    const areaPath = `${path} L${pts[pts.length - 1][0]},${H} L${pts[0][0]},${H} Z`;
+    return { pts, path, areaPath };
+  }, [data]);
+
+  const idxFromClientX = (clientX: number) => {
+    const r = ref.current!.getBoundingClientRect();
+    const pct = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    return Math.round(pct * (data.length - 1));
+  };
+
+  const shownIdx = active ?? null;
+  const shownPt = shownIdx !== null ? pts[shownIdx] : null;
+  const tipPct = shownPt ? Math.min(94, Math.max(6, (shownPt[0] / W) * 100)) : 0;
+
+  return (
+    <div
+      ref={ref}
+      className="relative select-none"
+      style={{ touchAction: "none", cursor: "crosshair" }}
+      onClick={e => e.stopPropagation()}
+      onPointerDown={e => { dragging.current = true; (e.target as HTMLElement).setPointerCapture(e.pointerId); setActive(idxFromClientX(e.clientX)); }}
+      onPointerMove={e => { if (dragging.current) setActive(idxFromClientX(e.clientX)); else if (e.pointerType !== "touch") setActive(idxFromClientX(e.clientX)); }}
+      onPointerUp={e => { dragging.current = false; if (e.pointerType === "touch") setActive(null); }}
+      onPointerLeave={() => { if (!dragging.current) setActive(null); }}
+    >
+      <div className="relative" style={{ height: 26 }}>
+        {shownPt && (
+          <div
+            className="absolute px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap pointer-events-none"
+            style={{
+              left: `${tipPct}%`, transform: "translateX(-50%)", top: 0,
+              background: "var(--panel)", backdropFilter: "blur(20px)",
+              border: "1px solid color-mix(in srgb, var(--wash) 14%, transparent)",
+              color: "var(--fg)", fontFamily: F.m, boxShadow: "0 8px 20px rgba(0,0,0,0.28)",
+            }}
+          >
+            {valueLabel ? valueLabel(data[shownIdx!], shownIdx!) : data[shownIdx!]}{labels?.[shownIdx!] ? ` · ${labels[shownIdx!]}` : ""}
+          </div>
+        )}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height }} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.32" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill={`url(#${gradId})`} />
+        <path d={path} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {markIndex != null && shownIdx === null && pts[markIndex] && (
+          <circle cx={pts[markIndex][0]} cy={pts[markIndex][1]} r="2.4" fill="#fff" stroke={color} strokeWidth="1.5" />
+        )}
+        {shownPt && (
+          <>
+            <line x1={shownPt[0]} y1={0} x2={shownPt[0]} y2={H} stroke={color} strokeWidth="1" strokeDasharray="2,3" opacity="0.5" vectorEffect="non-scaling-stroke" />
+            <circle cx={shownPt[0]} cy={shownPt[1]} r="3.4" fill="#fff" stroke={color} strokeWidth="2" />
+          </>
+        )}
+      </svg>
+    </div>
+  );
+}
 
 /** Живая частотная сфера — объёмная: параллакс, двойные кольца, частицы, тень-подиум */
 export function FrequencyOrb({ track, playing, progress }: { track: Track; playing: boolean; progress: number }) {

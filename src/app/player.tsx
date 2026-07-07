@@ -7,7 +7,7 @@ import {
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { TRACKS, LYRICS, INITIAL_COMMENTS, artistByName, type Track } from "./data";
-import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ } from "./lib";
+import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES } from "./lib";
 import { useLang } from "./i18n";
 
 const SLEEP_OPTIONS = [15, 30, 60];
@@ -59,7 +59,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   ] as const;
 
   return (
-    <div className="absolute inset-0 flex flex-col overflow-hidden" style={{ background: "var(--bg)" }}>
+    <div className="absolute inset-0 flex flex-col overflow-hidden" style={{ ...(THEMES.dark as React.CSSProperties), background: "var(--bg)", color: "var(--fg)" }}>
       <div className="absolute inset-0 overflow-hidden">
         <img src={track.img} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ filter: "blur(80px) saturate(1.7) brightness(0.25)", transform: "scale(1.25)" }} />
         <Aurora c2={track.c2} />

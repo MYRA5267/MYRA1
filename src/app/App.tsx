@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
 import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, type Track, type Friend, type Playlist } from "./data";
-import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, type ThemeName } from "./lib";
+import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ON_DARK, onDark, type ThemeName } from "./lib";
 import { smartNext, pushHistory } from "./smart";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
@@ -487,8 +487,8 @@ function AppInner() {
               <img src={currentTrack.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.45)" }} />
               <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${currentTrack.c1}ee, transparent)` }} />
               <div className="absolute bottom-2.5 left-3.5 right-3.5">
-                <div className="text-xs font-bold truncate" style={{ fontFamily: F.b }}>{currentTrack.title}</div>
-                <div className="text-[10px] truncate" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>{currentTrack.artist}</div>
+                <div className="text-xs font-bold truncate" style={{ fontFamily: F.b, color: ON_DARK }}>{currentTrack.title}</div>
+                <div className="text-[10px] truncate" style={{ color: onDark(55), fontFamily: F.b }}>{currentTrack.artist}</div>
               </div>
               {audio.playing && <div className="absolute top-2.5 right-2.5"><EQ color={currentTrack.c2} size={10} /></div>}
             </div>

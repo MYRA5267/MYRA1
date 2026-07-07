@@ -7,7 +7,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, type Track, type Friend } from "./data";
-import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode } from "./lib";
+import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
 
 // ─── Страница артиста ─────────────────────────────────────────────────────────
@@ -38,15 +38,15 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
       <div className="relative" style={{ height: 210 }}>
         <img src={artist.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.55)" }} />
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(13,13,26,1) 0%, transparent 60%)" }} />
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)" }}>
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
         <div className="absolute bottom-3 left-6 right-6">
           <div className="flex items-center gap-2">
-            <span style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.03em" }}>{artist.name}</span>
+            <span style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.03em", color: ON_DARK }}>{artist.name}</span>
             {artist.verified && <BadgeCheck size={20} style={{ color: artist.c2 }} />}
           </div>
-          <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.m }}>{artist.listeners} {t("ar.listeners")}</div>
+          <div className="text-xs mt-0.5" style={{ color: onDark(55), fontFamily: F.m }}>{artist.listeners} {t("ar.listeners")}</div>
         </div>
       </div>
 
@@ -194,13 +194,13 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
       <div className="relative" style={{ height: 200 }}>
         <img src={cover.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.5)" }} />
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(13,13,26,1) 0%, transparent 60%)" }} />
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)" }}>
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
         <div className="absolute bottom-3 left-6 right-6">
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>{t("al.type")}</div>
-          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 26, letterSpacing: "-0.03em" }}>{album}</div>
-          <button onClick={() => onOpenArtist(cover.artist)} className="text-xs mt-1 hover:text-white transition-colors" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>{cover.artist} · {t("al.nTracks", totalDur)}</button>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-1" style={{ color: onDark(45), fontFamily: F.m }}>{t("al.type")}</div>
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 26, letterSpacing: "-0.03em", color: ON_DARK }}>{album}</div>
+          <button onClick={() => onOpenArtist(cover.artist)} className="text-xs mt-1 hover:text-white transition-colors" style={{ color: onDark(55), fontFamily: F.b }}>{cover.artist} · {t("al.nTracks", totalDur)}</button>
         </div>
       </div>
 
@@ -740,7 +740,7 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
             exit={{ scale: 0.95, opacity: 0 }}
             transition={SPRING}
             className="relative w-full h-full lg:max-w-[420px] lg:h-[86vh] lg:rounded-[32px] overflow-hidden"
-            style={{ background: `linear-gradient(165deg, ${S.c1} 0%, var(--bg) 90%)`, transition: "background 0.8s ease" }}
+            style={{ ...(THEMES.dark as React.CSSProperties), background: `linear-gradient(165deg, ${S.c1} 0%, var(--bg) 90%)`, color: "var(--fg)", transition: "background 0.8s ease" }}
           >
             <Aurora c2={S.c2} />
 
@@ -815,8 +815,6 @@ export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose
   const { t } = useLang();
 
   const days = Array.from({ length: 30 }, (_, i) => 40 + Math.round(Math.abs(Math.sin(i * 0.7) * 35 + Math.sin(i * 0.23) * 20) + i * 0.9));
-  const max = Math.max(...days);
-  const pts = days.map((v, i) => `${(i / (days.length - 1)) * 100},${44 - (v / max) * 40}`).join(" ");
 
   const TOP = [
     { tr: ALL_TRACKS[0], plays: "1 204", delta: "+22%", up: true },
@@ -842,16 +840,7 @@ export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose
         {/* 30 дней */}
         <div className="rounded-[20px] p-4 mb-4" style={GLASS}>
           <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.days30")}</div>
-          <svg viewBox="0 0 100 46" className="w-full" style={{ height: 84 }} preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="stArea" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={c2} stopOpacity="0.35" />
-                <stop offset="100%" stopColor={c2} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <polygon points={`0,46 ${pts} 100,46`} fill="url(#stArea)" />
-            <polyline points={pts} fill="none" stroke={c2} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <InteractiveChart data={days} color={c2} height={84} markIndex={days.length - 1} />
         </div>
 
         {/* Топ треков */}

@@ -9,7 +9,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, PODCASTS, GENRE_TILES, MY_STATS, LEADERBOARD_PEERS, svgCover, ls, type Track, type Friend } from "./data";
-import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme } from "./lib";
+import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, ON_DARK, onDark, InteractiveChart } from "./lib";
 import { useLang, type Lang } from "./i18n";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
@@ -37,8 +37,8 @@ function DeckCardContent({ track }: { track: Track }) {
       <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${track.c1}f0 0%, transparent 55%)` }} />
       <div className="absolute bottom-0 left-0 right-0 p-5">
         <div className="text-[10px] uppercase tracking-[0.18em] mb-1.5" style={{ color: track.c2, fontFamily: F.m, transition: "color 0.3s" }}>{track.genre}</div>
-        <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, lineHeight: 1.15, letterSpacing: "-0.02em" }}>{track.title}</div>
-        <div className="text-sm mt-1" style={{ color: "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>{track.artist} · {track.plays}</div>
+        <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, lineHeight: 1.15, letterSpacing: "-0.02em", color: ON_DARK }}>{track.title}</div>
+        <div className="text-sm mt-1" style={{ color: onDark(60), fontFamily: F.b }}>{track.artist} · {track.plays}</div>
       </div>
     </div>
   );
@@ -156,7 +156,7 @@ export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate
 
   const QUICK = [
     { label: t("home.liked"),  icon: Heart,      act: () => onNavigate("library") },
-    { label: t("home.charts"), icon: TrendingUp, act: () => onNavigate("browse") },
+    { label: t("home.charts"), icon: TrendingUp, act: () => setSearchOpen(true) },
     { label: t("home.radio"),  icon: Radio,      act: onPlayWave },
     { label: t("home.blend"),  icon: BlendIcon,  act: () => onOpenBlend(FRIENDS[0]) },
   ];
@@ -216,10 +216,10 @@ export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate
           <div className="relative z-10 flex items-center justify-between p-6">
             <div>
               <div className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>{t("home.flow")}</div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.03em", lineHeight: 1 }}>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.03em", lineHeight: 1, color: ON_DARK }}>
                 {t("home.my")}<span style={{ fontFamily: F.s, fontStyle: "italic", fontWeight: 600, background: "linear-gradient(90deg, #c4b5fd, #f0abfc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{t("home.wave")}</span>
               </div>
-              <div className="text-xs mt-2.5" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>{t("home.aiSub")}</div>
+              <div className="text-xs mt-2.5" style={{ color: onDark(55), fontFamily: F.b }}>{t("home.aiSub")}</div>
             </div>
             <motion.div whileTap={{ scale: 0.88 }} className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 12%, transparent)", backdropFilter: "blur(10px)", border: `1.5px solid ${waveActive ? "#a78bfa" : "color-mix(in srgb, var(--wash) 25%, transparent)"}` }}>
               {waveActive ? <Pause size={22} fill="white" stroke="none" /> : <Play size={22} fill="white" stroke="none" className="ml-1" />}
@@ -686,8 +686,7 @@ export function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats,
   const [balance, setBalance] = useState(() => ls.get("balance", 1240));
 
   const WEEK = [24, 38, 31, 52, 46, 71, 64];
-  const max = Math.max(...WEEK);
-  const points = WEEK.map((v, i) => `${(i / (WEEK.length - 1)) * 100},${40 - (v / max) * 36}`).join(" ");
+  const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
   return (
     <Page>
@@ -715,21 +714,9 @@ export function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats,
               <TrendingUp size={12} /> +18%
             </div>
           </div>
-          <svg viewBox="0 0 100 42" className="w-full" style={{ height: 72 }} preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={c2} stopOpacity="0.35" />
-                <stop offset="100%" stopColor={c2} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <polygon points={`0,42 ${points} 100,42`} fill="url(#area)" />
-            <polyline points={points} fill="none" stroke={c2} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            {WEEK.map((v, i) => (
-              <circle key={i} cx={(i / (WEEK.length - 1)) * 100} cy={40 - (v / max) * 36} r={i === WEEK.length - 2 ? 2.2 : 0} fill="#fff" />
-            ))}
-          </svg>
+          <InteractiveChart data={WEEK} labels={WEEKDAYS} color={c2} height={72} markIndex={WEEK.length - 2} valueLabel={v => t("cr.plays", v)} />
           <div className="flex justify-between mt-1 text-[9px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>
-            {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map(d => <span key={d}>{d}</span>)}
+            {WEEKDAYS.map(d => <span key={d}>{d}</span>)}
           </div>
         </div>
 
@@ -814,10 +801,10 @@ export function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats,
           <Aurora c2="#8b5cf6" opacity={0.6} />
           <div className="relative z-10">
             <div className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>Creator+</div>
-            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em" }} className="mb-1.5">
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em", color: ON_DARK }} className="mb-1.5">
               {creatorPlus ? t("cr.active") : t("cr.earn")}
             </div>
-            <div className="text-xs mb-4" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{creatorPlus ? t("cp.cancel") : t("cr.earnSub")}</div>
+            <div className="text-xs mb-4" style={{ color: onDark(50), fontFamily: F.b }}>{creatorPlus ? t("cp.cancel") : t("cr.earnSub")}</div>
             <motion.button whileTap={{ scale: 0.95 }} onClick={e => { e.stopPropagation(); onOpenCreatorPlus(); }} className="px-6 py-2.5 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}>
               {creatorPlus ? t("cr.manage") : t("cr.connect")}
             </motion.button>
@@ -876,11 +863,11 @@ export function ProfileScreen({ c2, userName, avatar, creatorPlus, onOpenBlend, 
           <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
             <div>
               <div className="text-[10px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "#a78bfa", fontFamily: F.m }}>{t("pr.july")}</div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em" }}>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: ON_DARK }}>
                 {t("pr.wrapped")}<span style={{ fontFamily: F.s, fontStyle: "italic", fontWeight: 500, fontSize: 18, color: "#c4b5fd" }}>{t("pr.month")}</span>
               </div>
             </div>
-            <ChevronRight size={20} style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }} />
+            <ChevronRight size={20} style={{ color: onDark(50) }} />
           </div>
         </TiltCard>
       </div>
