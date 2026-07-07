@@ -4,13 +4,14 @@ import {
   Volume2, Globe, Settings, Bell, Check, Download, X, Users, Music2,
   Zap, Radio, Moon, Dumbbell, Car, Brain, LogOut, TrendingUp, Wallet,
   Bot, Blend as BlendIcon, Crown, Trash2, FileAudio, Sun, Sparkles,
-  Trophy, Clock, Flame,
+  Trophy, Clock, Flame, Gift, UserPlus,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, PODCASTS, GENRE_TILES, MY_STATS, LEADERBOARD_PEERS, svgCover, ls, type Track, type Friend } from "./data";
-import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, ON_DARK, onDark, InteractiveChart } from "./lib";
+import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, PODCASTS, GENRE_TILES, LEADERBOARD_PEERS, svgCover, ls, type Track, type Friend } from "./data";
+import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
 import { useLang, type Lang } from "./i18n";
+import { lastNDays, type ActivityItem } from "./stats";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
 
@@ -142,26 +143,47 @@ function DiscoveryDeck({ onPlay }: { onPlay: (t: Track) => void }) {
 
 // ─── Главная ──────────────────────────────────────────────────────────────────
 
-const NOTIF_KEYS = [
-  { icon: Music2, key: "notif.1", time: ["12", "time.min"] },
-  { icon: Users,  key: "notif.2", time: ["1", "time.h"] },
-  { icon: Wallet, key: "notif.3", time: ["3", "time.h"] },
-];
+const ACTIVITY_ICONS: Record<string, typeof Music2> = {
+  "act.levelUp": Trophy, "act.streak": Flame,
+  "act.cpActivated": Crown, "act.cpCancelled": Crown, "act.cpResumed": Crown,
+  "act.donateSent": Gift, "act.withdrawDone": Wallet,
+  "act.plCreated": Music2, "act.plDeleted": Music2,
+  "cr.added": Upload, "dl.done": Download,
+};
 
-export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate, onOpenBlend, onOpenLive, onPlayWave, onOpenArtist, avatar }: {
+/** Компактная запись счётчика: 2400 → "2.4K" */
+export const fmtCount = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K` : String(n));
+
+/** Реальное относительное время из timestamp'а события */
+function relTimeParts(ts: number): [number, string] {
+  const mins = Math.max(1, Math.round((Date.now() - ts) / 60000));
+  if (mins < 60) return [mins, "time.min"];
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return [hours, "time.h"];
+  return [Math.round(hours / 24), "time.d"];
+}
+
+export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate, onOpenBlend, onOpenLive, onPlayWave, onOpenArtist, avatar, activity }: {
   onPlay: (t: Track) => void; currentTrack: Track; playing: boolean; progress: number; onNavigate: (tab: string) => void;
   onOpenBlend: (f: Friend) => void; onOpenLive: (f: Friend) => void; onPlayWave: () => void; onOpenArtist: (name: string) => void; avatar: string;
+  activity: ActivityItem[];
 }) {
   const { t, lang } = useLang();
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const waveActive = playing;
 
+  const inviteBlend = async () => {
+    const link = `https://myra.app/i/${genInviteCode()}`;
+    await copyText(link);
+    toast(t("bl.invited", link));
+  };
+
   const QUICK = [
     { label: t("home.liked"),  icon: Heart,      act: () => onNavigate("library") },
     { label: t("home.charts"), icon: TrendingUp, act: () => setSearchOpen(true) },
     { label: t("home.radio"),  icon: Radio,      act: onPlayWave },
-    { label: t("home.blend"),  icon: BlendIcon,  act: () => onOpenBlend(FRIENDS[0]) },
+    { label: t("home.blend"),  icon: BlendIcon,  act: () => (FRIENDS[0] ? onOpenBlend(FRIENDS[0]) : inviteBlend()) },
   ];
 
   return (
@@ -187,16 +209,20 @@ export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate
                 style={{ width: 296, background: "var(--panel)", backdropFilter: "blur(36px) saturate(1.8)", WebkitBackdropFilter: "blur(36px) saturate(1.8)", border: "1px solid color-mix(in srgb, var(--wash) 13%, transparent)", boxShadow: "0 24px 70px rgba(0,0,0,0.6)" }}
               >
                 <div className="px-4 py-3 text-[10px] tracking-[0.16em]" style={{ borderBottom: "1px solid color-mix(in srgb, var(--wash) 07%, transparent)", fontFamily: F.m, color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{t("home.notifs")}</div>
-                {NOTIF_KEYS.map((n, i) => {
-                  const Icon = n.icon;
+                {activity.length === 0 && (
+                  <div className="px-4 py-6 text-center text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("notif.empty")}</div>
+                )}
+                {activity.slice(0, 8).map(item => {
+                  const Icon = ACTIVITY_ICONS[item.textKey] ?? Bell;
+                  const [val, unitKey] = relTimeParts(item.time);
                   return (
-                    <div key={i} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => { setNotifOpen(false); toast(t(n.key)); }}>
+                    <div key={item.id} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setNotifOpen(false)}>
                       <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
                         <Icon size={14} style={{ color: currentTrack.c2 }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 85%, transparent)", fontFamily: F.b }}>{t(n.key)}</div>
-                        <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 32%, transparent)", fontFamily: F.m }}>{t("notif.ago", `${n.time[0]} ${t(n.time[1])}`)}</div>
+                        <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 85%, transparent)", fontFamily: F.b }}>{t(item.textKey, ...item.args)}</div>
+                        <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 32%, transparent)", fontFamily: F.m }}>{t("notif.ago", `${val} ${t(unitKey)}`)}</div>
                       </div>
                     </div>
                   );
@@ -302,6 +328,17 @@ export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate
       {/* Друзья слушают */}
       <div className="px-5 mb-8">
         <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("home.friends")}</h2>
+        {FRIENDS.length === 0 ? (
+          <button onClick={inviteBlend} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
+              <UserPlus size={15} style={{ color: currentTrack.c2 }} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("home.friendsEmpty")}</div>
+              <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("home.friendsEmptySub")}</div>
+            </div>
+          </button>
+        ) : (
         <div className="flex gap-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
           {FRIENDS.map(f => (
             <motion.div key={f.name} whileTap={{ scale: 0.94 }} className="flex-shrink-0 cursor-pointer text-center" style={{ width: 76 }} onClick={() => { onOpenLive(f); toast(t("home.withFriend", lang === "ru" ? f.inst : f.en, f.track.title)); }}>
@@ -320,6 +357,7 @@ export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate
             </motion.div>
           ))}
         </div>
+        )}
       </div>
 
       {/* Продолжить */}
@@ -463,11 +501,14 @@ export function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: 
 
 // ─── Рейтинг ──────────────────────────────────────────────────────────────────
 
-export const RatingScreen = React.memo(function RatingScreen({ c2, userName, avatar, onOpenPeer }: { c2: string; userName: string; avatar: string; onOpenPeer: (peer: typeof LEADERBOARD_PEERS[number]) => void }) {
+export const RatingScreen = React.memo(function RatingScreen({ c2, userName, avatar, level, minutesWeek, streak, onOpenPeer }: {
+  c2: string; userName: string; avatar: string; level: number; minutesWeek: number; streak: number;
+  onOpenPeer: (peer: typeof LEADERBOARD_PEERS[number]) => void;
+}) {
   const { t, lang } = useLang();
   const [metric, setMetric] = useState<"level" | "minutes" | "streak">("level");
 
-  const you = { name: userName, avatar, level: MY_STATS.level, minutesWeek: MY_STATS.minutesWeek, streak: MY_STATS.streak, you: true as const };
+  const you = { name: userName, avatar, level, minutesWeek, streak, you: true as const };
   const rows = [...LEADERBOARD_PEERS.map(p => ({ ...p, you: false as const })), you]
     .sort((a, b) => metric === "level" ? b.level - a.level : metric === "minutes" ? b.minutesWeek - a.minutesWeek : b.streak - a.streak);
 
@@ -485,6 +526,16 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
       <div className="px-5 pt-6 pb-4">
         <h1 style={{ fontFamily: F.d, fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em" }}>{t("nav.rating")}</h1>
       </div>
+
+      {LEADERBOARD_PEERS.length === 0 && (
+        <div className="mx-5 mb-5 px-4 py-3.5 rounded-2xl flex items-center gap-3" style={GLASS}>
+          <Users size={16} style={{ color: c2, flexShrink: 0 }} />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("rt.empty")}</div>
+            <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("rt.emptySub")}</div>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-1 mx-5 mb-6 p-1 rounded-full w-fit" style={GLASS}>
         {METRICS.map(m => {
@@ -691,18 +742,26 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
 
 // ─── Студия ───────────────────────────────────────────────────────────────────
 
-export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onAddFiles, onPlay }: {
+export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onAddFiles, onPlay, myPlaysByTrack, myPlaysByDay, balance, onWithdraw }: {
   c2: string; creatorPlus: boolean; onOpenCreatorPlus: () => void;
   onOpenStats: () => void; myTracks?: Track[]; onAddFiles: (files: FileList | File[]) => void; onPlay: (t: Track) => void;
+  myPlaysByTrack: Record<number, number>; myPlaysByDay: Record<string, number>;
+  balance: number; onWithdraw: (amt: number) => void;
 }) {
   const { t } = useLang();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [wdOpen, setWdOpen] = useState(false);
-  const [balance, setBalance] = useState(() => ls.get("balance", 1240));
 
-  const WEEK = [24, 38, 31, 52, 46, 71, 64];
   const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+  const week = useMemo(() => lastNDays(myPlaysByDay, 7), [myPlaysByDay]);
+  const prevWeek = useMemo(() => lastNDays(myPlaysByDay, 14).slice(0, 7).reduce((a, b) => a + b, 0), [myPlaysByDay]);
+  const weekTotal = week.reduce((a, b) => a + b, 0);
+  const trendPct = prevWeek > 0 ? Math.round(((weekTotal - prevWeek) / prevWeek) * 100) : null;
+  const topMyTracks = useMemo(
+    () => [...myTracks].sort((a, b) => (myPlaysByTrack[b.id] ?? 0) - (myPlaysByTrack[a.id] ?? 0)),
+    [myTracks, myPlaysByTrack],
+  );
 
   return (
     <Page>
@@ -724,20 +783,22 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="text-xs mb-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("cr.plays7")}</div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 26, letterSpacing: "-0.02em" }}>2 412</div>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 26, letterSpacing: "-0.02em" }}>{weekTotal}</div>
             </div>
-            <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold" style={{ background: "rgba(52,211,153,0.12)", color: "#34d399", fontFamily: F.m }}>
-              <TrendingUp size={12} /> +18%
-            </div>
+            {trendPct !== null && (
+              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold" style={{ background: trendPct >= 0 ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)", color: trendPct >= 0 ? "#34d399" : "#f87171", fontFamily: F.m }}>
+                <TrendingUp size={12} /> {trendPct >= 0 ? "+" : ""}{trendPct}%
+              </div>
+            )}
           </div>
-          <InteractiveChart data={WEEK} labels={WEEKDAYS} color={c2} height={72} markIndex={WEEK.length - 2} valueLabel={v => t("cr.plays", v)} />
+          <InteractiveChart data={week} labels={WEEKDAYS} color={c2} height={72} markIndex={week.length - 1} valueLabel={v => t("cr.plays", v)} />
           <div className="flex justify-between mt-1 text-[9px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>
             {WEEKDAYS.map(d => <span key={d}>{d}</span>)}
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2.5">
-          {[["18", t("cr.fans"), Users, onOpenStats], [balance.toLocaleString("ru-RU") + "₽", t("cr.donations"), Wallet, () => setWdOpen(true)], [String(3 + myTracks.length), t("cr.releases"), Music2, onOpenStats]].map(([v, l, Icon, act]: any) => (
+          {[["0", t("cr.fans"), Users, onOpenStats], [balance.toLocaleString("ru-RU") + "₽", t("cr.donations"), Wallet, () => setWdOpen(true)], [String(myTracks.length), t("cr.releases"), Music2, onOpenStats]].map(([v, l, Icon, act]: any) => (
             <motion.div key={l} whileTap={{ scale: 0.95 }} onClick={act} className="rounded-[20px] p-4 cursor-pointer" style={GLASS}>
               <Icon size={15} style={{ color: c2 }} className="mb-2" />
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 17, letterSpacing: "-0.02em" }}>{v}</div>
@@ -797,14 +858,19 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
       <div className="px-5 mb-7">
         <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("cr.myReleases")}</h2>
-        {TRACKS.slice(0, 3).map(tr => (
-          <div key={tr.id} className="flex items-center gap-3 p-3 rounded-2xl mb-2 cursor-pointer hover:bg-white/5 transition-colors" style={{ background: "color-mix(in srgb, var(--wash) 03%, transparent)" }}>
+        {topMyTracks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center rounded-2xl" style={{ background: "color-mix(in srgb, var(--wash) 03%, transparent)" }}>
+            <Music2 size={24} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)" }} />
+            <div className="mt-3 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("cr.releasesEmpty")}</div>
+          </div>
+        ) : topMyTracks.map(tr => (
+          <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-3 rounded-2xl mb-2 cursor-pointer hover:bg-white/5 transition-colors" style={{ background: "color-mix(in srgb, var(--wash) 03%, transparent)" }}>
             <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
               <img src={tr.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.75)" }} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-              <div className="text-[10px] mt-1" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("cr.plays", tr.plays)}</div>
+              <div className="text-[10px] mt-1" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("cr.plays", myPlaysByTrack[tr.id] ?? 0)}</div>
             </div>
             <BarChart3 size={16} style={{ color: tr.c2 }} />
           </div>
@@ -828,15 +894,15 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
         </TiltCard>
       </div>
 
-      <WithdrawSheet open={wdOpen} onClose={() => setWdOpen(false)} balance={balance} c2={c2} onDone={amt => { const nb = balance - amt; setBalance(nb); ls.set("balance", nb); }} />
+      <WithdrawSheet open={wdOpen} onClose={() => setWdOpen(false)} balance={balance} c2={c2} onDone={onWithdraw} />
     </Page>
   );
 });
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, avatar, creatorPlus, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade }: {
-  c2: string; userName: string; avatar: string; creatorPlus: boolean;
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade }: {
+  c2: string; userName: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
   onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onLogout: () => void;
   crossfade: boolean; onToggleCrossfade: () => void;
 }) {
@@ -863,7 +929,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, a
         <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{userName}</div>
         <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>@alex_vibe · Creator{creatorPlus ? "+" : ""}</div>
         <div className="flex justify-center gap-10 mt-6">
-          {[["128", t("pr.follows")], ["34", t("pr.fans")], ["2.4K", t("pr.plays")]].map(([v, l]) => (
+          {[[String(follows), t("pr.follows")], ["0", t("pr.fans")], [fmtCount(totalPlays), t("pr.plays")]].map(([v, l]) => (
             <div key={l} className="text-center">
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 19, color: c2, letterSpacing: "-0.02em" }}>{v}</div>
               <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{l}</div>
@@ -929,7 +995,21 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, a
           <AnimatePresence>
             {blendOpen && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
-                {FRIENDS.slice(0, 2).map(f => (
+                {FRIENDS.length === 0 ? (
+                  <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 06%, transparent)" }}>
+                    <div className="flex-1">
+                      <div className="text-xs font-semibold" style={{ fontFamily: F.b }}>{t("pr.blendEmpty")}</div>
+                      <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("home.friendsEmptySub")}</div>
+                    </div>
+                    <button
+                      onClick={async () => { const link = `https://myra.app/i/${genInviteCode()}`; await copyText(link); toast(t("bl.invited", link)); }}
+                      className="text-[10px] px-2.5 py-1.5 rounded-full flex-shrink-0"
+                      style={{ background: `${c2}1e`, color: c2, fontFamily: F.b }}
+                    >
+                      {t("bl.invite")}
+                    </button>
+                  </div>
+                ) : FRIENDS.slice(0, 2).map(f => (
                   <div key={f.name} className="flex items-center gap-3 px-4 py-3" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 06%, transparent)" }}>
                     <img src={f.img} alt="" className="w-8 h-8 rounded-full object-cover" />
                     <div className="flex-1">

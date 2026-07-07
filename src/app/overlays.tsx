@@ -3,13 +3,14 @@ import {
   Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight, ChevronLeft, ArrowRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
-  Zap, LineChart, Headset, TrendingUp,
+  Zap, LineChart, Headset, TrendingUp, Users,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
+import { monthDays } from "./stats";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
 
@@ -41,10 +42,11 @@ function FakeQR({ seed }: { seed: number }) {
 
 // ─── Страница артиста ─────────────────────────────────────────────────────────
 
-export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, followed, onFollow, onOpenArtist, onOpenAlbum }: {
+export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, followed, onFollow, onOpenArtist, onOpenAlbum, onDonate }: {
   name: string | null; onClose: () => void; onPlay: (t: Track) => void;
   currentTrack: Track; playing: boolean;
   followed: Set<string>; onFollow: (name: string) => void; onOpenArtist: (name: string) => void; onOpenAlbum: (album: string) => void;
+  onDonate?: (artistName: string, amount: number) => void;
 }) {
   const { t } = useLang();
   const [donateOpen, setDonateOpen] = useState(false);
@@ -173,6 +175,7 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
                             setProcessing(false);
                             setStage("sent");
                             toast.success(t("don.sent", finalAmount, artist.name));
+                            onDonate?.(artist.name, finalAmount);
                             // Донат можно повторить: форма возвращается сама, без ручного закрытия
                             setTimeout(() => setStage("pick"), 1600);
                           }, 1300);
@@ -563,9 +566,10 @@ function BlendTracks({ ids, onPlay, currentTrack, playing, c2 }: {
 
 // ─── Аккаунт ──────────────────────────────────────────────────────────────────
 
-export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport, onOpenSupport }: {
+export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport, onOpenSupport, level, xpIntoLevel, xpForLevel, minutesWeek, streak, topGenre }: {
   open: boolean; onClose: () => void; userName: string; onRename: (n: string) => void;
   avatarIdx: number; onAvatar: (i: number) => void; customAvatar: string | null; onAvatarFile: (dataUrl: string) => void; onDeleted: () => void; onOpenImport: () => void; onOpenSupport: () => void;
+  level: number; xpIntoLevel: number; xpForLevel: number; minutesWeek: number; streak: number; topGenre: string | null;
 }) {
   const { t } = useLang();
   const [name, setName] = useState(userName);
@@ -588,14 +592,14 @@ export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onA
             <Aurora c2="#8b5cf6" opacity={0.35} />
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold" style={{ fontFamily: F.d, letterSpacing: "-0.01em" }}>{t("acc.level", 3)}</span>
-                <span className="text-[10px]" style={{ fontFamily: F.m, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>1 240 / 2 000 XP</span>
+                <span className="text-xs font-bold" style={{ fontFamily: F.d, letterSpacing: "-0.01em" }}>{t("acc.level", level)}</span>
+                <span className="text-[10px]" style={{ fontFamily: F.m, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{xpIntoLevel} / {xpForLevel} XP</span>
               </div>
               <div className="rounded-full overflow-hidden mb-3" style={{ height: 6, background: "color-mix(in srgb, var(--wash) 10%, transparent)" }}>
-                <motion.div initial={{ width: 0 }} animate={{ width: "62%" }} transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }} className="h-full rounded-full" style={{ background: "linear-gradient(90deg, #8b5cf6, #c4b5fd)" }} />
+                <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, (xpIntoLevel / xpForLevel) * 100)}%` }} transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }} className="h-full rounded-full" style={{ background: "linear-gradient(90deg, #8b5cf6, #c4b5fd)" }} />
               </div>
               <div className="flex gap-2">
-                {[["247", t("acc.stMin")], ["21", t("acc.stStreak")], ["Synthwave", t("acc.stGenre")]].map(([v, l]) => (
+                {[[String(minutesWeek), t("acc.stMin")], [String(streak), t("acc.stStreak")], [topGenre ?? "—", t("acc.stGenre")]].map(([v, l]) => (
                   <div key={l} className="flex-1 rounded-xl px-2 py-2 text-center" style={{ background: "color-mix(in srgb, var(--wash) 06%, transparent)" }}>
                     <div className="text-xs font-bold truncate" style={{ fontFamily: F.d, color: "#a78bfa" }}>{v}</div>
                     <div className="text-[9px] mt-0.5 truncate" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{l}</div>
@@ -964,7 +968,10 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
 
 // ─── Детальная аналитика студии ───────────────────────────────────────────────
 
-export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose: () => void; c2: string }) {
+export function StudioStatsSheet({ open, onClose, c2, myTracks, myPlaysByTrack, myPlaysByDay, balance }: {
+  open: boolean; onClose: () => void; c2: string;
+  myTracks: Track[]; myPlaysByTrack: Record<number, number>; myPlaysByDay: Record<string, number>; balance: number;
+}) {
   const { t, lang } = useLang();
   const [monthOffset, setMonthOffset] = useState(0);
 
@@ -974,25 +981,14 @@ export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose
     d.setMonth(d.getMonth() + monthOffset);
     return d;
   }, [monthOffset]);
-  const numDays = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
   const monthLabel = viewDate.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { month: "long", year: "numeric" });
-  // Стабильный сид на месяц: те же цифры при возврате к уже просмотренному месяцу
   const seed = viewDate.getFullYear() * 12 + viewDate.getMonth();
 
-  const days = useMemo(() => Array.from({ length: numDays }, (_, i) =>
-    Math.max(6, Math.round(42 + Math.abs(Math.sin(i * 0.7 + seed) * 34 + Math.sin(i * 0.23 + seed * 1.7) * 21) + Math.sin(seed * 3.1 + i * 0.05) * 12))
-  ), [numDays, seed]);
-
-  const TOP = [
-    { tr: ALL_TRACKS[0], plays: "1 204", delta: "+22%", up: true },
-    { tr: ALL_TRACKS[2], plays: "688",   delta: "+9%",  up: true },
-    { tr: ALL_TRACKS[5], plays: "342",   delta: "-3%",  up: false },
-  ];
-  const SOURCES: [string, number, string][] = [
-    [t("st.srcWave"), 46, "#8b5cf6"], [t("st.srcSearch"), 27, "#34d399"],
-    [t("st.srcProfile"), 17, "#fb923c"], [t("st.srcBlend"), 10, "#f472b6"],
-  ];
-  const CITIES: [string, number][] = [["Москва", 34], ["Санкт-Петербург", 21], ["Алматы", 12], ["Берлин", 8]];
+  const days = useMemo(() => monthDays(myPlaysByDay, viewDate.getFullYear(), viewDate.getMonth()), [myPlaysByDay, viewDate]);
+  const topMyTracks = useMemo(
+    () => [...myTracks].filter(tr => (myPlaysByTrack[tr.id] ?? 0) > 0).sort((a, b) => (myPlaysByTrack[b.id] ?? 0) - (myPlaysByTrack[a.id] ?? 0)).slice(0, 5),
+    [myTracks, myPlaysByTrack],
+  );
 
   return (
     <Sheet open={open} onClose={onClose} z={62}>
@@ -1021,56 +1017,30 @@ export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose
         {/* Топ треков */}
         <div className="rounded-[20px] p-4 mb-4" style={GLASS}>
           <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.topTracks")}</div>
-          {TOP.map(({ tr, plays, delta, up }) => (
+          {topMyTracks.length === 0 ? (
+            <div className="text-xs py-2" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("cr.releasesEmpty")}</div>
+          ) : topMyTracks.map(tr => (
             <div key={tr.id} className="flex items-center gap-3 py-2">
               <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0">
                 <img src={tr.img} alt="" className="w-full h-full object-cover" />
               </div>
               <div className="flex-1 min-w-0 text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-              <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.m }}>{plays}</div>
-              <div className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold" style={{ fontFamily: F.m, color: up ? "#34d399" : "#f87171", background: up ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)" }}>{delta}</div>
+              <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.m }}>{t("cr.plays", myPlaysByTrack[tr.id] ?? 0)}</div>
             </div>
           ))}
         </div>
 
-        {/* Источники */}
-        <div className="rounded-[20px] p-4 mb-4" style={GLASS}>
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.sources")}</div>
-          <div className="flex h-2.5 rounded-full overflow-hidden mb-3">
-            {SOURCES.map(([label, v, c]) => <div key={label} style={{ width: `${v}%`, background: c }} />)}
-          </div>
-          <div className="grid grid-cols-2 gap-y-1.5 gap-x-3">
-            {SOURCES.map(([label, v, c]) => (
-              <div key={label} className="flex items-center gap-2 text-xs" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 65%, transparent)" }}>
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c }} />
-                <span className="truncate">{label}</span>
-                <span className="ml-auto" style={{ fontFamily: F.m, color: "color-mix(in srgb, var(--fg) 40%, transparent)" }}>{v}%</span>
-              </div>
-            ))}
-          </div>
+        {/* Аудитория — источники и города появятся, когда будут реальные слушатели */}
+        <div className="rounded-[20px] p-5 mb-4 text-center" style={GLASS}>
+          <Users size={20} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} className="mx-auto mb-2" />
+          <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("st.audienceEmpty")}</div>
+          <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("st.audienceEmptySub")}</div>
         </div>
 
-        {/* Города + донаты */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-[20px] p-4" style={GLASS}>
-            <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.cities")}</div>
-            {CITIES.map(([city, v]) => (
-              <div key={city} className="mb-2.5">
-                <div className="flex justify-between text-xs mb-1" style={{ fontFamily: F.b }}>
-                  <span style={{ color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{city}</span>
-                  <span style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{v}%</span>
-                </div>
-                <div className="h-1.5 rounded-full" style={{ background: "color-mix(in srgb, var(--wash) 08%, transparent)" }}>
-                  <div className="h-full rounded-full" style={{ width: `${v * 2.5}%`, background: `linear-gradient(90deg, ${c2}, ${c2}66)` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="rounded-[20px] p-4 flex flex-col justify-center" style={GLASS}>
-            <div className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.donations")}</div>
-            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.03em", color: c2 }}>1 240₽</div>
-            <div className="flex items-center gap-1 mt-1 text-xs font-semibold" style={{ color: "#34d399", fontFamily: F.m }}>+38%</div>
-          </div>
+        {/* Баланс */}
+        <div className="rounded-[20px] p-4" style={GLASS}>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.donations")}</div>
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.03em", color: c2 }}>{balance.toLocaleString("ru-RU")}₽</div>
         </div>
       </div>
     </Sheet>

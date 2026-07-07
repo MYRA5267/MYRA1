@@ -6,6 +6,11 @@ import { Toaster, toast } from "sonner";
 import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, LEADERBOARD_PEERS, type Track, type Friend, type Playlist } from "./data";
 import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ON_DARK, onDark, type ThemeName } from "./lib";
 import { smartNext, pushHistory } from "./smart";
+import {
+  loadStats, saveStats, touchDailyStreak, addListenSeconds, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
+  loadActivity, pushActivity, loadMyPlays, logMyTrackPlay, loadTotalPlays, bumpTotalPlays,
+  type ProfileStats, type ActivityItem, type MyPlays,
+} from "./stats";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow } from "./auth";
@@ -88,9 +93,61 @@ function AppInner() {
   const allPlaylists = useMemo(() => [...customPls, ...PLAYLISTS], [customPls]);
   const customPlIds = useMemo(() => new Set(customPls.map(p => p.id)), [customPls]);
 
+  // Реальная статистика аккаунта — стартует с нуля и растёт по мере использования
+  const [stats, setStats] = useState<ProfileStats>(() => loadStats());
+  const [activity, setActivity] = useState<ActivityItem[]>(() => loadActivity());
+  const [myPlays, setMyPlays] = useState<MyPlays>(() => loadMyPlays());
+  const [totalPlays, setTotalPlays] = useState(() => loadTotalPlays());
+  const [balance, setBalance] = useState(() => ls.get("balance", 0));
+
+  const logActivity = useCallback((key: string, ...args: (string | number)[]) => {
+    setActivity(pushActivity(key, ...args));
+  }, []);
+
+  const activateCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpActivated"); }, [logActivity]);
+  const cancelCreatorPlusSub = useCallback(() => { setCp("grace"); logActivity("act.cpCancelled"); }, [logActivity]);
+  const resumeCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpResumed"); }, [logActivity]);
+
+  // Серия дней подряд — считаем один раз при заходе в приложение
+  useEffect(() => {
+    setStats(prev => {
+      const touched = touchDailyStreak(prev);
+      if (touched.streak !== prev.streak && touched.streak > 1) logActivity("act.streak", touched.streak);
+      return touched;
+    });
+  }, [logActivity]);
+
+  useEffect(() => { saveStats(stats); }, [stats]);
+
+  // Уведомление о новом уровне — реагируем на реальный прирост XP от прослушивания
+  const prevLevelRef = useRef<number | null>(null);
+  useEffect(() => {
+    const lvl = levelInfo(xpOf(stats)).level;
+    if (prevLevelRef.current !== null && lvl > prevLevelRef.current) {
+      logActivity("act.levelUp", lvl);
+      toast.success(t("act.levelUp", lvl));
+    }
+    prevLevelRef.current = lvl;
+  }, [stats, logActivity, t]);
+
+  const withdraw = useCallback((amt: number) => {
+    setBalance(b => { const nb = b - amt; ls.set("balance", nb); return nb; });
+    logActivity("act.withdrawDone", amt);
+  }, [logActivity]);
+
   const loadedRef = useRef(false);
   const nextRef = useRef<() => void>(() => {});
   const audio = useAudio(() => nextRef.current(), () => fadeRef.current);
+
+  // Реальное время прослушивания — копится, пока реально играет музыка
+  useEffect(() => {
+    if (!audio.playing) return;
+    const TICK = 5;
+    const iv = setInterval(() => {
+      setStats(prev => addListenSeconds(prev, TICK, currentTrack.genre));
+    }, TICK * 1000);
+    return () => clearInterval(iv);
+  }, [audio.playing, currentTrack.genre]);
 
   // Скачанные для офлайна треки каталога
   useEffect(() => {
@@ -123,6 +180,12 @@ function AppInner() {
   downloadsRef.current = downloads;
   const resolveUrl = useCallback((tr: Track) => downloadsRef.current.get(tr.id) ?? tr.url, []);
 
+  // Реальный счётчик "начал слушать трек" — для профиля и (если это свой трек) студии
+  const registerPlay = useCallback((tr: Track) => {
+    setTotalPlays(bumpTotalPlays());
+    if (tr.local) setMyPlays(logMyTrackPlay(tr.id));
+  }, []);
+
   const playTrack = useCallback((tr: Track) => {
     setCurrentTrack(prev => {
       if (prev.id === tr.id && loadedRef.current) {
@@ -132,9 +195,10 @@ function AppInner() {
       loadedRef.current = true;
       audio.load(resolveUrl(tr));
       pushHistory(tr.id);
+      registerPlay(tr);
       return tr;
     });
-  }, [audio, resolveUrl]);
+  }, [audio, resolveUrl, registerPlay]);
 
   const togglePlay = useCallback(() => {
     if (!loadedRef.current) {
@@ -158,9 +222,10 @@ function AppInner() {
       loadedRef.current = true;
       audio.load(resolveUrl(next));
       pushHistory(next.id);
+      registerPlay(next);
       return next;
     });
-  }, [audio, resolveUrl]);
+  }, [audio, resolveUrl, registerPlay]);
 
   const handleNext = useCallback(() => step(1), [step]);
   const handlePrev = useCallback(() => step(-1), [step]);
@@ -175,10 +240,11 @@ function AppInner() {
       loadedRef.current = true;
       audio.load(resolveUrl(track));
       pushHistory(track.id);
+      registerPlay(track);
       if (!silent) toast(`MYRA AI · ${track.title} — ${reason}`);
       return track;
     });
-  }, [audio, resolveUrl]);
+  }, [audio, resolveUrl, registerPlay]);
 
   // Загрузка трека для офлайна
   const downloadTrack = useCallback(async (tr: Track) => {
@@ -198,23 +264,31 @@ function AppInner() {
       await saveDownload(tr.id, blob).catch(() => {});
       setDownloads(prev => new Map(prev).set(tr.id, URL.createObjectURL(blob)));
       toast.success(t("dl.done", tr.title));
+      logActivity("dl.done", tr.title);
     } catch {
       toast(t("dl.fail"));
     }
-  }, [t]);
+  }, [t, logActivity]);
 
   // Свои плейлисты (создание + импорт)
   const createPlaylist = useCallback((name: string, trackIds: number[]) => {
     const pl: Playlist = { id: "u" + Date.now(), name, img: svgCover("#12083a", "#8b5cf6", Date.now() % 97), trackIds };
     setCustomPls(prev => { const next = [pl, ...prev]; ls.set("customPls", next); return next; });
+    logActivity("act.plCreated", name);
     return pl;
-  }, []);
+  }, [logActivity]);
 
   const deletePlaylist = useCallback((id: string) => {
-    setCustomPls(prev => { const next = prev.filter(p => p.id !== id); ls.set("customPls", next); return next; });
+    setCustomPls(prev => {
+      const pl = prev.find(p => p.id === id);
+      const next = prev.filter(p => p.id !== id);
+      ls.set("customPls", next);
+      if (pl) logActivity("act.plDeleted", pl.name);
+      return next;
+    });
     setPlaylistId(cur => (cur === id ? null : cur));
     toast(t("lib.plDeleted"));
-  }, [t]);
+  }, [t, logActivity]);
 
   const handleCreatePlaylist = useCallback((name: string) => { createPlaylist(name, []); }, [createPlaylist]);
 
@@ -235,7 +309,8 @@ function AppInner() {
     }
     setMyTracks(prev => [...added, ...prev]);
     toast(t("cr.added", added.length));
-  }, [userName, t]);
+    logActivity("cr.added", added.length);
+  }, [userName, t, logActivity]);
 
   const removeLocal = useCallback((id: number) => {
     setMyTracks(prev => prev.filter(tr => tr.id !== id));
@@ -340,13 +415,34 @@ function AppInner() {
 
   const handleLogout = useCallback(() => {
     audio.pause();
+    // Чистим и офлайн-хранилище (IndexedDB), не только localStorage —
+    // иначе после входа в новый аккаунт старые файлы всё ещё будут тут
+    myTracks.forEach(tr => deleteLocalTrack(tr.id).catch(() => {}));
+    downloads.forEach((_url, id) => deleteDownload(id).catch(() => {}));
     ls.clear();
     setOnboarded(false);
     setTab("home");
     setPlayerOpen(false);
     setAccountOpen(false);
+    // Полный сброс в памяти — новый аккаунт должен быть по-настоящему пустым,
+    // а не просто выглядеть так до следующей перезагрузки страницы
+    setLikedIds(new Set());
+    setFollowed(new Set());
+    setCustomPls([]);
+    setMyTracks([]);
+    setDownloads(new Map());
+    setPlOrders({});
+    setCpStatus("none");
+    setCustomAvatar(null);
+    setAvatarIdx(0);
+    setStats(touchDailyStreak(loadStats()));
+    setActivity([]);
+    setMyPlays({ byTrack: {}, byDay: {} });
+    setTotalPlays(0);
+    setBalance(0);
+    prevLevelRef.current = null;
     toast(t("pr.loggedOut"));
-  }, [audio, t]);
+  }, [audio, t, myTracks, downloads]);
 
   const handleDeleteAccount = useCallback(() => {
     handleLogout();
@@ -413,6 +509,12 @@ function AppInner() {
     return themedRoot(<OnboardingFlow onDone={finishOnboarding} />);
   }
 
+  // Производные значения реальной статистики — общий источник для рейтинга/профиля/аккаунта
+  const xp = xpOf(stats);
+  const lvl = levelInfo(xp);
+  const statMinutesWeek = minutesOf(weekSeconds(stats));
+  const statTopGenre = topGenre(stats);
+
   const screens: Record<Tab, React.ReactNode> = {
     home: (
       <HomeScreen
@@ -426,9 +528,20 @@ function AppInner() {
         onPlayWave={() => playWave()}
         onOpenArtist={openArtist}
         avatar={avatar}
+        activity={activity}
       />
     ),
-    rating: <RatingScreen c2={currentTrack.c2} userName={userName} avatar={avatar} onOpenPeer={setPeerProfile} />,
+    rating: (
+      <RatingScreen
+        c2={currentTrack.c2}
+        userName={userName}
+        avatar={avatar}
+        level={lvl.level}
+        minutesWeek={statMinutesWeek}
+        streak={stats.streak}
+        onOpenPeer={setPeerProfile}
+      />
+    ),
     library: (
       <LibraryScreen
         onPlay={playTrack}
@@ -456,6 +569,10 @@ function AppInner() {
         myTracks={myTracks}
         onAddFiles={addFiles}
         onPlay={playTrack}
+        myPlaysByTrack={myPlays.byTrack}
+        myPlaysByDay={myPlays.byDay}
+        balance={balance}
+        onWithdraw={withdraw}
       />
     ),
     profile: (
@@ -464,6 +581,8 @@ function AppInner() {
         userName={userName}
         avatar={avatar}
         creatorPlus={creatorPlus}
+        follows={followed.size}
+        totalPlays={totalPlays}
         onOpenBlend={setBlendFriend}
         onOpenAccount={openAccount}
         onOpenWrapped={openWrapped}
@@ -600,6 +719,7 @@ function AppInner() {
         onFollow={toggleFollow}
         onOpenArtist={openArtist}
         onOpenAlbum={openAlbum}
+        onDonate={(name, amt) => logActivity("act.donateSent", amt, name)}
       />
 
       <AlbumSheet
@@ -645,6 +765,12 @@ function AppInner() {
         onDeleted={handleDeleteAccount}
         onOpenImport={() => setImportOpen(true)}
         onOpenSupport={() => setSupportOpen(true)}
+        level={lvl.level}
+        xpIntoLevel={lvl.xpIntoLevel}
+        xpForLevel={lvl.xpForLevel}
+        minutesWeek={statMinutesWeek}
+        streak={stats.streak}
+        topGenre={statTopGenre}
       />
 
       <ImportSheet
@@ -659,12 +785,20 @@ function AppInner() {
         open={creatorPlusOpen}
         onClose={() => setCreatorPlusOpen(false)}
         status={cpStatus}
-        onActivate={() => setCp("active")}
-        onCancelSub={() => setCp("grace")}
-        onResume={() => setCp("active")}
+        onActivate={activateCreatorPlus}
+        onCancelSub={cancelCreatorPlusSub}
+        onResume={resumeCreatorPlus}
       />
 
-      <StudioStatsSheet open={statsOpen} onClose={() => setStatsOpen(false)} c2={currentTrack.c2} />
+      <StudioStatsSheet
+        open={statsOpen}
+        onClose={() => setStatsOpen(false)}
+        c2={currentTrack.c2}
+        myTracks={myTracks}
+        myPlaysByTrack={myPlays.byTrack}
+        myPlaysByDay={myPlays.byDay}
+        balance={balance}
+      />
 
       <LiveSessionSheet
         friend={liveFriend}
