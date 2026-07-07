@@ -8,6 +8,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   // Навигация
   "nav.home":    { ru: "Главная",   en: "Home" },
   "nav.browse":  { ru: "Обзор",     en: "Browse" },
+  "nav.rating":  { ru: "Рейтинг",   en: "Rating" },
   "nav.library": { ru: "Медиатека", en: "Library" },
   "nav.creator": { ru: "Студия",    en: "Studio" },
   "nav.profile": { ru: "Профиль",   en: "Profile" },
@@ -60,6 +61,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   "lib.plToast":   { ru: "Плейлист «{0}» — {1} треков", en: "Playlist “{0}” — {1} tracks" },
   "lib.podToast":  { ru: "«{0}» — продолжить с {1}%", en: "“{0}” — continue from {1}%" },
   "lib.listened":  { ru: "{0}% прослушано", en: "{0}% listened" },
+  "lib.empty":     { ru: "Пока пусто — нажми ♥ на треке, чтобы сохранить его здесь", en: "Nothing yet — tap ♥ on a track to save it here" },
 
   // Студия
   "cr.creator":    { ru: "Creator", en: "Creator" },
@@ -158,7 +160,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   "live.you":       { ru: "Ты", en: "You" },
   "live.upNext":    { ru: "Дальше у {0}", en: "Up next from {0}" },
   "live.invite":    { ru: "Позвать друзей", en: "Invite friends" },
-  "live.invited":   { ru: "Ссылка на сессию скопирована", en: "Session link copied" },
+  "live.invited":   { ru: "Ссылка на сессию скопирована: {0}", en: "Session link copied: {0}" },
   "live.leave":     { ru: "Выйти из сессии", en: "Leave session" },
   "live.left":      { ru: "Ты вышел из совместного прослушивания", en: "You left the session" },
   "live.react":     { ru: "Отправь реакцию — {0} увидит её сразу", en: "Send a reaction — {0} sees it instantly" },
@@ -225,7 +227,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   "bl.playlist": { ru: "Общий плейлист", en: "Shared playlist" },
   "bl.updates":  { ru: "обновляется каждую пятницу", en: "updates every Friday" },
   "bl.invite":   { ru: "Пригласить ещё друга", en: "Invite another friend" },
-  "bl.invited":  { ru: "Ссылка-приглашение скопирована", en: "Invite link copied" },
+  "bl.invited":  { ru: "Ссылка скопирована: {0}", en: "Link copied: {0}" },
   "bl.updated":  { ru: "Blend с {0} обновлён", en: "Blend with {0} refreshed" },
   "bl.refresh":  { ru: "Обновить", en: "Refresh" },
 
@@ -350,6 +352,31 @@ const STR: Record<string, { ru: string; en: string }> = {
   "au.created":     { ru: "Аккаунт создан. Добро пожаловать в MYRA!", en: "Account created. Welcome to MYRA!" },
   "pr.loggedOut":   { ru: "Ты вышел из аккаунта", en: "You've been logged out" },
   "acc.deleted":    { ru: "Аккаунт удалён", en: "Account deleted" },
+
+  // Рейтинг
+  "rt.level":       { ru: "Уровень", en: "Level" },
+  "rt.minutes":     { ru: "Минуты", en: "Minutes" },
+  "rt.streak":      { ru: "Дни", en: "Days" },
+  "rt.you":         { ru: "ты", en: "you" },
+  "rt.lvlLabel":    { ru: "{0} уровень", en: "level {0}" },
+  "rt.minLabel":    { ru: "{0} мин/нед", en: "{0} min/wk" },
+  "rt.streakLabel": { ru: "{0} дней подряд", en: "{0}-day streak" },
+
+  // Поиск с главной
+  "home.search":       { ru: "Треки, артисты, жанры…", en: "Tracks, artists, genres…" },
+
+  // Поддержка
+  "sup.title":   { ru: "Поддержка", en: "Support" },
+  "sup.sub":     { ru: "Опиши проблему — ответим в течение часа", en: "Describe the issue — we reply within an hour" },
+  "sup.topic":   { ru: "Тема", en: "Topic" },
+  "sup.tBug":    { ru: "Баг", en: "Bug" },
+  "sup.tBilling":{ ru: "Оплата", en: "Billing" },
+  "sup.tIdea":   { ru: "Идея", en: "Idea" },
+  "sup.tOther":  { ru: "Другое", en: "Other" },
+  "sup.msg":     { ru: "Опиши, что случилось…", en: "Describe what happened…" },
+  "sup.send":    { ru: "Отправить", en: "Send" },
+  "sup.sent":    { ru: "Открываем почту — просто нажми «Отправить» в приложении", en: "Opening your mail app — just hit send" },
+  "sup.empty":   { ru: "Напиши хотя бы пару слов", en: "Write at least a couple of words" },
 };
 
 interface LangCtxT {

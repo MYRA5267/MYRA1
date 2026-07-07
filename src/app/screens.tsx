@@ -1,17 +1,48 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Play, Pause, Heart, Search, Mic2, Upload, BarChart3, Plus, ChevronRight,
   Volume2, Globe, Settings, Bell, Check, Download, X, Users, Music2,
   Zap, Radio, Moon, Dumbbell, Car, Brain, LogOut, TrendingUp, Wallet,
   Bot, Blend as BlendIcon, Crown, Trash2, FileAudio, Sun, Sparkles,
+  Trophy, Clock, Flame,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, PODCASTS, GENRE_TILES, svgCover, ls, type Track, type Friend } from "./data";
+import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, PODCASTS, GENRE_TILES, MY_STATS, LEADERBOARD_PEERS, svgCover, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme } from "./lib";
 import { useLang, type Lang } from "./i18n";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
+
+/** Содержимое верхней карточки — ремоунтится по track.id, поэтому цвет/текст
+    следующего трека плавно проявляются вместе, а не подменяются мгновенно */
+function DeckCardContent({ track }: { track: Track }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    setShow(false);
+    const raf = requestAnimationFrame(() => setShow(true));
+    return () => cancelAnimationFrame(raf);
+  }, [track.id]);
+
+  return (
+    <div
+      className="absolute inset-0"
+      style={{
+        opacity: show ? 1 : 0,
+        transform: show ? "translateY(0) scale(1)" : "translateY(14px) scale(0.97)",
+        transition: "opacity 0.45s cubic-bezier(0.22,1,0.36,1), transform 0.45s cubic-bezier(0.22,1,0.36,1)",
+      }}
+    >
+      <img src={track.img} alt={track.title} className="w-full h-full object-cover" />
+      <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${track.c1}f0 0%, transparent 55%)` }} />
+      <div className="absolute bottom-0 left-0 right-0 p-5">
+        <div className="text-[10px] uppercase tracking-[0.18em] mb-1.5" style={{ color: track.c2, fontFamily: F.m, transition: "color 0.3s" }}>{track.genre}</div>
+        <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, lineHeight: 1.15, letterSpacing: "-0.02em" }}>{track.title}</div>
+        <div className="text-sm mt-1" style={{ color: "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>{track.artist} · {track.plays}</div>
+      </div>
+    </div>
+  );
+}
 
 function DiscoveryDeck({ onPlay }: { onPlay: (t: Track) => void }) {
   const { t } = useLang();
@@ -77,8 +108,7 @@ function DiscoveryDeck({ onPlay }: { onPlay: (t: Track) => void }) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        <img src={current.img} alt={current.title} className="w-full h-full object-cover" />
-        <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${current.c1}f0 0%, transparent 55%)` }} />
+        <DeckCardContent key={current.id} track={current} />
 
         {drag.x > 30 && (
           <div className="absolute top-6 left-6 px-4 py-2 rounded-full text-sm font-semibold" style={{ ...GLASS, color: "#34d399", border: "1px solid rgba(52,211,153,0.4)" }}>
@@ -90,12 +120,6 @@ function DiscoveryDeck({ onPlay }: { onPlay: (t: Track) => void }) {
             {t("deck.skip")}
           </div>
         )}
-
-        <div className="absolute bottom-0 left-0 right-0 p-5">
-          <div className="text-[10px] uppercase tracking-[0.18em] mb-1.5" style={{ color: current.c2, fontFamily: F.m }}>{current.genre}</div>
-          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, lineHeight: 1.15, letterSpacing: "-0.02em" }}>{current.title}</div>
-          <div className="text-sm mt-1" style={{ color: "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>{current.artist} · {current.plays}</div>
-        </div>
       </div>
 
       <div className="absolute bottom-0 inset-x-0 flex items-center justify-center gap-5" style={{ zIndex: 20 }}>
@@ -121,12 +145,13 @@ const NOTIF_KEYS = [
   { icon: Wallet, key: "notif.3", time: ["3", "time.h"] },
 ];
 
-export function HomeScreen({ onPlay, currentTrack, playing, onNavigate, onOpenBlend, onOpenLive, onPlayWave, avatar }: {
-  onPlay: (t: Track) => void; currentTrack: Track; playing: boolean; onNavigate: (tab: string) => void;
-  onOpenBlend: (f: Friend) => void; onOpenLive: (f: Friend) => void; onPlayWave: () => void; avatar: string;
+export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate, onOpenBlend, onOpenLive, onPlayWave, onOpenArtist, avatar }: {
+  onPlay: (t: Track) => void; currentTrack: Track; playing: boolean; progress: number; onNavigate: (tab: string) => void;
+  onOpenBlend: (f: Friend) => void; onOpenLive: (f: Friend) => void; onPlayWave: () => void; onOpenArtist: (name: string) => void; avatar: string;
 }) {
   const { t, lang } = useLang();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const waveActive = playing;
 
   const QUICK = [
@@ -201,10 +226,44 @@ export function HomeScreen({ onPlay, currentTrack, playing, onNavigate, onOpenBl
             </motion.div>
           </div>
           <div className="relative z-10 px-6 pb-5">
-            <Waveform progress={waveActive ? 38 : 0} color="#a78bfa" height={30} seed={11} bars={56} dim />
+            <Waveform progress={progress} playing={playing} color="#a78bfa" height={30} seed={11} bars={56} dim />
           </div>
         </TiltCard>
       </div>
+
+      {/* Поиск */}
+      <div className="px-5 mb-7">
+        <button onClick={() => setSearchOpen(true)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
+          <Search size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
+          <span className="text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("home.search")}</span>
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {searchOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40"
+            style={{ background: "var(--dim)", backdropFilter: "blur(30px)", WebkitBackdropFilter: "blur(30px)" }}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 16, opacity: 0 }}
+              transition={SPRING}
+              className="absolute inset-0 lg:inset-6 lg:rounded-[28px] overflow-hidden"
+              style={{ background: "var(--bg)" }}
+            >
+              <button onClick={() => setSearchOpen(false)} className="absolute top-6 right-5 z-10 w-9 h-9 rounded-full flex items-center justify-center" style={GLASS}>
+                <X size={16} />
+              </button>
+              <BrowseScreen onPlay={tr => { onPlay(tr); setSearchOpen(false); }} onOpenArtist={name => { setSearchOpen(false); onOpenArtist(name); }} autoFocus />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Быстрые действия */}
       <div className="px-5 mb-8 grid grid-cols-4 gap-2.5">
@@ -292,7 +351,7 @@ export function HomeScreen({ onPlay, currentTrack, playing, onNavigate, onOpenBl
 
 // ─── Обзор ────────────────────────────────────────────────────────────────────
 
-export function BrowseScreen({ onPlay, onOpenArtist }: { onPlay: (t: Track) => void; onOpenArtist: (name: string) => void }) {
+export function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: Track) => void; onOpenArtist: (name: string) => void; autoFocus?: boolean }) {
   const { t } = useLang();
   const [query, setQuery] = useState("");
   const filtered = query ? TRACKS.filter(tr => (tr.title + tr.artist + tr.genre).toLowerCase().includes(query.toLowerCase())) : [];
@@ -312,6 +371,7 @@ export function BrowseScreen({ onPlay, onOpenArtist }: { onPlay: (t: Track) => v
         <div className="mt-4 flex items-center gap-3 px-4 py-3.5 rounded-[18px]" style={GLASS}>
           <Search size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
           <input
+            autoFocus={autoFocus}
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder={t("browse.search")}
@@ -398,6 +458,70 @@ export function BrowseScreen({ onPlay, onOpenArtist }: { onPlay: (t: Track) => v
   );
 }
 
+// ─── Рейтинг ──────────────────────────────────────────────────────────────────
+
+export function RatingScreen({ c2, userName, avatar }: { c2: string; userName: string; avatar: string }) {
+  const { t, lang } = useLang();
+  const [metric, setMetric] = useState<"level" | "minutes" | "streak">("level");
+
+  const you = { name: userName, avatar, level: MY_STATS.level, minutesWeek: MY_STATS.minutesWeek, streak: MY_STATS.streak, you: true as const };
+  const rows = [...LEADERBOARD_PEERS.map(p => ({ ...p, you: false as const })), you]
+    .sort((a, b) => metric === "level" ? b.level - a.level : metric === "minutes" ? b.minutesWeek - a.minutesWeek : b.streak - a.streak);
+
+  const METRICS = [
+    { id: "level" as const,   label: t("rt.level"),   icon: Crown },
+    { id: "minutes" as const, label: t("rt.minutes"), icon: Clock },
+    { id: "streak" as const,  label: t("rt.streak"),  icon: Flame },
+  ];
+
+  const valueFor = (u: typeof rows[number]) =>
+    metric === "level" ? t("rt.lvlLabel", u.level) : metric === "minutes" ? t("rt.minLabel", u.minutesWeek) : t("rt.streakLabel", u.streak);
+
+  return (
+    <Page>
+      <div className="px-5 pt-6 pb-4">
+        <h1 style={{ fontFamily: F.d, fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em" }}>{t("nav.rating")}</h1>
+      </div>
+
+      <div className="flex gap-1 mx-5 mb-6 p-1 rounded-full w-fit" style={GLASS}>
+        {METRICS.map(m => {
+          const Icon = m.icon;
+          return (
+            <button key={m.id} onClick={() => setMetric(m.id)} className="relative flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap" style={{ fontFamily: F.b, color: metric === m.id ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
+              {metric === m.id && <motion.div layoutId="rttab" className="absolute inset-0 rounded-full" style={{ background: `${c2}cc` }} transition={SPRING} />}
+              <Icon size={12} className="relative z-10" /><span className="relative z-10">{m.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="px-5 flex flex-col gap-1.5">
+        {rows.map((u, i) => (
+          <motion.div
+            key={u.you ? "you" : u.name}
+            layout
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
+            className="flex items-center gap-3 p-3 rounded-2xl"
+            style={u.you ? { background: `${c2}18`, border: `1px solid ${c2}44` } : GLASS}
+          >
+            <div className="w-6 text-center font-bold text-sm flex-shrink-0" style={{ color: i < 3 ? c2 : "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{i + 1}</div>
+            <img src={u.avatar} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={u.you ? { border: `1.5px solid ${c2}` } : undefined} />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>
+                {u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}
+              </div>
+              <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 42%, transparent)", fontFamily: F.m }}>{valueFor(u)}</div>
+            </div>
+            {i < 3 && <Crown size={16} style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#fb923c", flexShrink: 0 }} />}
+          </motion.div>
+        ))}
+      </div>
+    </Page>
+  );
+}
+
 // ─── Медиатека ────────────────────────────────────────────────────────────────
 
 export function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, playlists = PLAYLISTS, onCreatePlaylist }: {
@@ -465,7 +589,7 @@ export function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing,
                   )}
                 </div>
               ))}
-              {TRACKS.map(tr => (
+              {liked.map(tr => (
                 <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors group">
                   <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
                     <img src={tr.img} alt="" className="w-full h-full object-cover" />
@@ -489,6 +613,12 @@ export function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing,
                   </motion.button>
                 </div>
               ))}
+              {liked.length === 0 && myTracks.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <Heart size={28} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)" }} />
+                  <div className="mt-3 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("lib.empty")}</div>
+                </div>
+              )}
             </div>
           )}
 

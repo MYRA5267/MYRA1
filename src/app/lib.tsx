@@ -26,21 +26,25 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     "--panel": "rgba(18,18,32,0.72)",
     "--glass-bg": "rgba(255,255,255,0.055)",
     "--glass-border": "rgba(255,255,255,0.09)",
+    "--glass-shadow": "0 10px 30px rgba(0,0,0,0.35)",
     "--cover-filter": "blur(90px) saturate(1.6) brightness(0.22)",
     "--dim": "rgba(5,5,12,0.55)",
   },
   light: {
-    "--fg": "#1a1a28",
-    "--wash": "#101020",
-    "--bg": "#f3f2f9",
+    // Светлая тема: настоящий белый глянцевый glass + видимая тень вместо еле
+    // заметного 5% чёрного тона на почти белом фоне (раньше выглядело блёкло).
+    "--fg": "#181820",
+    "--wash": "#0d0d18",
+    "--bg": "#eceef8",
     "--bg2": "#ffffff",
-    "--sheet": "rgba(252,252,255,0.96)",
+    "--sheet": "rgba(255,255,255,0.92)",
     "--island": "rgba(255,255,255,0.88)",
-    "--panel": "rgba(255,255,255,0.94)",
-    "--glass-bg": "rgba(16,16,32,0.05)",
-    "--glass-border": "rgba(16,16,32,0.1)",
-    "--cover-filter": "blur(90px) saturate(1.15) brightness(1.12) opacity(0.4)",
-    "--dim": "rgba(24,24,40,0.4)",
+    "--panel": "rgba(255,255,255,0.92)",
+    "--glass-bg": "rgba(255,255,255,0.62)",
+    "--glass-border": "rgba(30,20,60,0.12)",
+    "--glass-shadow": "0 1px 2px rgba(30,20,60,0.05), 0 12px 28px rgba(30,20,60,0.09)",
+    "--cover-filter": "blur(70px) saturate(1.9) brightness(1.03) opacity(0.55)",
+    "--dim": "rgba(30,20,55,0.38)",
   },
 };
 
@@ -52,7 +56,36 @@ export const GLASS: React.CSSProperties = {
   backdropFilter: "blur(24px) saturate(1.6)",
   WebkitBackdropFilter: "blur(24px) saturate(1.6)",
   border: "1px solid var(--glass-border)",
+  boxShadow: "var(--glass-shadow)",
 };
+
+/** Копирует текст в буфер обмена с запасным вариантом для WebView без Clipboard API */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/** Короткий уникальный код приглашения (демо, без бэкенда) */
+export function genInviteCode(): string {
+  return (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)).toUpperCase();
+}
 
 export const SPRING = { type: "spring" as const, damping: 26, stiffness: 320 };
 

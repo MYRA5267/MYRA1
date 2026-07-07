@@ -9,9 +9,9 @@ import { smartNext, pushHistory } from "./smart";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow } from "./auth";
-import { HomeScreen, BrowseScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
+import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, NAV } from "./player";
-import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet } from "./overlays";
+import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet } from "./overlays";
 import { LiveSessionSheet } from "./live";
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
@@ -20,7 +20,7 @@ const LOCAL_PALETTE: [string, string][] = [
   ["#0f0818", "#f472b6"], ["#071218", "#38bdf8"], ["#181200", "#facc15"],
 ];
 
-type Tab = "home" | "browse" | "library" | "creator" | "profile";
+type Tab = "home" | "rating" | "library" | "creator" | "profile";
 
 function AppInner() {
   const { t, lang } = useLang();
@@ -79,6 +79,7 @@ function AppInner() {
   const [downloads, setDownloads] = useState<Map<number, string>>(new Map());
   const [customPls, setCustomPls] = useState<Playlist[]>(() => ls.get<Playlist[]>("customPls", []));
   const [importOpen, setImportOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const allPlaylists = [...customPls, ...PLAYLISTS];
 
   const loadedRef = useRef(false);
@@ -384,14 +385,16 @@ function AppInner() {
         onPlay={playTrack}
         currentTrack={currentTrack}
         playing={audio.playing}
+        progress={audio.progress}
         onNavigate={id => setTab(id as Tab)}
         onOpenBlend={setBlendFriend}
         onOpenLive={openLive}
         onPlayWave={() => playWave()}
+        onOpenArtist={openArtist}
         avatar={avatar}
       />
     ),
-    browse: <BrowseScreen onPlay={playTrack} onOpenArtist={openArtist} />,
+    rating: <RatingScreen c2={currentTrack.c2} userName={userName} avatar={avatar} />,
     library: (
       <LibraryScreen
         onPlay={playTrack}
@@ -624,6 +627,7 @@ function AppInner() {
         onAvatarFile={dataUrl => { setCustomAvatar(dataUrl); ls.set("customAvatar", dataUrl); }}
         onDeleted={handleDeleteAccount}
         onOpenImport={() => setImportOpen(true)}
+        onOpenSupport={() => setSupportOpen(true)}
       />
 
       <ImportSheet
@@ -631,6 +635,8 @@ function AppInner() {
         onClose={() => setImportOpen(false)}
         onImported={(name, ids) => { createPlaylist(name, ids); }}
       />
+
+      <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} userName={userName} />
 
       <CreatorPlusSheet
         open={creatorPlusOpen}

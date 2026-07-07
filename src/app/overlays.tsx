@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
-  GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus,
+  GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, type Track, type Friend } from "./data";
-import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ } from "./lib";
+import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode } from "./lib";
 import { useLang } from "./i18n";
 
 // ─── Страница артиста ─────────────────────────────────────────────────────────
@@ -99,7 +99,18 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
                         style={{ border: `1px solid ${custom ? artist.c2 : "color-mix(in srgb, var(--wash) 12%, transparent)"}`, color: "var(--fg)", fontFamily: F.b }}
                       />
                     </div>
-                    <motion.button whileTap={{ scale: 0.97 }} disabled={finalAmount <= 0} onClick={() => { setSent(true); toast.success(t("don.sent", finalAmount, artist.name)); }} className="w-full py-3 rounded-full text-sm font-semibold" style={{ background: finalAmount > 0 ? `linear-gradient(135deg, ${artist.c2}, ${artist.c2}99)` : "color-mix(in srgb, var(--wash) 06%, transparent)", color: finalAmount > 0 ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}>
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      disabled={finalAmount <= 0}
+                      onClick={() => {
+                        setSent(true);
+                        toast.success(t("don.sent", finalAmount, artist.name));
+                        // Донат можно повторить: форма возвращается сама, без ручного закрытия
+                        setTimeout(() => setSent(false), 1400);
+                      }}
+                      className="w-full py-3 rounded-full text-sm font-semibold"
+                      style={{ background: finalAmount > 0 ? `linear-gradient(135deg, ${artist.c2}, ${artist.c2}99)` : "color-mix(in srgb, var(--wash) 06%, transparent)", color: finalAmount > 0 ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}
+                    >
                       {t("don.send", finalAmount)}
                     </motion.button>
                   </>
@@ -360,7 +371,16 @@ export function BlendSheet({ friend, onClose, onPlay, currentTrack, playing, ava
             <motion.button whileTap={{ scale: 0.96 }} onClick={() => toast(t("bl.updated", finst))} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ ...GLASS, fontFamily: F.b }}>
               <RefreshCw size={13} /> {t("bl.refresh")}
             </motion.button>
-            <motion.button whileTap={{ scale: 0.96 }} onClick={() => toast(t("bl.invited"))} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}>
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={async () => {
+                const link = `https://myra.app/i/${genInviteCode()}`;
+                await copyText(link);
+                toast(t("bl.invited", link));
+              }}
+              className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
+              style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}
+            >
               <UserPlus size={13} /> {t("bl.invite")}
             </motion.button>
           </div>
@@ -403,9 +423,9 @@ function BlendTracks({ ids, onPlay, currentTrack, playing, c2 }: {
 
 // ─── Аккаунт ──────────────────────────────────────────────────────────────────
 
-export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport }: {
+export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport, onOpenSupport }: {
   open: boolean; onClose: () => void; userName: string; onRename: (n: string) => void;
-  avatarIdx: number; onAvatar: (i: number) => void; customAvatar: string | null; onAvatarFile: (dataUrl: string) => void; onDeleted: () => void; onOpenImport: () => void;
+  avatarIdx: number; onAvatar: (i: number) => void; customAvatar: string | null; onAvatarFile: (dataUrl: string) => void; onDeleted: () => void; onOpenImport: () => void; onOpenSupport: () => void;
 }) {
   const { t } = useLang();
   const [name, setName] = useState(userName);
@@ -519,7 +539,7 @@ export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onA
               </div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
-            <motion.div whileTap={{ scale: 0.99 }} onClick={() => toast(t("acc.supportGo"))} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenSupport(); }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
               <MessageCircle size={15} style={{ color: "#34d399" }} />
               <div className="flex-1">
                 <div className="text-sm" style={{ fontFamily: F.b }}>{t("acc.support")}</div>
@@ -646,9 +666,18 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
 
 // ─── Wrapped ──────────────────────────────────────────────────────────────────
 
+const WRAPPED_SLIDE_MS = 4000;
+
 export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useLang();
   const [idx, setIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [fillPct, setFillPct] = useState(0);
+  const rafRef = useRef<number | undefined>(undefined);
+  const lastTsRef = useRef(0);
+  const elapsedRef = useRef(0);
+  const suppressClickRef = useRef(false);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const SLIDES = [
     { c1: "#12083a", c2: "#8b5cf6", eyebrow: t("wr.minutesEyebrow"), big: t("wr.minutes"),   sub: t("wr.minutesSub"), img: "", share: false },
@@ -658,14 +687,40 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
     { c1: "#0f0818", c2: "#f472b6", eyebrow: t("wr.shareEyebrow"),   big: t("wr.shareTitle"), sub: "",                img: "", share: true },
   ];
 
-  useEffect(() => { if (open) setIdx(0); }, [open]);
+  useEffect(() => { if (open) { setIdx(0); setPaused(false); } }, [open]);
+  useEffect(() => { elapsedRef.current = 0; setFillPct(0); }, [idx]);
 
-  // Автолистание как в сторис
+  // Автолистание, пауза не сбрасывает прогресс — досматриваешь с того же места
   useEffect(() => {
-    if (!open || idx >= SLIDES.length - 1) return;
-    const to = setTimeout(() => setIdx(i => Math.min(i + 1, SLIDES.length - 1)), 4000);
-    return () => clearTimeout(to);
-  }, [open, idx, SLIDES.length]);
+    if (!open || paused) { lastTsRef.current = 0; return; }
+    const step = (ts: number) => {
+      if (!lastTsRef.current) lastTsRef.current = ts;
+      elapsedRef.current += ts - lastTsRef.current;
+      lastTsRef.current = ts;
+      const pct = Math.min(100, (elapsedRef.current / WRAPPED_SLIDE_MS) * 100);
+      setFillPct(pct);
+      if (pct >= 100) {
+        if (idx < SLIDES.length - 1) setIdx(i => i + 1);
+        return;
+      }
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); lastTsRef.current = 0; };
+  }, [open, paused, idx, SLIDES.length]);
+
+  // Зажатие — пауза; отпускание — снова идёт, но не переключает слайд
+  const onHoldStart = () => {
+    holdTimerRef.current = setTimeout(() => { setPaused(true); suppressClickRef.current = true; }, 160);
+  };
+  const onHoldEnd = () => {
+    clearTimeout(holdTimerRef.current);
+    if (paused) setPaused(false);
+  };
+  const zoneClick = (go: () => void) => {
+    if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+    go();
+  };
 
   const S = SLIDES[idx];
 
@@ -694,9 +749,8 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
               {SLIDES.map((_, i) => (
                 <div key={i} className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: "color-mix(in srgb, var(--wash) 18%, transparent)" }}>
                   <div
-                    key={`fill-${i}-${i === idx ? idx : "x"}`}
                     className="h-full rounded-full bg-white"
-                    style={{ width: i < idx ? "100%" : "0%", animation: i === idx ? "storyFill 4s linear forwards" : "none" }}
+                    style={{ width: `${i < idx ? 100 : i === idx ? fillPct : 0}%`, transition: paused ? "none" : undefined }}
                   />
                 </div>
               ))}
@@ -706,9 +760,23 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
               <X size={16} />
             </button>
 
-            {/* Тап-зоны: слева назад, справа вперёд */}
-            <button aria-label="prev" className="absolute inset-y-0 left-0 w-1/3 z-20" onClick={() => setIdx(i => Math.max(0, i - 1))} />
-            <button aria-label="next" className="absolute inset-y-0 right-0 w-2/3 z-20" onClick={() => (idx < SLIDES.length - 1 ? setIdx(idx + 1) : onClose())} />
+            {/* Тап-зоны: слева назад, справа вперёд; зажатие — пауза без перехода */}
+            <button
+              aria-label="prev"
+              className="absolute inset-y-0 left-0 w-1/3 z-20"
+              onPointerDown={onHoldStart}
+              onPointerUp={onHoldEnd}
+              onPointerLeave={onHoldEnd}
+              onClick={() => zoneClick(() => setIdx(i => Math.max(0, i - 1)))}
+            />
+            <button
+              aria-label="next"
+              className="absolute inset-y-0 right-0 w-2/3 z-20"
+              onPointerDown={onHoldStart}
+              onPointerUp={onHoldEnd}
+              onPointerLeave={onHoldEnd}
+              onClick={() => zoneClick(() => (idx < SLIDES.length - 1 ? setIdx(idx + 1) : onClose()))}
+            />
 
             {/* Контент слайда */}
             <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-8">
@@ -937,6 +1005,64 @@ export function ImportSheet({ open, onClose, onImported }: {
             </motion.button>
           </motion.div>
         )}
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Поддержка (реальный mailto — уходит на почту разработчика) ──────────────
+
+const SUPPORT_EMAIL = "gena.mr.2017@gmail.com";
+const SUPPORT_TOPICS = ["sup.tBug", "sup.tBilling", "sup.tIdea", "sup.tOther"] as const;
+
+export function SupportSheet({ open, onClose, userName }: { open: boolean; onClose: () => void; userName: string }) {
+  const { t } = useLang();
+  const [topic, setTopic] = useState<typeof SUPPORT_TOPICS[number]>("sup.tBug");
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => { if (open) { setTopic("sup.tBug"); setMsg(""); } }, [open]);
+
+  const send = () => {
+    if (!msg.trim()) { toast(t("sup.empty")); return; }
+    const subject = encodeURIComponent(`MYRA · ${t(topic)}`);
+    const body = encodeURIComponent(`${msg.trim()}\n\n— ${userName} (MYRA app)`);
+    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+    toast.success(t("sup.sent"));
+    onClose();
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose} z={67}>
+      <div className="px-6 pt-7 pb-8">
+        <div className="flex items-center justify-between mb-1.5">
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{t("sup.title")}</div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
+            <X size={16} />
+          </button>
+        </div>
+        <div className="text-xs mb-5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("sup.sub")}</div>
+
+        <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("sup.topic")}</div>
+        <div className="flex gap-2 flex-wrap mb-5">
+          {SUPPORT_TOPICS.map(id => (
+            <button key={id} onClick={() => setTopic(id)} className="px-3.5 py-2 rounded-full text-xs font-semibold" style={{ background: topic === id ? "linear-gradient(135deg, #8b5cf6, #a78bfa)" : "color-mix(in srgb, var(--wash) 6%, transparent)", color: topic === id ? "#fff" : "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>
+              {t(id)}
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          value={msg}
+          onChange={e => setMsg(e.target.value)}
+          placeholder={t("sup.msg")}
+          rows={5}
+          className="w-full px-4 py-3 rounded-2xl bg-transparent outline-none text-sm mb-5 resize-none"
+          style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
+        />
+
+        <motion.button whileTap={{ scale: 0.97 }} onClick={send} className="w-full py-3.5 rounded-full text-sm font-bold flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}>
+          <Send size={14} /> {t("sup.send")}
+        </motion.button>
       </div>
     </Sheet>
   );

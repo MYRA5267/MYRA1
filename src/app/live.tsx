@@ -3,7 +3,7 @@ import { Play, Pause, Heart, Flame, Zap, Sparkles, UserPlus, LogOut, X } from "l
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TRACKS, type Track, type Friend } from "./data";
-import { F, GLASS, SPRING, Sheet, Aurora, Waveform, EQ } from "./lib";
+import { F, GLASS, SPRING, Sheet, Aurora, Waveform, EQ, copyText, genInviteCode } from "./lib";
 import { useLang } from "./i18n";
 
 const REACTIONS = [
@@ -150,7 +150,16 @@ export function LiveSessionSheet({ friend, onClose, currentTrack, playing, progr
         </div>
 
         <div className="relative z-10 flex gap-2.5">
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => toast(t("live.invited"))} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={async () => {
+              const link = `https://myra.app/live/${genInviteCode()}`;
+              await copyText(link);
+              toast(t("live.invited", link));
+            }}
+            className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
+            style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}
+          >
             <UserPlus size={13} /> {t("live.invite")}
           </motion.button>
           <motion.button whileTap={{ scale: 0.96 }} onClick={() => { toast(t("live.left")); onClose(); }} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ ...GLASS, color: "color-mix(in srgb, var(--fg) 65%, transparent)", fontFamily: F.b }}>

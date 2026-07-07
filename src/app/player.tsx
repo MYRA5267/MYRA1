@@ -313,11 +313,11 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
 
 // ─── Плавающий остров (mobile) ────────────────────────────────────────────────
 
-import { Home, Search, Library, User, Mic2 } from "lucide-react";
+import { Home, Trophy, Library, User, Mic2 } from "lucide-react";
 
 export const NAV = [
   { id: "home",    icon: Home,    label: "nav.home" },
-  { id: "browse",  icon: Search,  label: "nav.browse" },
+  { id: "rating",  icon: Trophy,  label: "nav.rating" },
   { id: "library", icon: Library, label: "nav.library" },
   { id: "creator", icon: Mic2,    label: "nav.creator" },
   { id: "profile", icon: User,    label: "nav.profile" },

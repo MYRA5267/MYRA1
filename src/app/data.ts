@@ -121,6 +121,20 @@ export const FRIENDS = [
 ];
 export type Friend = typeof FRIENDS[number];
 
+// Твоя реальная (демо) статистика — общий источник для профиля и рейтинга
+export const MY_STATS = { level: 3, xp: 1240, xpMax: 2000, minutesWeek: 247, streak: 21, topGenre: "Synthwave" };
+
+// Условные соперники в рейтинге (демо, без бэкенда)
+export const LEADERBOARD_PEERS = [
+  { name: "Соня К.",  en: "Sonya K.",  avatar: svgAvatar("С", "#12083a", "#8b5cf6"), level: 7, minutesWeek: 612, streak: 34 },
+  { name: "Данил П.", en: "Danil P.",  avatar: svgAvatar("Д", "#071a10", "#34d399"), level: 5, minutesWeek: 480, streak: 12 },
+  { name: "Марго",    en: "Margo",     avatar: svgAvatar("М", "#1a0a08", "#fb923c"), level: 4, minutesWeek: 190, streak: 45 },
+  { name: "Тимур В.", en: "Timur V.",  avatar: svgAvatar("Т", "#071218", "#38bdf8"), level: 6, minutesWeek: 305, streak: 7 },
+  { name: "Ксюша",    en: "Ksyusha",   avatar: svgAvatar("К", "#181200", "#facc15"), level: 2, minutesWeek: 88,  streak: 3 },
+  { name: "Богдан",   en: "Bogdan",    avatar: svgAvatar("Б", "#0f0818", "#f472b6"), level: 8, minutesWeek: 730, streak: 61 },
+  { name: "Ира Л.",   en: "Ira L.",    avatar: svgAvatar("И", "#071018", "#22d3ee"), level: 3, minutesWeek: 210, streak: 19 },
+];
+
 export const CHARTS = [
   { pos: 1, title: "Espresso",           artist: "Sabrina Carpenter",      delta: +2, img: svgCover("#3a0a12", "#fb7185", 21) },
   { pos: 2, title: "Die With A Smile",   artist: "Lady Gaga & Bruno Mars", delta: +5, img: svgCover("#12083a", "#a78bfa", 22) },
