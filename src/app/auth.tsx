@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
 import { F, GLASS, SPRING, Aurora, Waveform, useTheme, GoogleIcon, VKIcon, YandexIcon } from "./lib";
 import { useLang } from "./i18n";
-import { supabaseEnabled, signUpWithEmail, signInWithEmail, getSession, upsertProfile } from "./supabase";
+import { supabaseEnabled, signUpWithEmail, signInWithEmail, getSession, upsertProfile, resendConfirmation } from "./supabase";
 
-type Step = "slides" | "auth" | "taste" | "role";
+type Step = "slides" | "auth" | "taste" | "role" | "confirm";
 export type UserRole = "artist" | "listener";
 
 const SOCIALS: [string, (p: { size?: number }) => React.JSX.Element][] = [
@@ -27,6 +27,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
   const [pass, setPass] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [role, setRole] = useState<UserRole | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const SLIDES = [
     { title: t("ob.s1t"), sub: t("ob.s1s"), c2: "#8b5cf6", img: TRACKS[0].img },
@@ -70,18 +71,39 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
     if (supabaseEnabled) {
       const session = await getSession();
       const uid = session?.user?.id;
-      // Ждём апсерт, чтобы ошибка успела попасть в лог, но не показываем тост —
-      // неудачная синхронизация профиля не должна запирать пользователя в онбординге
       if (uid) {
+        // Ждём апсерт, чтобы ошибка успела попасть в лог, но не показываем тост —
+        // неудачная синхронизация профиля не должна запирать пользователя в онбординге
         try {
           const { error } = await upsertProfile(uid, { username: finishName, role: r, email: email.trim() });
           if (error) console.warn("upsertProfile:", error.message);
         } catch (err) {
           console.warn("upsertProfile:", err);
         }
+        onDone(finishName, r, email.trim());
+        return;
       }
+      // Сессии ещё нет — почта не подтверждена (включено подтверждение email).
+      // Сохраняем данные локально: их доведёт до конца App.tsx, когда пользователь
+      // перейдёт по ссылке из письма и в приложении появится настоящая сессия.
+      ls.set("pendingProfile", { name: finishName, role: r, email: email.trim() });
+      setStep("confirm");
+      return;
     }
     onDone(finishName, r, email.trim());
+  };
+
+  const resendEmail = async () => {
+    if (resendCooldown > 0) return;
+    await resendConfirmation(email.trim());
+    toast(t("au.resendDone"));
+    setResendCooldown(30);
+    const iv = setInterval(() => {
+      setResendCooldown(c => {
+        if (c <= 1) { clearInterval(iv); return 0; }
+        return c - 1;
+      });
+    }, 1000);
   };
 
   const S = SLIDES[slide];
@@ -276,6 +298,29 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
                   </motion.button>
                 ))}
               </div>
+            </motion.div>
+          )}
+
+          {/* ── Подтверждение почты ── */}
+          {step === "confirm" && (
+            <motion.div key="confirm" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="px-7 pb-10 max-w-md mx-auto w-full text-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style={{ background: "rgba(139,92,246,0.16)", border: "1px solid rgba(139,92,246,0.35)" }}>
+                <Mail size={24} style={{ color: "#c4b5fd" }} />
+              </div>
+              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 28, letterSpacing: "-0.04em" }} className="mb-2">{t("au.confirmTitle")}</h1>
+              <p className="text-sm mb-8" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", lineHeight: 1.5 }}>{t("au.confirmSub", email.trim())}</p>
+
+              <motion.button
+                whileTap={{ scale: resendCooldown ? 1 : 0.97 }}
+                onClick={resendEmail}
+                className="w-full py-4 rounded-full text-sm font-bold mb-4 transition-opacity"
+                style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b, opacity: resendCooldown ? 0.5 : 1 }}
+              >
+                {t("au.resend")}{resendCooldown ? ` · ${resendCooldown}s` : ""}
+              </motion.button>
+              <button onClick={() => setStep("auth")} className="text-sm" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }}>
+                {t("au.confirmBack")}
+              </button>
             </motion.div>
           )}
       </div>

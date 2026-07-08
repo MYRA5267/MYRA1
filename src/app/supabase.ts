@@ -32,6 +32,13 @@ export async function signOutRemote() {
   return supabase.auth.signOut();
 }
 
+// Повторная отправка письма с подтверждением — на случай, если письмо
+// потерялось или пользователь просто не заметил его сразу
+export async function resendConfirmation(email: string) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: null };
+  return supabase.auth.resend({ type: "signup", email });
+}
+
 export async function getSession(): Promise<Session | null> {
   if (!supabaseEnabled || !supabase) return null;
   const { data } = await supabase.auth.getSession();

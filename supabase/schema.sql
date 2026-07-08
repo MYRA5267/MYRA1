@@ -285,3 +285,32 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+
+-- ============================================================================
+-- GRANT — обязательный шаг помимо RLS-политик выше!
+-- ============================================================================
+-- RLS-политики контролируют доступ к СТРОКАМ, но сама роль (anon/authenticated)
+-- должна ещё получить право на операцию с ТАБЛИЦЕЙ вообще — иначе Postgres
+-- откажет с "permission denied for table ...", даже не дойдя до проверки RLS.
+-- При создании таблиц через Table Editor в Supabase это делается автоматически;
+-- при создании через SQL Editor (как здесь) — нужно явно.
+grant usage on schema public to anon, authenticated;
+
+grant select on public.profiles to anon, authenticated;
+grant insert, update on public.profiles to authenticated;
+
+grant select, insert, update on public.profile_private to authenticated;
+
+grant select on public.tracks to anon, authenticated;
+grant insert, update, delete on public.tracks to authenticated;
+
+grant select on public.comments to anon, authenticated;
+grant insert on public.comments to authenticated;
+
+grant select, insert on public.donations to authenticated;
+
+grant select, update on public.subscriptions to authenticated;
+
+grant select on public.follows to anon, authenticated;
+grant insert, delete on public.follows to authenticated;

@@ -15,7 +15,7 @@ import {
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow, type UserRole } from "./auth";
-import { supabaseEnabled, getSession, fetchProfile, signOutRemote } from "./supabase";
+import { supabaseEnabled, getSession, fetchProfile, upsertProfile, signOutRemote } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
 import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
@@ -197,14 +197,37 @@ function AppInner() {
     });
   }, []);
 
-  // Уже зарегистрирован на Supabase (другое устройство или localStorage очищен),
-  // но локально флаг онбординга не стоит — подтягиваем профиль вместо повторного онбординга
+  // Уже зарегистрирован на Supabase, но локально флаг онбординга не стоит —
+  // это либо (а) только что подтвердил почту по ссылке из письма и вернулся
+  // на этот же адрес (тогда доводим до конца профиль, отложенный в finishRole),
+  // либо (б) другое устройство/очищенный localStorage — просто подтягиваем профиль
   useEffect(() => {
     if (!supabaseEnabled) return;
     (async () => {
       const session = await getSession();
       const uid = session?.user?.id;
       if (!uid || ls.get("onboarded", false)) return;
+
+      const pending = ls.get<{ name: string; role: UserRole; email: string } | null>("pendingProfile", null);
+      if (pending) {
+        try {
+          const { error } = await upsertProfile(uid, { username: pending.name, role: pending.role, email: pending.email });
+          if (error) console.warn("upsertProfile:", error.message);
+        } catch (err) {
+          console.warn("upsertProfile:", err);
+        }
+        ls.set("pendingProfile", null);
+        setUserName(pending.name);
+        ls.set("userName", pending.name);
+        setEmail(pending.email);
+        setUserRole(pending.role);
+        ls.set("userRole", pending.role);
+        ls.set("onboarded", true);
+        setOnboarded(true);
+        toast.success(t("au.emailConfirmed"));
+        return;
+      }
+
       const { data: profile } = await fetchProfile(uid);
       if (!profile) return;
       setUserName(profile.username);
@@ -217,7 +240,7 @@ function AppInner() {
       ls.set("onboarded", true);
       setOnboarded(true);
     })();
-  }, [setEmail]);
+  }, [setEmail, t]);
 
   const avatar = customAvatar ?? AVATARS[avatarIdx] ?? AVATARS[0];
 
