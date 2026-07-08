@@ -969,8 +969,8 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade, quality, onSetQuality }: {
-  c2: string; userName: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade, quality, onSetQuality }: {
+  c2: string; userName: string; handle: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
   onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onLogout: () => void;
   crossfade: boolean; onToggleCrossfade: () => void; quality: number; onSetQuality: (idx: number) => void;
 }) {
@@ -1000,7 +1000,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, a
           </div>
         </motion.div>
         <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{userName}</div>
-        <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>@alex_vibe · Creator{creatorPlus ? "+" : ""}</div>
+        <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle} · Creator{creatorPlus ? "+" : ""}</div>
         <div className="flex justify-center gap-10 mt-6">
           {[[String(follows), t("pr.follows")], ["0", t("pr.fans")], [fmtCount(totalPlays), t("pr.plays")]].map(([v, l]) => (
             <div key={l} className="text-center">

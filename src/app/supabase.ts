@@ -55,6 +55,7 @@ export interface ProfileFields {
   email: string;
   avatar_url: string;
   role: UserRole;
+  handle: string;
 }
 
 // Почта — PII, в схеме она сознательно вынесена из publicly-readable profiles

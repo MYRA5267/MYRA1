@@ -23,6 +23,7 @@ create extension if not exists pgcrypto;
 create table public.profiles (
   id         uuid primary key references auth.users(id) on delete cascade,
   username   text not null,
+  handle     text, -- публичный @хендл; если пусто, фронтенд сам генерирует его из username
   avatar_url text,
   role       text not null default 'listener' check (role in ('artist', 'listener')),
   created_at timestamptz not null default now()

@@ -129,6 +129,12 @@ export function genInviteCode(): string {
   return (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)).toUpperCase();
 }
 
+/** Хендл по умолчанию из имени пользователя — "Confirm Flow Test" → "@confirm_flow_test" */
+export function deriveHandle(name: string): string {
+  const slug = name.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-zа-яё0-9_]/gi, "");
+  return "@" + (slug || "myra_user");
+}
+
 export const SPRING = { type: "spring" as const, damping: 26, stiffness: 320 };
 
 export const fmtSec = (sec: number) => {

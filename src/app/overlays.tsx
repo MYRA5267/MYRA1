@@ -567,25 +567,37 @@ function BlendTracks({ ids, onPlay, currentTrack, playing, c2 }: {
 
 // ─── Аккаунт ──────────────────────────────────────────────────────────────────
 
-export function AccountSheet({ open, onClose, userName, onRename, email, onSetEmail, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport, onOpenSupport, level, xpIntoLevel, xpForLevel, minutesWeek, streak, topGenre }: {
+export function AccountSheet({ open, onClose, userName, onRename, email, onSetEmail, handle, onSetHandle, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport, onOpenSupport, level, xpIntoLevel, xpForLevel, minutesWeek, streak, topGenre }: {
   open: boolean; onClose: () => void; userName: string; onRename: (n: string) => void;
   email: string; onSetEmail: (email: string) => void;
+  handle: string; onSetHandle: (handle: string) => void;
   avatarIdx: number; onAvatar: (i: number) => void; customAvatar: string | null; onAvatarFile: (dataUrl: string) => void; onDeleted: () => void; onOpenImport: () => void; onOpenSupport: () => void;
   level: number; xpIntoLevel: number; xpForLevel: number; minutesWeek: number; streak: number; topGenre: string | null;
 }) {
   const { t } = useLang();
   const [name, setName] = useState(userName);
   const [emailInput, setEmailInput] = useState(email);
+  const [handleInput, setHandleInput] = useState(handle);
   const [deleteQ, setDeleteQ] = useState(false);
   const [xpInfoOpen, setXpInfoOpen] = useState(false);
   useEffect(() => { setName(userName); }, [userName, open]);
   useEffect(() => { setEmailInput(email); }, [email, open]);
+  useEffect(() => { setHandleInput(handle); }, [handle, open]);
 
   const saveEmail = () => {
     const v = emailInput.trim();
     if (v && !/.+@.+\..+/.test(v)) { toast(t("acc.emailInvalid")); return; }
     onSetEmail(v);
     toast(t("acc.emailSaved"));
+  };
+
+  const saveHandle = () => {
+    let v = handleInput.trim();
+    if (!v.startsWith("@")) v = "@" + v;
+    const slug = v.slice(1);
+    if (!/^[a-zа-яё0-9_]{2,24}$/i.test(slug)) { toast(t("acc.handleInvalid")); return; }
+    onSetHandle(v);
+    toast(t("acc.handleSaved"));
   };
 
   return (
@@ -676,6 +688,21 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
               style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
             />
             <motion.button whileTap={{ scale: 0.95 }} onClick={() => { if (name.trim()) { onRename(name.trim()); toast(t("acc.saved")); } }} className="px-5 rounded-2xl text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
+              {t("acc.save")}
+            </motion.button>
+          </div>
+
+          {/* Хендл */}
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.handle")}</div>
+          <div className="flex gap-2.5 mb-5">
+            <input
+              value={handleInput}
+              onChange={e => setHandleInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") saveHandle(); }}
+              className="flex-1 px-4 py-3 rounded-2xl bg-transparent outline-none text-sm"
+              style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
+            />
+            <motion.button whileTap={{ scale: 0.95 }} onClick={saveHandle} className="px-5 rounded-2xl text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
               {t("acc.save")}
             </motion.button>
           </div>

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
 import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, LEADERBOARD_PEERS, type Track, type Friend, type Playlist } from "./data";
-import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ON_DARK, onDark, type ThemeName } from "./lib";
+import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ON_DARK, onDark, deriveHandle, type ThemeName } from "./lib";
 import { smartNext, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
@@ -74,6 +74,20 @@ function AppInner() {
   const [userName, setUserName] = useState(() => ls.get("userName", "Алекс"));
   const [email, setEmailState] = useState(() => ls.get("email", ""));
   const setEmail = useCallback((next: string) => { setEmailState(next); ls.set("email", next); }, []);
+  // Хендл: если пользователь не задавал свой — показываем автосгенерированный из имени
+  const [customHandle, setCustomHandleState] = useState<string | null>(() => ls.get<string | null>("customHandle", null));
+  const setCustomHandle = useCallback((next: string | null) => { setCustomHandleState(next); ls.set("customHandle", next); }, []);
+  const handle = customHandle ?? deriveHandle(userName);
+  const setHandle = useCallback(async (h: string) => {
+    setCustomHandle(h);
+    if (supabaseEnabled) {
+      const session = await getSession();
+      const uid = session?.user?.id;
+      if (uid) {
+        try { await upsertProfile(uid, { handle: h }); } catch (err) { console.warn("upsertProfile handle:", err); }
+      }
+    }
+  }, [setCustomHandle]);
   const [avatarIdx, setAvatarIdx] = useState(() => ls.get("avatarIdx", 0));
   // Подписка: none → active → grace (отменена, но действует до конца периода)
   const [cpStatus, setCpStatus] = useState<"none" | "active" | "grace">(() => {
@@ -233,6 +247,7 @@ function AppInner() {
       setUserName(profile.username);
       ls.set("userName", profile.username);
       setEmail(profile.email ?? "");
+      if (profile.handle) setCustomHandle(profile.handle);
       if (profile.role === "artist" || profile.role === "listener") {
         setUserRole(profile.role);
         ls.set("userRole", profile.role);
@@ -688,6 +703,7 @@ function AppInner() {
       <ProfileScreen
         c2={currentTrack.c2}
         userName={userName}
+        handle={handle}
         avatar={avatar}
         creatorPlus={creatorPlus}
         follows={followed.size}
@@ -816,7 +832,7 @@ function AppInner() {
               onSleep={handleSleep}
               downloaded={downloads.has(currentTrack.id)}
               onDownload={() => downloadTrack(currentTrack)}
-              userName={userName}
+              handle={handle}
             />
           </motion.div>
         )}
@@ -873,6 +889,8 @@ function AppInner() {
         onRename={n => { setUserName(n); ls.set("userName", n); }}
         email={email}
         onSetEmail={setEmail}
+        handle={handle}
+        onSetHandle={setHandle}
         avatarIdx={avatarIdx}
         onAvatar={i => { setAvatarIdx(i); ls.set("avatarIdx", i); setCustomAvatar(null); ls.set("customAvatar", null); }}
         customAvatar={customAvatar}

@@ -12,13 +12,13 @@ import { useLang } from "./i18n";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
-export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, userName }: {
+export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle }: {
   track: Track; playing: boolean; onToggle: () => void; onClose: () => void;
   progress: number; duration: number; onSeek: (p: number) => void; onNext: () => void; onPrev: () => void;
   liked: boolean; onLike: () => void; volume: number; onVolume: (v: number) => void;
   onPlayTrack: (t: Track) => void; onOpenArtist: (name: string) => void; onOpenAlbum: (album: string) => void;
   sleepLeft: number | null; onSleep: (minutes: number | null) => void;
-  downloaded: boolean; onDownload: () => void; userName: string;
+  downloaded: boolean; onDownload: () => void; handle: string;
 }) {
   const { t, lang } = useLang();
   const [tab, setTab] = useState<"player" | "lyrics" | "comments" | "queue">("player");
@@ -55,7 +55,6 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   const addComment = () => {
     const text = commentText.trim();
     if (!text) return;
-    const handle = "@" + (userName.trim().toLowerCase().replace(/\s+/g, "_") || "alex_vibe");
     setMyComments(addMyComment(track.id, { pct: Math.round(progress), user: handle, text, likes: 0, avatar: track.c2 }));
     setCommentText("");
     toast(t("pl.commented", fmtSec(curSec)));
