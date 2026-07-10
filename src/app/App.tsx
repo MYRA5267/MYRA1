@@ -18,7 +18,7 @@ import { DevPanelSheet } from "./dev";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow, type UserRole } from "./auth";
-import { supabaseEnabled, getSession, fetchProfile, upsertProfile, signOutRemote } from "./supabase";
+import { supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, type SubStatus } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
 import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
@@ -51,6 +51,10 @@ const LOCAL_PALETTE: [string, string][] = [
   ["#12083a", "#8b5cf6"], ["#071a10", "#34d399"], ["#1a0a08", "#fb923c"],
   ["#0f0818", "#f472b6"], ["#071218", "#38bdf8"], ["#181200", "#facc15"],
 ];
+
+// Без MYRA Pro/Plus офлайн-загрузки ограничены — иначе "безлимит" на апгрейде
+// ничем не отличался бы от того, что и так доступно всем
+const FREE_DOWNLOAD_LIMIT = 20;
 
 type Tab = "home" | "rating" | "library" | "creator" | "profile";
 
@@ -92,20 +96,47 @@ function AppInner() {
     }
   }, [setCustomHandle]);
   const [avatarIdx, setAvatarIdx] = useState(() => ls.get("avatarIdx", 0));
-  // Подписка: none → active → grace (отменена, но действует до конца периода)
+
+  // uid текущей сессии Supabase — нужен, чтобы донаты и статус подписки
+  // писались на сервер, а не только в localStorage этого устройства
+  const [uid, setUid] = useState<string | null>(null);
+  const uidRef = useRef<string | null>(null);
+  uidRef.current = uid;
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    getSession().then(s => setUid(s?.user?.id ?? null));
+    const { data } = onAuthStateChange(s => setUid(s?.user?.id ?? null));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  // Подписка: none → active → grace (отменена, но действует до конца периода).
+  // RLS специально не даёт клиенту самому ставить 'active' напрямую — это
+  // делает только Edge Function set-subscription (см. supabase.ts)
   const [cpStatus, setCpStatus] = useState<"none" | "active" | "grace">(() => {
     const raw = ls.get<"none" | "active" | "grace" | boolean>("cpStatus", ls.get("creatorPlus", false) ? "active" : "none");
     return raw === true ? "active" : raw === false ? "none" : raw;
   });
-  const setCp = useCallback((s: "none" | "active" | "grace") => { setCpStatus(s); ls.set("cpStatus", s); }, []);
+  const setCp = useCallback((s: "none" | "active" | "grace") => {
+    setCpStatus(s);
+    ls.set("cpStatus", s);
+    if (supabaseEnabled && uidRef.current) setSubscriptionStatus(s).catch(err => console.warn("setSubscriptionStatus:", err));
+  }, []);
   const creatorPlus = cpStatus !== "none";
   // MYRA Plus — бесплатный план слушателя (Pro оставлен артистам)
   const [plusActive, setPlusActiveState] = useState(() => ls.get("plusActive", false));
-  const setPlusActive = useCallback((v: boolean) => { setPlusActiveState(v); ls.set("plusActive", v); }, []);
+  const setPlusActive = useCallback((v: boolean) => {
+    setPlusActiveState(v);
+    ls.set("plusActive", v);
+    if (supabaseEnabled && uidRef.current) setSubscriptionStatus(v ? "active" : "none").catch(err => console.warn("setSubscriptionStatus:", err));
+  }, []);
   const [userRole, setUserRole] = useState<UserRole>(() => ls.get<UserRole>("userRole", "listener"));
   const setRole = useCallback((r: UserRole) => { setUserRole(r); ls.set("userRole", r); }, []);
   // Студия — только артистам: MYRA Pro больше не открывает её слушателям
   const showStudio = userRole === "artist";
+  // Единая проверка апгрейда своей роли — Pro для артиста, Plus для слушателя.
+  // На неё завязаны реальные ограничения бесплатного тарифа (качество, офлайн-лимит),
+  // а не только бейджи и текст — иначе Free и Pro/Plus не отличались бы ничем, кроме подписи
+  const hasUpgrade = userRole === "artist" ? creatorPlus : plusActive;
   // Режим разработчика — для нас, создателей: включается 7 тапами по аватару в профиле
   const [devMode, setDevModeState] = useState(() => ls.get("devMode", false));
   const [devPanelOpen, setDevPanelOpen] = useState(false);
@@ -236,10 +267,17 @@ function AppInner() {
   const nextRef = useRef<() => void>(() => {});
   const audio = useAudio(() => nextRef.current(), () => fadeRef.current);
 
-  // Качество звука — реально применяется к DSP-цепочке, не только меняет подпись в UI
+  // Качество звука — реально применяется к DSP-цепочке, не только меняет подпись в UI.
+  // Hi-Res (индекс 2) — настоящая, а не только косметическая привилегия Pro/Plus:
+  // без апгрейда потолок — FLAC (индекс 1)
   const [qualityIdx, setQualityIdxState] = useState(() => ls.get("qualityIdx", 1));
   const setQualityIdx = useCallback((idx: number) => { setQualityIdxState(idx); ls.set("qualityIdx", idx); }, []);
   useEffect(() => { audio.setQuality(qualityIdx); }, [qualityIdx, audio]);
+  // Если апгрейд закончился (отмена/grace), а качество уже стояло на Hi-Res —
+  // тихо откатываем на FLAC, а не оставляем недоступный уровень висеть в настройках
+  useEffect(() => {
+    if (!hasUpgrade && qualityIdx > 1) setQualityIdx(1);
+  }, [hasUpgrade, qualityIdx, setQualityIdx]);
 
   // Реальное время прослушивания — копится, пока реально играет музыка.
   // artist обязан быть в зависимостях наравне с genre: иначе при переходе на
@@ -306,6 +344,18 @@ function AppInner() {
       setOnboarded(true);
     })();
   }, [setEmail, t]);
+
+  // Статус Pro/Plus — правда живёт на сервере (см. Edge Function set-subscription);
+  // подтягиваем один раз, когда есть и сессия, и завершённый онбординг, чтобы
+  // подписка была видна с любого устройства, а не только с того, где её оформили
+  useEffect(() => {
+    if (!supabaseEnabled || !uid || !onboarded) return;
+    fetchSubscriptionStatus(uid).then(status => {
+      if (status === null) return;
+      if (userRole === "artist") { setCpStatus(status); ls.set("cpStatus", status); }
+      else { const active = status === "active"; setPlusActiveState(active); ls.set("plusActive", active); }
+    });
+  }, [uid, onboarded, userRole]);
 
   const avatar = customAvatar ?? AVATARS[avatarIdx] ?? AVATARS[0];
 
@@ -399,7 +449,8 @@ function AppInner() {
     });
   }, [audio, resolveUrl, registerPlay]);
 
-  // Загрузка трека для офлайна
+  // Загрузка трека для офлайна — без апгрейда лимит FREE_DOWNLOAD_LIMIT треков,
+  // иначе "безлимит на Plus/Pro" ничем не отличался бы от того, что уже есть у всех
   const downloadTrack = useCallback(async (tr: Track) => {
     if (downloadsRef.current.has(tr.id)) {
       const url = downloadsRef.current.get(tr.id)!;
@@ -407,6 +458,10 @@ function AppInner() {
       setDownloads(prev => { const m = new Map(prev); m.delete(tr.id); return m; });
       deleteDownload(tr.id).catch(() => {});
       toast(t("dl.removed"));
+      return;
+    }
+    if (!hasUpgrade && downloadsRef.current.size >= FREE_DOWNLOAD_LIMIT) {
+      toast(t("dl.limitReached", FREE_DOWNLOAD_LIMIT));
       return;
     }
     toast(t("dl.loading", tr.title));
@@ -421,7 +476,7 @@ function AppInner() {
     } catch {
       toast(t("dl.fail"));
     }
-  }, [t, logActivity]);
+  }, [t, logActivity, hasUpgrade]);
 
   // Свои плейлисты (создание + импорт)
   const createPlaylist = useCallback((name: string, trackIds: number[]) => {
@@ -923,7 +978,10 @@ function AppInner() {
         onFollow={toggleFollow}
         onOpenArtist={openArtist}
         onOpenAlbum={openAlbum}
-        onDonate={(name, amt) => logActivity("act.donateSent", amt, name)}
+        onDonate={(name, amt) => {
+          logActivity("act.donateSent", amt, name);
+          if (supabaseEnabled && uid) recordDonation(uid, name, amt).catch(err => console.warn("recordDonation:", err));
+        }}
       />
 
       <AlbumSheet

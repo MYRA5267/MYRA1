@@ -830,7 +830,7 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
   };
 
   const BENEFITS = [
-    { Icon: Gift, title: t("cp.b1"), sub: t("cp.b1Sub") },
+    { Icon: ArrowDownToLine, title: t("cp.b1"), sub: t("cp.b1Sub") },
     { Icon: Zap, title: t("cp.b2"), sub: t("cp.b2Sub") },
     { Icon: LineChart, title: t("cp.b3"), sub: t("cp.b3Sub") },
     { Icon: Headset, title: t("cp.b4"), sub: t("cp.b4Sub") },

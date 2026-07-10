@@ -4,7 +4,7 @@ import {
   Volume2, Globe, Settings, Bell, Check, Download, X, Users, Music2,
   Zap, Radio, Moon, Dumbbell, Car, Brain, LogOut, TrendingUp, Wallet,
   Bot, Blend as BlendIcon, Crown, Trash2, FileAudio, Sun, Sparkles,
-  Trophy, Clock, Flame, Gift, UserPlus, Headphones, Wrench,
+  Trophy, Clock, Flame, Gift, UserPlus, Headphones, Wrench, Lock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -941,6 +941,10 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
   const [blendOpen, setBlendOpen] = useState(false);
   const [logoutQ, setLogoutQ] = useState(false);
 
+  // Тот же апгрейд, что и на стороне App.tsx: Pro у артиста, Plus у слушателя.
+  // Настоящий потолок для Free — FLAC, Hi-Res только с апгрейдом
+  const hasUpgrade = userRole === "artist" ? creatorPlus : plusActive;
+
   // Секретная активация режима разработчика: 7 быстрых тапов по аватару —
   // стандартный паттерн (как версия сборки в настройках Android)
   const tapCount = useRef(0);
@@ -1060,12 +1064,26 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           <Toggle on={theme === "light"} onChange={toggleTheme} color={c2} />
         </SettingRow>
 
-        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={() => { const next = (quality + 1) % QUALITIES.length; onSetQuality(next); toast(t("pr.qualitySet", QUALITIES[next])); }}>
+        <motion.div
+          whileTap={{ scale: 0.99 }}
+          className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer"
+          style={GLASS}
+          onClick={() => {
+            // Free: только AAC ↔ FLAC. Hi-Res — настоящая привилегия апгрейда,
+            // а не просто подпись — дальше клика без апгрейда не пускаем.
+            if (!hasUpgrade && quality === 1) { toast(t("pr.qualityLocked")); return; }
+            const maxTier = hasUpgrade ? QUALITIES.length : 2;
+            const next = (quality + 1) % maxTier;
+            onSetQuality(next);
+            toast(t("pr.qualitySet", QUALITIES[next]));
+          }}
+        >
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Volume2 size={15} /></div>
           <div className="flex-1">
             <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.quality")}</div>
             <div className="text-[10px] mt-0.5" style={{ color: quality === 0 ? "color-mix(in srgb, var(--fg) 40%, transparent)" : "#34d399", fontFamily: F.m }}>{quality === 0 ? t("pr.compressed") : t("pr.lossless")}</div>
           </div>
+          {!hasUpgrade && <Lock size={12} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />}
           <div className="text-xs px-2.5 py-1 rounded-full" style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>{QUALITIES[quality]}</div>
         </motion.div>
 
