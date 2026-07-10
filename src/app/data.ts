@@ -66,6 +66,11 @@ export interface Track {
   url: string;
   local?: boolean;
   lyrics?: string;
+  // uuid строки public.tracks — проставляется асинхронно после фоновой
+  // публикации в Supabase (см. publishRelease в App.tsx). Пока его нет
+  // (Supabase выключен, ещё не синхронизировалось или это демо-трек каталога) —
+  // трек не «настоящий» с точки зрения комментариев, и они идут в localStorage
+  remoteId?: string;
 }
 
 const mk = (id: number, title: string, artist: string, album: string, duration: string, genre: string, plays: string, liked: boolean, c1: string, c2: string): Track => ({

@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat,
   ChevronDown, Share2, Volume2, VolumeX, Globe,
@@ -6,19 +6,20 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track } from "./data";
-import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES, copyText } from "./lib";
+import { TRACKS, LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track, type Comment } from "./data";
+import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES, copyText, deriveHandle } from "./lib";
 import { useLang } from "./i18n";
+import { supabaseEnabled, fetchComments, postComment } from "./supabase";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
-export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle }: {
+export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid }: {
   track: Track; playing: boolean; onToggle: () => void; onClose: () => void;
   progress: number; duration: number; onSeek: (p: number) => void; onNext: () => void; onPrev: () => void;
   liked: boolean; onLike: () => void; volume: number; onVolume: (v: number) => void;
   onPlayTrack: (t: Track) => void; onOpenArtist: (name: string) => void; onOpenAlbum: (album: string) => void;
   sleepLeft: number | null; onSleep: (minutes: number | null) => void;
-  downloaded: boolean; onDownload: () => void; handle: string;
+  downloaded: boolean; onDownload: () => void; handle: string; uid: string | null;
 }) {
   const { t, lang } = useLang();
   const [tab, setTab] = useState<"player" | "lyrics" | "comments" | "queue">("player");
@@ -27,7 +28,29 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   const [sleepOpen, setSleepOpen] = useState(false);
   // Реальные комментарии — свои для каждого трека, плюс то, что написал сам пользователь
   const [myComments, setMyComments] = useState(() => loadMyComments());
-  const comments = useMemo(() => commentsFor(track.id, myComments), [track.id, myComments]);
+  // Трек «настоящий» (опубликован через Студию и синхронизирован с Supabase) —
+  // тогда комментарии живут в public.comments, а не в localStorage этого устройства
+  const remoteTrackId = supabaseEnabled ? track.remoteId : undefined;
+  const [remoteComments, setRemoteComments] = useState<Comment[]>([]);
+  useEffect(() => {
+    if (!remoteTrackId) { setRemoteComments([]); return; }
+    let cancelled = false;
+    fetchComments(remoteTrackId).then(({ data }) => {
+      if (cancelled) return;
+      setRemoteComments(data.map(row => ({
+        pct: Number(row.pct),
+        user: row.profiles?.handle || deriveHandle(row.profiles?.username ?? "user"),
+        text: row.text,
+        likes: 0,
+        avatar: track.c2,
+      })));
+    });
+    return () => { cancelled = true; };
+  }, [remoteTrackId, track.c2]);
+  const comments = useMemo(
+    () => (remoteTrackId ? remoteComments : commentsFor(track.id, myComments)),
+    [remoteTrackId, remoteComments, track.id, myComments],
+  );
   const [commentText, setCommentText] = useState("");
   const volRef = useRef<HTMLDivElement>(null);
   const volDragging = useRef(false);
@@ -59,7 +82,16 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   const addComment = () => {
     const text = commentText.trim();
     if (!text) return;
-    setMyComments(addMyComment(track.id, { pct: Math.round(progress), user: handle, text, likes: 0, avatar: track.c2 }));
+    const pct = Math.round(progress);
+    if (remoteTrackId && uid) {
+      // Пишем сразу и оптимистично добавляем в список — не ждём рефетча,
+      // а неудачная синхронизация (см. остальные recordDonation-подобные
+      // хелперы) не должна ломать локальный опыт пользователя
+      postComment(uid, remoteTrackId, pct, text).catch(err => console.warn("postComment:", err));
+      setRemoteComments(prev => [...prev, { pct, user: handle, text, likes: 0, avatar: track.c2 }].sort((a, b) => a.pct - b.pct));
+    } else {
+      setMyComments(addMyComment(track.id, { pct, user: handle, text, likes: 0, avatar: track.c2 }));
+    }
     setCommentText("");
     toast(t("pl.commented", fmtSec(curSec)));
   };

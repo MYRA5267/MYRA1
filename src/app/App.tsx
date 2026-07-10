@@ -18,7 +18,7 @@ import { DevPanelSheet } from "./dev";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow, type UserRole } from "./auth";
-import { supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, type SubStatus } from "./supabase";
+import { supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, uploadTrackAudio, insertTrack, type SubStatus } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
 import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
@@ -545,7 +545,24 @@ function AppInner() {
     setPendingRelease(null);
     toast(t("cr.published", meta.title));
     logActivity("cr.added", 1);
-  }, [pendingRelease, userName, t, logActivity]);
+
+    // Публикация в Supabase — строго в фоне и без ожидания: локальный трек
+    // (IndexedDB + myTracks) уже живёт и играет сам по себе, а без сети/логина
+    // это так и останется единственной копией — как и было до этой фичи
+    if (supabaseEnabled && uid) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "mp3";
+      uploadTrackAudio(uid, String(id), file, ext)
+        .then(async ({ url, error: upErr }) => {
+          if (upErr || !url) { console.warn("uploadTrackAudio:", upErr); return; }
+          const { data, error } = await insertTrack(uid, {
+            title: meta.title, genre: meta.genre, lyrics: meta.lyrics || null, cover_url: meta.cover, audio_url: url,
+          });
+          if (error || !data) { console.warn("insertTrack:", error); return; }
+          setMyTracks(prev => prev.map(tr => (tr.id === id ? { ...tr, remoteId: data.id } : tr)));
+        })
+        .catch(err => console.warn("publishRelease sync:", err));
+    }
+  }, [pendingRelease, userName, t, logActivity, uid]);
 
   const removeLocal = useCallback((id: number) => {
     setMyTracks(prev => prev.filter(tr => tr.id !== id));
@@ -963,6 +980,7 @@ function AppInner() {
               downloaded={downloads.has(currentTrack.id)}
               onDownload={() => downloadTrack(currentTrack)}
               handle={handle}
+              uid={uid}
             />
           </motion.div>
         )}
