@@ -7,9 +7,10 @@ import {
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { TRACKS, LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track, type Comment } from "./data";
-import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES, copyText, deriveHandle } from "./lib";
+import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
 import { useLang } from "./i18n";
 import { supabaseEnabled, fetchComments, postComment } from "./supabase";
+import { useTrackStructure, sectionForPct } from "./structure";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
@@ -54,6 +55,11 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   const [commentText, setCommentText] = useState("");
   const volRef = useRef<HTMLDivElement>(null);
   const volDragging = useRef(false);
+
+  // Эвристическая структура трека (интро/куплет/припев/...) — см. structure.ts.
+  // Не блокирует ничего: пока анализ не готов или не удался (сеть/CORS/формат),
+  // просто null, и волна выглядит как раньше.
+  const structure = useTrackStructure(track);
 
   const lines = LYRICS[track.id];
   const lyricIndex = Math.min((lines?.length ?? 1) - 1, Math.floor((progress / 100) * (lines?.length ?? 1)));
@@ -157,6 +163,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
             {/* Волна */}
             <div className="mb-5">
               <Waveform progress={progressRounded} color={track.c2} onSeek={onSeek} height={56} seed={track.id + 3} playing={playing} />
+              <TrackStructureBar sections={structure} />
               <div className="flex justify-between mt-2 text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>
                 <span>{fmtSec(curSec)}</span>
                 <span>{duration ? fmtSec(duration) : track.duration}</span>
@@ -283,6 +290,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                   <div className="w-2 h-2 rounded-full" style={{ background: c.avatar, boxShadow: `0 0 8px ${c.avatar}` }} />
                 </div>
               ))}
+              <TrackStructureBar sections={structure} height={16} compact />
             </div>
 
             <div className="flex flex-col gap-3 overflow-y-auto flex-1" style={{ scrollbarWidth: "none" }}>
@@ -298,9 +306,10 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                     {c.user[1].toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-xs font-semibold" style={{ color: track.c2, fontFamily: F.b }}>{c.user}</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: `${track.c2}22`, color: track.c2, fontFamily: F.m }}>{fmtSec((c.pct / 100) * (duration || 372))}</span>
+                      <SectionBadge section={sectionForPct(structure, c.pct)} />
                     </div>
                     <div className="text-sm" style={{ color: "color-mix(in srgb, var(--fg) 78%, transparent)", fontFamily: F.b }}>{c.text}</div>
                   </div>
