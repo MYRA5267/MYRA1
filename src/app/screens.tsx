@@ -149,7 +149,7 @@ function DiscoveryDeck({ onPlay }: { onPlay: (t: Track) => void }) {
 const ACTIVITY_ICONS: Record<string, typeof Music2> = {
   "act.levelUp": Trophy, "act.streak": Flame,
   "act.cpActivated": Crown, "act.cpCancelled": Crown, "act.cpResumed": Crown,
-  "act.donateSent": Gift, "act.withdrawDone": Wallet,
+  "act.donateSent": Gift, "act.splitDonate": Gift, "act.withdrawDone": Wallet,
   "act.plCreated": Music2, "act.plDeleted": Music2,
   "cr.added": Upload, "dl.done": Download,
   "ach.unlocked": Trophy, "act.plusActivated": Sparkles,
@@ -1075,9 +1075,9 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade, quality, onSetQuality, userRole, plusActive, donationCount, devMode, onToggleDevMode, onOpenDevPanel, onOpenPlus }: {
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onLogout, crossfade, onToggleCrossfade, quality, onSetQuality, userRole, plusActive, donationCount, devMode, onToggleDevMode, onOpenDevPanel, onOpenPlus }: {
   c2: string; userName: string; handle: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
-  onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onLogout: () => void;
+  onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onOpenSplit: () => void; onLogout: () => void;
   crossfade: boolean; onToggleCrossfade: () => void; quality: number; onSetQuality: (idx: number) => void;
   userRole: UserRole; plusActive: boolean; donationCount: number;
   devMode: boolean; onToggleDevMode: () => void; onOpenDevPanel: () => void; onOpenPlus: () => void;
@@ -1166,6 +1166,22 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
               <div className="text-[10px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "#a78bfa", fontFamily: F.m }}>{monthLabel}</div>
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: ON_DARK }}>
                 {t("pr.wrapped")}<span style={{ fontFamily: F.s, fontStyle: "italic", fontWeight: 500, fontSize: 18, color: "#c4b5fd" }}>{t("pr.month")}</span>
+              </div>
+            </div>
+            <ChevronRight size={20} style={{ color: onDark(50) }} />
+          </div>
+        </TiltCard>
+      </div>
+
+      {/* Прозрачный сплит — куда реально уходит поддержка, по долям слушания месяца */}
+      <div className="px-5 mb-6">
+        <TiltCard max={6} onClick={onOpenSplit} className="rounded-[24px] overflow-hidden relative cursor-pointer" style={{ height: 104, background: "linear-gradient(135deg, rgba(58,42,5,0.9), rgba(202,138,4,0.45))", border: "1px solid rgba(250,204,21,0.3)" }}>
+          <Aurora c2="#facc15" opacity={0.55} />
+          <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "#fde047", fontFamily: F.m }}>{t("pr.splitSub")}</div>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: ON_DARK }}>
+                {t("pr.split")}<span style={{ fontFamily: F.s, fontStyle: "italic", fontWeight: 500, fontSize: 18, color: "#fde047" }}>{t("pr.splitAccent")}</span>
               </div>
             </div>
             <ChevronRight size={20} style={{ color: onDark(50) }} />

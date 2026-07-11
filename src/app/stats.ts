@@ -12,13 +12,16 @@ export interface ProfileStats {
   genreSeconds: Record<string, number>;
   /** секунды по артистам за всё время — для Wrapped */
   artistSeconds: Record<string, number>;
+  /** секунды по артистам в разрезе месяцев, ключ "YYYY-MM" — для Прозрачного
+      сплита: всё время не годится, сплит месяца должен считаться по месяцу */
+  artistSecondsByMonth: Record<string, Record<string, number>>;
   /** trackId -> сколько раз запускался (любой трек, не только свой) — для Wrapped */
   playedTracks: Record<number, number>;
   streak: number;
   lastActiveDay: string;
 }
 
-const DEFAULT_STATS: ProfileStats = { secondsByDay: {}, genreSeconds: {}, artistSeconds: {}, playedTracks: {}, streak: 0, lastActiveDay: "" };
+const DEFAULT_STATS: ProfileStats = { secondsByDay: {}, genreSeconds: {}, artistSeconds: {}, artistSecondsByMonth: {}, playedTracks: {}, streak: 0, lastActiveDay: "" };
 
 export function loadStats(): ProfileStats {
   // Слияние с дефолтом — аккаунты, созданные до появления artistSeconds/playedTracks,
@@ -44,15 +47,79 @@ export function touchDailyStreak(s: ProfileStats): ProfileStats {
   return { ...s, streak, lastActiveDay: today };
 }
 
+export const currentMonthKey = () => todayIso().slice(0, 7); // "YYYY-MM"
+
 /** Добавляет прожитые секунды прослушивания — общие, по жанру и по артисту */
 export function addListenSeconds(s: ProfileStats, seconds: number, genre: string, artist: string): ProfileStats {
   const day = todayIso();
+  const mk = currentMonthKey();
+  const month = s.artistSecondsByMonth[mk] ?? {};
   return {
     ...s,
     secondsByDay: { ...s.secondsByDay, [day]: (s.secondsByDay[day] ?? 0) + seconds },
     genreSeconds: { ...s.genreSeconds, [genre]: (s.genreSeconds[genre] ?? 0) + seconds },
     artistSeconds: { ...s.artistSeconds, [artist]: (s.artistSeconds[artist] ?? 0) + seconds },
+    artistSecondsByMonth: { ...s.artistSecondsByMonth, [mk]: { ...month, [artist]: (month[artist] ?? 0) + seconds } },
   };
+}
+
+// ─── Прозрачный сплит ─────────────────────────────────────────────────────────
+// Идея user-centric-распределения (твои деньги идут именно тем, кого ТЫ слушал,
+// а не в общий котёл платформы) в индустрии обсуждается годами, но слушателю её
+// как продукт почти никто не показывает. Здесь она считается из реально
+// накопленных секунд текущего месяца — никаких выдуманных данных.
+
+export interface ArtistShare { artist: string; seconds: number; pct: number }
+
+/** Реальные доли слушания по артистам за текущий месяц, по убыванию */
+export function artistSharesOfMonth(s: ProfileStats): ArtistShare[] {
+  const month = s.artistSecondsByMonth[currentMonthKey()] ?? {};
+  const entries = Object.entries(month).filter(([, v]) => v > 0);
+  const total = entries.reduce((sum, [, v]) => sum + v, 0);
+  if (!total) return [];
+  return entries
+    .map(([artist, seconds]) => ({ artist, seconds, pct: (seconds / total) * 100 }))
+    .sort((a, b) => b.seconds - a.seconds);
+}
+
+/** Раскладывает сумму доната по долям слушания (largest remainder, целые ₽).
+    Артисты, которым по доле не достаётся и рубля, в раскладку не попадают. */
+export function splitAmountByShares(amount: number, shares: ArtistShare[]): { artist: string; amount: number }[] {
+  if (amount <= 0 || !shares.length) return [];
+  const top = shares.slice(0, 8); // хвост из «по 2 секунды» превратился бы в пыль по 0₽
+  const total = top.reduce((sum, sh) => sum + sh.seconds, 0);
+  const raw = top.map(sh => ({ artist: sh.artist, exact: (amount * sh.seconds) / total }));
+  const parts = raw.map(r => ({ artist: r.artist, amount: Math.floor(r.exact), frac: r.exact % 1 }));
+  let left = amount - parts.reduce((sum, p) => sum + p.amount, 0);
+  for (const p of [...parts].sort((a, b) => b.frac - a.frac)) {
+    if (left <= 0) break;
+    p.amount += 1;
+    left -= 1;
+  }
+  return parts.filter(p => p.amount > 0).map(({ artist, amount }) => ({ artist, amount }));
+}
+
+// Локальная бухгалтерия отправленных донатов по месяцам: лента activity
+// обрезается до 30 записей и суммой за месяц служить не может, а Supabase
+// опционален — значит честный учёт должен жить локально
+export type DonationLedger = Record<string, Record<string, number>>; // "YYYY-MM" -> артист -> ₽
+
+export function loadDonationLedger(): DonationLedger {
+  return ls.get<DonationLedger>("donationLedger", {});
+}
+
+export function logDonationSent(artist: string, amount: number): DonationLedger {
+  const ledger = loadDonationLedger();
+  const mk = currentMonthKey();
+  const month = ledger[mk] ?? {};
+  const next: DonationLedger = { ...ledger, [mk]: { ...month, [artist]: (month[artist] ?? 0) + amount } };
+  ls.set("donationLedger", next);
+  return next;
+}
+
+export function donationsOfMonth(ledger: DonationLedger): { total: number; byArtist: Record<string, number> } {
+  const byArtist = ledger[currentMonthKey()] ?? {};
+  return { total: Object.values(byArtist).reduce((a, b) => a + b, 0), byArtist };
 }
 
 /** Отмечает запуск трека (любого) — для счётчика «сколько треков послушал» в Wrapped */
