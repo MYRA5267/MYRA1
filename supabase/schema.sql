@@ -438,3 +438,27 @@ create policy "support_messages_update_admin"
 grant select on public.admins to authenticated;
 
 grant select, insert, update on public.support_messages to authenticated;
+
+
+-- ============================================================================
+-- 10. donations — донаты настоящим артистам (to_user_id)
+-- ============================================================================
+-- Раньше donations.to_artist был просто текстовым именем — донатить можно
+-- было только демо-артистам каталога, у которых нет реального аккаунта.
+-- Теперь, когда Студия реально публикует треки (см. секцию 2, tracks), у
+-- артистов появились настоящие профили — добавляем nullable-ссылку на
+-- получателя, не трогая существующую колонку to_artist (она остаётся
+-- денормализованным именем на момент доната, полезным для истории/показа).
+-- on delete set null — если артист позже удалит аккаунт, история доната у
+-- отправителя не должна пропадать, просто перестаёт указывать на профиль.
+alter table public.donations
+  add column to_user_id uuid references public.profiles(id) on delete set null;
+
+create index donations_to_user_id_idx on public.donations (to_user_id);
+
+-- До этой секции донат мог видеть только отправитель (donations_select_own) —
+-- получателю банально нечего было видеть, все получатели были демо-каталогом.
+-- Теперь настоящему артисту нужно видеть, что ему реально задонатили.
+create policy "donations_select_received"
+  on public.donations for select
+  using (auth.uid() = to_user_id);
