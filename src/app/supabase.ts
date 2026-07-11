@@ -119,6 +119,15 @@ export async function setSubscriptionStatus(status: SubStatus) {
   return supabase.functions.invoke<{ ok: boolean }>("set-subscription", { body: { status } });
 }
 
+// Реальное удаление аккаунта (auth.users + всё, что на него ссылается, через
+// on delete cascade) — идёт через Edge Function delete-account, потому что
+// удалить самого себя из auth.users клиент не может ни при каком RLS
+export async function deleteAccountRemote() {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  const { error } = await supabase.functions.invoke<{ ok: boolean }>("delete-account", { body: {} });
+  return { error };
+}
+
 // ─── Поддержка: тред пользователя + инбокс для админов ───────────────────────
 // (два создателя MYRA, строки в admins проставляются вручную ими самими через
 // Supabase Dashboard — см. schema.sql)

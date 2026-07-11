@@ -414,6 +414,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   "role.continue":  { ru: "Готово", en: "Done" },
   "pr.loggedOut":   { ru: "Ты вышел из аккаунта", en: "You've been logged out" },
   "acc.deleted":    { ru: "Аккаунт удалён", en: "Account deleted" },
+  "acc.deleteFailed": { ru: "Не удалось удалить аккаунт на сервере — попробуй ещё раз", en: "Couldn't delete the account on the server — try again" },
 
   // Рейтинг
   "rt.level":       { ru: "Уровень", en: "Level" },

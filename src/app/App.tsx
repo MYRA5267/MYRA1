@@ -18,7 +18,7 @@ import { DevPanelSheet, AdminSupportSheet } from "./dev";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow, type UserRole } from "./auth";
-import { supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, uploadTrackAudio, insertTrack, type SubStatus } from "./supabase";
+import { supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, uploadTrackAudio, insertTrack, deleteAccountRemote, type SubStatus } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
 import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
@@ -706,6 +706,7 @@ function AppInner() {
     setPlusActiveState(false);
     setDevModeState(false);
     setDevPanelOpen(false);
+    setAdminSupportOpen(false);
     setPlusOpen(false);
     setUserRole("listener");
     setCustomAvatar(null);
@@ -721,10 +722,19 @@ function AppInner() {
     toast(t("pr.loggedOut"));
   }, [audio, t, myTracks, downloads]);
 
-  const handleDeleteAccount = useCallback(() => {
+  // В отличие от остальных фоновых синхронизаций (донаты, подписки), здесь
+  // нельзя молча проглотить ошибку и продолжить как ни в чём не бывало:
+  // текст в UI прямым текстом обещает "сотрутся навсегда", и если реальное
+  // удаление на сервере не прошло, пользователь должен об этом узнать, а не
+  // считать аккаунт удалённым, пока он на самом деле жив в базе
+  const handleDeleteAccount = useCallback(async () => {
+    if (supabaseEnabled && uid) {
+      const { error } = await deleteAccountRemote();
+      if (error) { toast.error(t("acc.deleteFailed")); return; }
+    }
     handleLogout();
     toast(t("acc.deleted"));
-  }, [handleLogout, t]);
+  }, [handleLogout, t, uid]);
 
   const handleSleep = useCallback((minutes: number | null) => {
     setSleepLeft(minutes === null ? null : minutes * 60);
