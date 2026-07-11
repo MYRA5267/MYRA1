@@ -227,3 +227,76 @@ export async function markSupportThreadRead(userId: string) {
     .is("read_at", null);
   return { error };
 }
+
+// ─── Треки: реальный релиз, опубликованный через Студию ────────────────────
+
+export interface TrackInput {
+  title: string;
+  genre: string;
+  lyrics: string | null;
+  cover_url: string | null;
+  audio_url: string;
+}
+
+export interface TrackRow extends TrackInput {
+  id: string;
+  owner_id: string;
+  created_at: string;
+}
+
+// Аудио — в Storage, а не в text-колонке tracks.audio_url (иначе бинарник
+// раздул бы таблицу): путь "{uid}/{trackId}.{ext}" даёт RLS-политикам бакета
+// "tracks" (см. schema.sql) проверить владельца по первому сегменту пути.
+// trackId здесь — локальный числовой id трека с фронтенда, а не будущий
+// tracks.id (его ещё не существует на момент аплоада), но для уникальности
+// пути этого достаточно.
+export async function uploadTrackAudio(uid: string, trackId: string, file: Blob, ext: string) {
+  if (!supabaseEnabled || !supabase) return { url: null as string | null, error: null };
+  const path = `${uid}/${trackId}.${ext}`;
+  const { error } = await supabase.storage.from("tracks").upload(path, file, {
+    contentType: file.type || undefined,
+    upsert: true,
+  });
+  if (error) return { url: null as string | null, error };
+  const { data } = supabase.storage.from("tracks").getPublicUrl(path);
+  return { url: data.publicUrl as string | null, error: null };
+}
+
+export async function insertTrack(ownerId: string, fields: TrackInput) {
+  if (!supabaseEnabled || !supabase) return { data: null as TrackRow | null, error: null };
+  const { data, error } = await supabase.from("tracks").insert({ owner_id: ownerId, ...fields }).select().single();
+  return { data: data as TrackRow | null, error };
+}
+
+// ─── Комментарии на волне трека ─────────────────────────────────────────────
+// Только для по-настоящему опубликованных треков (track_id = uuid из tracks).
+// Демо-треки каталога (числовые id 1-8) в эту таблицу не пишутся — см. границу
+// в шапке schema.sql — для них комментарии остаются в localStorage (data.ts).
+
+export interface CommentRow {
+  id: string;
+  track_id: string;
+  user_id: string;
+  pct: number;
+  text: string;
+  created_at: string;
+  // Подтягивается через embed по FK comments.user_id -> profiles.id — профиль
+  // публично читаем (profiles_select_public), лишнего запроса на клиенте не нужно
+  profiles: { handle: string | null; username: string } | null;
+}
+
+export async function fetchComments(trackId: string) {
+  if (!supabaseEnabled || !supabase) return { data: [] as CommentRow[], error: null };
+  const { data, error } = await supabase
+    .from("comments")
+    .select("id, track_id, user_id, pct, text, created_at, profiles(handle, username)")
+    .eq("track_id", trackId)
+    .order("pct", { ascending: true });
+  return { data: (data as unknown as CommentRow[] | null) ?? [], error };
+}
+
+export async function postComment(userId: string, trackId: string, pct: number, text: string) {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  const { error } = await supabase.from("comments").insert({ user_id: userId, track_id: trackId, pct, text });
+  return { error };
+}

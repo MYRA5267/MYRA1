@@ -318,7 +318,44 @@ grant insert, delete on public.follows to authenticated;
 
 
 -- ============================================================================
--- 7. admins — плоский список создателей MYRA (для админ-инбокса поддержки)
+-- 7. Storage bucket "tracks" — аудиофайлы опубликованных треков
+-- ============================================================================
+-- tracks.audio_url — not null, а хранить сам бинарник аудио в text-колонке
+-- Postgres нельзя (раздует таблицу и WAL) — поэтому файл лежит в Supabase
+-- Storage, а в audio_url — только его публичная ссылка (getPublicUrl).
+--
+-- Путь объекта в бакете организован как "{uid}/{trackId}.{ext}" — первый
+-- сегмент пути обязан быть auth.uid() владельца, чтобы политики insert/
+-- update/delete ниже могли это проверить через storage.foldername(name)
+-- (первый элемент результата — как раз папка верхнего уровня).
+insert into storage.buckets (id, name, public)
+values ('tracks', 'tracks', true)
+on conflict (id) do nothing;
+
+-- Бакет публичный на чтение — трек слушает кто угодно, без авторизации
+-- (как и сама таблица tracks, см. tracks_select_public выше)
+create policy "tracks_storage_select_public"
+  on storage.objects for select
+  using (bucket_id = 'tracks');
+
+-- Заливать файл можно только в свою же папку {auth.uid()}/...
+create policy "tracks_storage_insert_own"
+  on storage.objects for insert
+  with check (bucket_id = 'tracks' and auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Перезаливать (upsert) можно только свои же файлы
+create policy "tracks_storage_update_own"
+  on storage.objects for update
+  using (bucket_id = 'tracks' and auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Удалять можно только свои файлы
+create policy "tracks_storage_delete_own"
+  on storage.objects for delete
+  using (bucket_id = 'tracks' and auth.uid()::text = (storage.foldername(name))[1]);
+
+
+-- ============================================================================
+-- 8. admins — плоский список создателей MYRA (для админ-инбокса поддержки)
 -- ============================================================================
 -- Сознательно нет insert/update/delete-политик для anon/authenticated: строки
 -- сюда добавляют вручную сами создатели через Table Editor в Supabase Dashboard.
@@ -339,7 +376,7 @@ create policy "admins_select_own"
 
 
 -- ============================================================================
--- 8. support_messages — переписка с поддержкой (пользователь ⇄ ИИ ⇄ админ)
+-- 9. support_messages — переписка с поддержкой (пользователь ⇄ ИИ ⇄ админ)
 -- ============================================================================
 -- user_id — это автор ТРЕДА (обычный пользователь, чей это тикет), а не автор
 -- конкретной строки: когда админ отвечает в чужом тикете, его ответ тоже
@@ -396,7 +433,7 @@ create policy "support_messages_update_admin"
 
 
 -- ============================================================================
--- GRANT для таблиц из секций 7-8 выше (см. пояснение про grant в начале файла)
+-- GRANT для таблиц из секций 8-9 выше (см. пояснение про grant в начале файла)
 -- ============================================================================
 grant select on public.admins to authenticated;
 
