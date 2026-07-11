@@ -18,10 +18,10 @@ import { DevPanelSheet, AdminSupportSheet } from "./dev";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow, type UserRole } from "./auth";
-import { supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, uploadTrackAudio, insertTrack, deleteAccountRemote, type SubStatus } from "./supabase";
+import { supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, fetchReceivedDonationsTotal, uploadTrackAudio, insertTrack, deleteAccountRemote, type SubStatus } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
-import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
+import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
 import { LiveSessionSheet } from "./live";
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
@@ -155,6 +155,7 @@ function AppInner() {
   const [likedIds, setLikedIds] = useState<Set<number>>(() => new Set(ls.get<number[]>("liked", [])));
 
   const [artistName, setArtistName] = useState<string | null>(null);
+  const [realArtistId, setRealArtistId] = useState<string | null>(null);
   const [albumName, setAlbumName] = useState<string | null>(null);
   const [peerProfile, setPeerProfile] = useState<typeof LEADERBOARD_PEERS[number] | null>(null);
   const [playlistId, setPlaylistId] = useState<string | null>(null);
@@ -358,6 +359,15 @@ function AppInner() {
       else { const active = status === "active"; setPlusActiveState(active); ls.set("plusActive", active); }
     });
   }, [uid, onboarded, userRole]);
+
+  // Реально полученные донаты (from RealArtistSheet, to_user_id = uid) — не
+  // тот же счётчик, что локальный симулированный balance/withdraw ниже:
+  // подтягиваем при каждом заходе в Студию, чтобы сумма была свежей
+  const [realDonationsTotal, setRealDonationsTotal] = useState(0);
+  useEffect(() => {
+    if (!supabaseEnabled || !uid || tab !== "creator") return;
+    fetchReceivedDonationsTotal(uid).then(setRealDonationsTotal);
+  }, [uid, tab]);
 
   const avatar = customAvatar ?? AVATARS[avatarIdx] ?? AVATARS[0];
 
@@ -648,6 +658,11 @@ function AppInner() {
     setArtistName(name);
   }, []);
 
+  const openRealArtist = useCallback((id: string) => {
+    setAlbumName(null);
+    setRealArtistId(id);
+  }, []);
+
   const openAlbum = useCallback((album: string) => {
     setArtistName(null);
     setAlbumName(album);
@@ -808,8 +823,10 @@ function AppInner() {
         onOpenLive={openLive}
         onPlayWave={() => playWave()}
         onOpenArtist={openArtist}
+        onOpenRealArtist={openRealArtist}
         avatar={avatar}
         activity={activity}
+        uid={uid}
       />
     ),
     rating: (
@@ -855,6 +872,7 @@ function AppInner() {
         myPlaysByDay={myPlays.byDay}
         balance={balance}
         onWithdraw={withdraw}
+        realDonationsTotal={realDonationsTotal}
       />
     ),
     profile: (
@@ -1017,6 +1035,18 @@ function AppInner() {
         onDonate={(name, amt) => {
           logActivity("act.donateSent", amt, name);
           if (supabaseEnabled && uid) recordDonation(uid, name, amt).catch(err => console.warn("recordDonation:", err));
+        }}
+      />
+
+      <RealArtistSheet
+        artistId={realArtistId}
+        onClose={() => setRealArtistId(null)}
+        onPlay={playTrack}
+        currentTrack={currentTrack}
+        playing={audio.playing}
+        onDonate={(toUserId, name, amt) => {
+          logActivity("act.donateSent", amt, name);
+          if (supabaseEnabled && uid) recordDonation(uid, name, amt, toUserId).catch(err => console.warn("recordDonation:", err));
         }}
       />
 
