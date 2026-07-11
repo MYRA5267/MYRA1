@@ -10,7 +10,8 @@ import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
   topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds, grantXp,
   loadActivity, pushActivity, loadMyPlays, logMyTrackPlay, loadTotalPlays, bumpTotalPlays,
-  type ProfileStats, type ActivityItem, type MyPlays,
+  artistSharesOfMonth, loadDonationLedger, logDonationSent, donationsOfMonth,
+  type ProfileStats, type ActivityItem, type MyPlays, type DonationLedger,
 } from "./stats";
 import { ACHIEVEMENTS, type AchievementCounters } from "./achievements";
 import { MyraWordmark } from "./logo";
@@ -24,7 +25,7 @@ import {
 } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
-import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
+import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, SplitSheet, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
 import { LiveSessionSheet } from "./live";
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
@@ -227,13 +228,38 @@ function AppInner() {
   const [activity, setActivity] = useState<ActivityItem[]>(() => loadActivity());
   const [myPlays, setMyPlays] = useState<MyPlays>(() => loadMyPlays());
   const [totalPlays, setTotalPlays] = useState(() => loadTotalPlays());
-  // Сколько раз реально задонатил другим артистам — для достижений в Рейтинге
-  const donationCount = useMemo(() => activity.filter(a => a.textKey === "act.donateSent").length, [activity]);
+  // Сколько раз реально задонатил другим артистам — для достижений в Рейтинге;
+  // донат по сплиту — тоже донат, поэтому учитывается наравне с одиночным
+  const donationCount = useMemo(() => activity.filter(a => a.textKey === "act.donateSent" || a.textKey === "act.splitDonate").length, [activity]);
   const [balance, setBalance] = useState(() => ls.get("balance", 0));
 
   const logActivity = useCallback((key: string, ...args: (string | number)[]) => {
     setActivity(pushActivity(key, ...args));
   }, []);
+
+  // Прозрачный сплит: локальная бухгалтерия отправленных донатов + шторка
+  const [donationLedger, setDonationLedger] = useState<DonationLedger>(() => loadDonationLedger());
+  const [splitOpen, setSplitOpen] = useState(false);
+  const openSplit = useCallback(() => setSplitOpen(true), []);
+
+  // Единый путь любого доната: лента событий, локальная бухгалтерия месяца
+  // и (когда есть бэкенд) запись в Supabase — чтобы ArtistSheet, RealArtistSheet
+  // и донат по сплиту не расходились в учёте
+  const sendDonation = useCallback((name: string, amt: number, toUserId?: string) => {
+    setDonationLedger(logDonationSent(name, amt));
+    if (supabaseEnabled && uidRef.current) recordDonation(uidRef.current, name, amt, toUserId).catch(err => console.warn("recordDonation:", err));
+  }, []);
+
+  const handleSplitDonate = useCallback((parts: { artist: string; amount: number }[]) => {
+    const total = parts.reduce((sum, p) => sum + p.amount, 0);
+    for (const p of parts) sendDonation(p.artist, p.amount);
+    // Одна сводная запись в ленте вместо N одинаковых — иначе донат по сплиту
+    // на 8 артистов вытеснил бы из капованной ленты всё остальное
+    setActivity(pushActivity("act.splitDonate", total, parts.length));
+  }, [sendDonation]);
+
+  const monthShares = useMemo(() => artistSharesOfMonth(stats), [stats]);
+  const monthDonations = useMemo(() => donationsOfMonth(donationLedger), [donationLedger]);
 
   const activateCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpActivated"); }, [logActivity]);
   const cancelCreatorPlusSub = useCallback(() => { setCp("grace"); logActivity("act.cpCancelled"); }, [logActivity]);
@@ -782,6 +808,11 @@ function AppInner() {
     setFriendsFeed([]);
     setRealProfile(null);
     setPeopleSearchOpen(false);
+    // Прозрачный сплит: ls.clear() выше стёр ключ на диске, но состояние в
+    // памяти пережило бы логаут — донаты прошлого аккаунта не должны
+    // показываться следующему
+    setDonationLedger({});
+    setSplitOpen(false);
     toast(t("pr.loggedOut"));
   }, [audio, t, myTracks, downloads]);
 
@@ -938,6 +969,7 @@ function AppInner() {
         onOpenBlend={setBlendFriend}
         onOpenAccount={openAccount}
         onOpenWrapped={openWrapped}
+        onOpenSplit={openSplit}
         onLogout={handleLogout}
         crossfade={crossfade}
         onToggleCrossfade={toggleCrossfade}
@@ -1085,7 +1117,7 @@ function AppInner() {
         onOpenAlbum={openAlbum}
         onDonate={(name, amt) => {
           logActivity("act.donateSent", amt, name);
-          if (supabaseEnabled && uid) recordDonation(uid, name, amt).catch(err => console.warn("recordDonation:", err));
+          sendDonation(name, amt);
         }}
       />
 
@@ -1097,7 +1129,7 @@ function AppInner() {
         playing={audio.playing}
         onDonate={(toUserId, name, amt) => {
           logActivity("act.donateSent", amt, name);
-          if (supabaseEnabled && uid) recordDonation(uid, name, amt, toUserId).catch(err => console.warn("recordDonation:", err));
+          sendDonation(name, amt, toUserId);
         }}
       />
 
@@ -1257,6 +1289,15 @@ function AppInner() {
         followingIds={followingSet}
         onToggleFollow={toggleRealFollow}
         onOpenProfile={p => { setPeopleSearchOpen(false); setRealProfile(p); }}
+      />
+
+      <SplitSheet
+        open={splitOpen}
+        onClose={() => setSplitOpen(false)}
+        shares={monthShares}
+        donatedTotal={monthDonations.total}
+        donatedByArtist={monthDonations.byArtist}
+        onSplitDonate={handleSplitDonate}
       />
 
     </div>,

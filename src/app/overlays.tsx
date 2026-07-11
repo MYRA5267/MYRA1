@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, ls, svgAvatar, trackFromRow, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
-import { monthDays } from "./stats";
+import { monthDays, splitAmountByShares, minutesOf, type ArtistShare } from "./stats";
 import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, type SupportMessageRow, type ArtistProfileData, type PublicProfile } from "./supabase";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
@@ -1389,6 +1389,200 @@ export function WrappedModal({ open, onClose, minutes, topArtistName, topArtistI
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ─── Прозрачный сплит ─────────────────────────────────────────────────────────
+// Единственный экран в стриминге, где видно, КОМУ уходит твоя поддержка и
+// почему именно в таких долях: доли — это реально накопленные секунды слушания
+// текущего месяца (artistSecondsByMonth), донаты — реально отправленные суммы
+// (donationLedger). «Донат по сплиту» — одна сумма расходится по артистам
+// месяца пропорционально твоему времени слушания; сама оплата — та же
+// симуляция, что и в DonateWidget (реального процессинга в MYRA пока нет).
+
+const SPLIT_BAR_COLORS = ["#facc15", "#8b5cf6", "#34d399", "#38bdf8", "#f472b6", "#fb923c", "#22d3ee", "#a78bfa"];
+
+export function SplitSheet({ open, onClose, shares, donatedTotal, donatedByArtist, onSplitDonate }: {
+  open: boolean; onClose: () => void;
+  shares: ArtistShare[];
+  donatedTotal: number; donatedByArtist: Record<string, number>;
+  onSplitDonate: (parts: { artist: string; amount: number }[]) => void;
+}) {
+  const { t } = useLang();
+  const [stage, setStage] = useState<"view" | "pay" | "sent">("view");
+  const [amount, setAmount] = useState<number | null>(300);
+  const [custom, setCustom] = useState("");
+  const [method, setMethod] = useState<"card" | "qr">("card");
+  const [cardNum, setCardNum] = useState("");
+  const [cardExp, setCardExp] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+  const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    if (!open) { setStage("view"); setCustom(""); setAmount(300); setProcessing(false); }
+  }, [open]);
+
+  const finalAmount = custom ? parseInt(custom) || 0 : amount ?? 0;
+  const parts = useMemo(() => splitAmountByShares(finalAmount, shares), [finalAmount, shares]);
+  const totalSec = shares.reduce((sum, sh) => sum + sh.seconds, 0);
+
+  return (
+    <Sheet open={open} onClose={onClose} z={66}>
+      <div className="px-6 pt-7 pb-8">
+        <div className="flex items-center justify-between mb-1">
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em" }}>{t("sp.title")}</div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            <X size={16} />
+          </button>
+        </div>
+        <div className="text-xs mb-6" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("sp.sub")}</div>
+
+        {shares.length === 0 ? (
+          <div className="rounded-[20px] p-6 text-center" style={GLASS}>
+            <div className="text-sm font-semibold mb-1" style={{ fontFamily: F.b }}>{t("sp.empty")}</div>
+            <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("sp.emptySub")}</div>
+          </div>
+        ) : stage === "sent" ? (
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="rounded-[20px] p-6 flex items-center gap-4" style={GLASS}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(52,211,153,0.15)" }}>
+              <Check size={22} style={{ color: "#34d399" }} />
+            </div>
+            <div className="text-sm font-semibold" style={{ fontFamily: F.b, color: "#34d399" }}>{t("sp.sent", finalAmount, parts.length)}</div>
+          </motion.div>
+        ) : stage === "pay" ? (
+          <div className="rounded-[20px] p-5" style={GLASS}>
+            <div className="font-bold mb-3" style={{ fontFamily: F.d, fontSize: 16, letterSpacing: "-0.01em" }}>{t("sp.payTitle", finalAmount)}</div>
+
+            <div className="rounded-2xl p-3.5 mb-4" style={{ background: "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
+              {parts.map(p => (
+                <div key={p.artist} className="flex justify-between text-xs mb-1.5 last:mb-0" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 60%, transparent)" }}>
+                  <span className="truncate mr-3">{p.artist}</span><span style={{ color: "#facc15" }}>{p.amount}₽</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              {(["card", "qr"] as const).map(m => (
+                <button key={m} onClick={() => setMethod(m)} className="flex-1 py-2.5 rounded-2xl text-xs font-semibold" style={{ background: method === m ? "rgba(250,204,21,0.13)" : "color-mix(in srgb, var(--wash) 6%, transparent)", border: `1px solid ${method === m ? "rgba(250,204,21,0.35)" : "transparent"}`, color: method === m ? "#facc15" : "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>
+                  {m === "card" ? t("don.methodCard") : t("don.methodQr")}
+                </button>
+              ))}
+            </div>
+
+            {method === "card" ? (
+              <div className="flex flex-col gap-2 mb-5">
+                <input value={cardNum} onChange={e => setCardNum(fmtCardNum(e.target.value))} placeholder="0000 0000 0000 0000" inputMode="numeric" className="px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
+                <div className="flex gap-2">
+                  <input value={cardExp} onChange={e => setCardExp(fmtCardExp(e.target.value))} placeholder={t("don.expPh")} inputMode="numeric" className="flex-1 px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
+                  <input value={cardCvc} onChange={e => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 3))} placeholder="CVC" inputMode="numeric" type="password" className="w-24 px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2.5 mb-5 py-1">
+                <FakeQR seed={finalAmount * 131 + parts.length} />
+                <div className="text-[11px]" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("don.qrHint")}</div>
+              </div>
+            )}
+
+            <div className="flex gap-2.5">
+              <motion.button whileTap={{ scale: 0.96 }} onClick={() => setStage("view")} className="px-5 py-3 rounded-full text-sm font-semibold" style={{ ...GLASS, fontFamily: F.b }}>
+                {t("don.back")}
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                disabled={processing}
+                onClick={() => {
+                  if (method === "card" && (cardNum.replace(/\s/g, "").length < 16 || cardExp.length < 5 || cardCvc.length < 3)) { toast(t("don.cardIncomplete")); return; }
+                  setProcessing(true);
+                  setTimeout(() => {
+                    setProcessing(false);
+                    setStage("sent");
+                    onSplitDonate(parts);
+                    toast.success(t("sp.sent", finalAmount, parts.length));
+                    setTimeout(() => setStage("view"), 2000);
+                  }, 1300);
+                }}
+                className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
+                style={{ background: "linear-gradient(135deg, #facc15, #f59e0b)", color: "#1a1405", fontFamily: F.b }}
+              >
+                {processing ? (<><Loader2 size={14} className="animate-spin" /> {t("don.paying")}</>) : t("don.send", finalAmount)}
+              </motion.button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Реальные доли слушания за месяц */}
+            <div className="rounded-[20px] p-5 mb-4" style={GLASS}>
+              <div className="flex justify-between items-baseline mb-4">
+                <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("sp.shares")}</div>
+                <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("sp.minutes", minutesOf(totalSec))}</div>
+              </div>
+              {shares.slice(0, 8).map((sh, i) => {
+                const color = SPLIT_BAR_COLORS[i % SPLIT_BAR_COLORS.length];
+                const donated = donatedByArtist[sh.artist];
+                return (
+                  <div key={sh.artist} className="mb-3 last:mb-0">
+                    <div className="flex justify-between items-center text-xs mb-1" style={{ fontFamily: F.b }}>
+                      <span className="truncate mr-3 flex items-center gap-2">
+                        {sh.artist}
+                        {donated ? <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0" style={{ background: "rgba(250,204,21,0.12)", color: "#facc15", fontFamily: F.m }}><Gift size={9} /> {donated}₽</span> : null}
+                      </span>
+                      <span style={{ color, fontFamily: F.m }}>{sh.pct < 1 ? "<1" : Math.round(sh.pct)}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(sh.pct, 1.5)}%` }} transition={{ duration: 0.6, delay: i * 0.05 }} className="h-full rounded-full" style={{ background: color }} />
+                    </div>
+                  </div>
+                );
+              })}
+              {donatedTotal > 0 && (
+                <div className="mt-4 pt-3 text-xs flex justify-between" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 08%, transparent)", fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 55%, transparent)" }}>
+                  <span>{t("sp.donated")}</span><span style={{ color: "#facc15" }}>{donatedTotal}₽</span>
+                </div>
+              )}
+            </div>
+
+            {/* Донат по сплиту */}
+            <div className="rounded-[20px] p-5" style={GLASS}>
+              <div className="font-bold mb-1" style={{ fontFamily: F.d, fontSize: 16, letterSpacing: "-0.01em" }}>{t("sp.donateTitle")}</div>
+              <div className="text-xs mb-4" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("sp.donateSub")}</div>
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {[100, 300, 500].map(a => (
+                  <button key={a} onClick={() => { setAmount(a); setCustom(""); }} className="px-4 py-2 rounded-full text-sm font-semibold transition-all" style={{ background: amount === a && !custom ? "#facc15" : "color-mix(in srgb, var(--wash) 07%, transparent)", color: amount === a && !custom ? "#1a1405" : "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>
+                    {a}₽
+                  </button>
+                ))}
+                <input
+                  value={custom}
+                  onChange={e => setCustom(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder={t("don.custom")}
+                  className="w-24 px-3 py-2 rounded-full text-sm bg-transparent outline-none text-center"
+                  style={{ border: `1px solid ${custom ? "#facc15" : "color-mix(in srgb, var(--wash) 12%, transparent)"}`, color: "var(--fg)", fontFamily: F.b }}
+                />
+              </div>
+              {parts.length > 0 && (
+                <div className="rounded-2xl p-3.5 mb-4" style={{ background: "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
+                  {parts.map(p => (
+                    <div key={p.artist} className="flex justify-between text-xs mb-1.5 last:mb-0" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 60%, transparent)" }}>
+                      <span className="truncate mr-3">{p.artist}</span><span style={{ color: "#facc15" }}>{p.amount}₽</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                disabled={finalAmount <= 0}
+                onClick={() => setStage("pay")}
+                className="w-full py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
+                style={{ background: finalAmount > 0 ? "linear-gradient(135deg, #facc15, #f59e0b)" : "color-mix(in srgb, var(--wash) 06%, transparent)", color: finalAmount > 0 ? "#1a1405" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}
+              >
+                {t("don.next")} <ArrowRight size={13} />
+              </motion.button>
+            </div>
+          </>
+        )}
+      </div>
+    </Sheet>
   );
 }
 
