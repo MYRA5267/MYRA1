@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useId, createContext, useContext } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { DoorOpen, Mic2, Repeat2, GitBranch, Flag, type LucideIcon } from "lucide-react";
 import type { Track } from "./data";
+import { useLang } from "./i18n";
+import type { SectionKind, TrackSection } from "./structure";
 
 // ─── Токены ───────────────────────────────────────────────────────────────────
 
@@ -498,6 +501,77 @@ export const Waveform = React.memo(function Waveform({ progress, color, onSeek, 
         );
       })}
     </div>
+  );
+});
+
+// ─── Структура трека на волне (эвристика, см. structure.ts) ────────────────
+// Цвета/иконки — просто устойчивый визуальный словарь секций, одинаковый для
+// всех треков, чтобы пользователь быстро научился узнавать «розовое — припев»
+// и т.п. К анализу ИИ это не имеет отношения — только UI-соответствие меткам.
+export const SECTION_COLORS: Record<SectionKind, string> = {
+  intro: "#64748b",
+  verse: "#38bdf8",
+  chorus: "#f472b6",
+  bridge: "#a78bfa",
+  outro: "#94a3b8",
+};
+
+const SECTION_ICONS: Record<SectionKind, LucideIcon> = {
+  intro: DoorOpen,
+  verse: Mic2,
+  chorus: Repeat2,
+  bridge: GitBranch,
+  outro: Flag,
+};
+
+/** Полоска цветных подписанных секций структуры трека под волной; рендерит null, пока анализ не готов или не удался */
+export const TrackStructureBar = React.memo(function TrackStructureBar({ sections, height = 22, compact = false }: {
+  sections: TrackSection[] | null; height?: number; compact?: boolean;
+}) {
+  const { t } = useLang();
+  if (!sections || sections.length === 0) return null;
+
+  return (
+    <div className="flex gap-[2px] select-none" style={{ height }}>
+      {sections.map((s, i) => {
+        const Icon = SECTION_ICONS[s.kind];
+        const width = Math.max(s.endPct - s.startPct, 0.5);
+        const showLabel = !compact && width >= 10;
+        const showIcon = width >= 5;
+        return (
+          <div
+            key={i}
+            title={t(`wave.${s.kind}`)}
+            className="flex items-center justify-center gap-1 overflow-hidden rounded-md truncate"
+            style={{
+              flex: `${width} 0 0%`,
+              background: `${SECTION_COLORS[s.kind]}2e`,
+              border: `1px solid ${SECTION_COLORS[s.kind]}55`,
+              color: SECTION_COLORS[s.kind],
+            }}
+          >
+            {showIcon && <Icon size={compact ? 10 : 11} />}
+            {showLabel && <span className="text-[9px] font-semibold" style={{ fontFamily: F.m }}>{t(`wave.${s.kind}`)}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+/** Маленький бейдж «в какой секции оставлен комментарий» — по попаданию pct в найденный диапазон */
+export const SectionBadge = React.memo(function SectionBadge({ section }: { section: TrackSection | undefined }) {
+  const { t } = useLang();
+  if (!section) return null;
+  const Icon = SECTION_ICONS[section.kind];
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0"
+      style={{ background: `${SECTION_COLORS[section.kind]}22`, color: SECTION_COLORS[section.kind], fontFamily: F.m }}
+    >
+      <Icon size={9} />
+      {t(`wave.${section.kind}`)}
+    </span>
   );
 });
 

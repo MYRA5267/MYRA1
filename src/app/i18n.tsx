@@ -293,6 +293,13 @@ const STR: Record<string, { ru: string; en: string }> = {
   "pl.sleepUnset":{ ru: "Таймер сна выключен", en: "Sleep timer off" },
   "pl.sleepDone": { ru: "Таймер сна: музыка остановлена. Спокойной ночи", en: "Sleep timer: music stopped. Good night" },
 
+  // Структура трека на волне (эвристика по RMS-энергии, не ИИ-модель — см. structure.ts)
+  "wave.intro":  { ru: "Интро",  en: "Intro" },
+  "wave.verse":  { ru: "Куплет", en: "Verse" },
+  "wave.chorus": { ru: "Припев", en: "Chorus" },
+  "wave.bridge": { ru: "Бридж",  en: "Bridge" },
+  "wave.outro":  { ru: "Аутро",  en: "Outro" },
+
   "wd.title":     { ru: "Вывод средств", en: "Withdraw funds" },
   "wd.balance":   { ru: "Доступно: {0}₽ · комиссия 0%", en: "Available: {0}₽ · 0% fee" },
   "wd.card":      { ru: "На карту", en: "To card" },
