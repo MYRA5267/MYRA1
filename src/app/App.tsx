@@ -559,6 +559,12 @@ function AppInner() {
           });
           if (error || !data) { console.warn("insertTrack:", error); return; }
           setMyTracks(prev => prev.map(tr => (tr.id === id ? { ...tr, remoteId: data.id } : tr)));
+          // currentTrack — отдельный снимок объекта, а не производное от myTracks:
+          // если пользователь уже открыл именно этот трек в плеере до того, как
+          // фоновая публикация успела дойти сюда, повторный клик по нему же не
+          // обновит currentTrack (playTrack рано возвращается на "тот же id"), и
+          // вкладка комментариев осталась бы на localStorage до следующего трека
+          setCurrentTrack(prev => (prev.id === id ? { ...prev, remoteId: data.id } : prev));
         })
         .catch(err => console.warn("publishRelease sync:", err));
     }
