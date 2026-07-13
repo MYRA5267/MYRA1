@@ -1231,9 +1231,15 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           <Toggle on={crossfade} onChange={() => { onToggleCrossfade(); toast(crossfade ? t("pr.crossOff") : t("pr.crossOn")); }} color={c2} />
         </SettingRow>
 
-        <SettingRow icon={theme === "dark" ? <Moon size={15} /> : <Sun size={15} />} label={t("pr.theme")} sub={theme === "dark" ? t("pr.themeDark") : t("pr.themeLight")}>
-          <Toggle on={theme === "light"} onChange={toggleTheme} color={c2} />
-        </SettingRow>
+        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={toggleTheme}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            {theme === "dark" ? <Moon size={15} /> : theme === "light" ? <Sun size={15} /> : <Sparkles size={15} style={{ color: "#a5b4fc" }} />}
+          </div>
+          <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.theme")}</div>
+          <div className="text-xs px-2.5 py-1 rounded-full" style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>
+            {theme === "dark" ? t("pr.themeDark") : theme === "light" ? t("pr.themeLight") : t("pr.themeNeon")}
+          </div>
+        </motion.div>
 
         <motion.div
           whileTap={{ scale: 0.99 }}

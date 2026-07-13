@@ -1168,11 +1168,16 @@ export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactiv
 }) {
   const { t } = useLang();
 
+  // Тариф: студенческий вдвое дешевле; подтверждение студенчества появится
+  // вместе с реальными платежами — пока это честно написано прямо в UI
+  const [student, setStudent] = useState(false);
+  const price = student ? 99 : 199;
+
   const BENEFITS = [
-    { Icon: Star, title: t("plus.b1"), sub: t("plus.b1Sub") },
+    { Icon: Sparkles, title: t("plus.b1"), sub: t("plus.b1Sub") },
     { Icon: Zap, title: t("plus.b2"), sub: t("plus.b2Sub") },
     { Icon: ArrowDownToLine, title: t("plus.b3"), sub: t("plus.b3Sub") },
-    { Icon: Sparkles, title: t("plus.b4"), sub: t("plus.b4Sub") },
+    { Icon: Star, title: t("plus.b4"), sub: t("plus.b4Sub") },
   ];
 
   return (
@@ -1222,14 +1227,24 @@ export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactiv
                 ))}
               </div>
 
+              {/* Студенческий тариф */}
+              <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-4" style={GLASS}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("plus.student")} · {t("plus.priceStudent")}</div>
+                  <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("plus.studentSub")}</div>
+                </div>
+                <Toggle on={student} onChange={() => setStudent(s => !s)} color="#34d399" />
+              </div>
+
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={() => { onActivate(); toast.success(t("plus.done")); }}
                 className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b, boxShadow: "0 12px 40px rgba(52,211,153,0.35)" }}
               >
-                {t("plus.activate")}
+                {t("plus.activate", price)}
               </motion.button>
+              <div className="text-[10px] text-center mt-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("plus.simNote")}</div>
             </>
           )}
         </div>
