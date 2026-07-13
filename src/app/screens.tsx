@@ -1236,9 +1236,12 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
                   <SettingRow icon={<Zap size={15} />} label={t("pr.simpleFx")} sub={t("pr.simpleFxSub")}>
                     <Toggle on={simpleFx} onChange={() => { onToggleSimpleFx(); toast(simpleFx ? t("pr.simpleFxOff") : t("pr.simpleFxOn")); }} color={c2} />
                   </SettingRow>
-                  {/* Перелив (кроссфейд) переехал в плеер — к остальным настройкам воспроизведения */}
-                  <SettingRow icon={theme === "dark" ? <Moon size={15} /> : <Sun size={15} />} label={t("pr.theme")} sub={theme === "dark" ? t("pr.themeDark") : t("pr.themeLight")}>
-                    <Toggle on={theme === "light"} onChange={toggleTheme} color={c2} />
+                  {/* Перелив (кроссфейд) переехал в плеер — к остальным настройкам воспроизведения.
+                      Тема — цикл из трёх: неон открывается только с Plus/Pro, поэтому чип вместо тумблера */}
+                  <SettingRow icon={theme === "dark" ? <Moon size={15} /> : theme === "light" ? <Sun size={15} /> : <Sparkles size={15} style={{ color: "#a5b4fc" }} />} label={t("pr.theme")}>
+                    <div className="text-xs px-2.5 py-1 rounded-full cursor-pointer" onClick={toggleTheme} style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>
+                      {theme === "dark" ? t("pr.themeDark") : theme === "light" ? t("pr.themeLight") : t("pr.themeNeon")}
+                    </div>
                   </SettingRow>
                 </div>
               </motion.div>
