@@ -50,7 +50,7 @@ export function YandexIcon({ size = 18 }: { size?: number }) {
 
 // ─── Темы (тёмная / светлая) ──────────────────────────────────────────────────
 
-export type ThemeName = "dark" | "light";
+export type ThemeName = "dark" | "light" | "neon";
 
 export const THEMES: Record<ThemeName, Record<string, string>> = {
   dark: {
@@ -84,6 +84,23 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     "--cover-filter": "blur(70px) saturate(1.55) brightness(1.08) opacity(0.32)",
     "--dim": "rgba(30,20,55,0.38)",
     "--aurora-fade": "56%",
+  },
+  // Неоновая тема — эксклюзив MYRA Plus: глубокий сине-фиолетовый фон,
+  // неоновые кромки стекла. Единственная тема, закрытая тарифом
+  neon: {
+    "--fg": "#eef2ff",
+    "--wash": "#a5b4fc",
+    "--bg": "#020112",
+    "--bg2": "#070420",
+    "--sheet": "rgba(10,6,34,0.94)",
+    "--island": "rgba(12,8,38,0.82)",
+    "--panel": "rgba(16,10,46,0.78)",
+    "--glass-bg": "rgba(129,140,248,0.08)",
+    "--glass-border": "rgba(129,140,248,0.22)",
+    "--glass-shadow": "0 10px 34px rgba(76,29,149,0.35)",
+    "--cover-filter": "blur(90px) saturate(2.1) brightness(0.24)",
+    "--dim": "rgba(2,1,18,0.6)",
+    "--aurora-fade": "82%",
   },
 };
 

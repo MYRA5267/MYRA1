@@ -1239,8 +1239,11 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
                   <SettingRow icon={<BlendIcon size={15} />} label={t("pr.crossfade")}>
                     <Toggle on={crossfade} onChange={() => { onToggleCrossfade(); toast(crossfade ? t("pr.crossOff") : t("pr.crossOn")); }} color={c2} />
                   </SettingRow>
-                  <SettingRow icon={theme === "dark" ? <Moon size={15} /> : <Sun size={15} />} label={t("pr.theme")} sub={theme === "dark" ? t("pr.themeDark") : t("pr.themeLight")}>
-                    <Toggle on={theme === "light"} onChange={toggleTheme} color={c2} />
+                  {/* Тема — цикл из трёх: неон открывается только с Plus/Pro, поэтому чип вместо тумблера */}
+                  <SettingRow icon={theme === "dark" ? <Moon size={15} /> : theme === "light" ? <Sun size={15} /> : <Sparkles size={15} style={{ color: "#a5b4fc" }} />} label={t("pr.theme")}>
+                    <div className="text-xs px-2.5 py-1 rounded-full cursor-pointer" onClick={toggleTheme} style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>
+                      {theme === "dark" ? t("pr.themeDark") : theme === "light" ? t("pr.themeLight") : t("pr.themeNeon")}
+                    </div>
                   </SettingRow>
                 </div>
               </motion.div>

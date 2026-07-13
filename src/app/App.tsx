@@ -90,13 +90,20 @@ function AppInner() {
   const { t, lang } = useLang();
 
   const [theme, setTheme] = useState<ThemeName>(() => ls.get<ThemeName>("theme", "dark"));
+  // Неон — эксклюзив апгрейда (Plus у слушателя, Pro у артиста): цикл тем
+  // включает его только при активной подписке, иначе честный тост вместо темы
+  const neonAllowedRef = useRef(false);
   const toggleTheme = useCallback(() => {
     setTheme(th => {
-      const next = th === "dark" ? "light" : "dark";
+      let next: ThemeName = th === "dark" ? "light" : th === "light" ? "neon" : "dark";
+      if (next === "neon" && !neonAllowedRef.current) {
+        toast(t("pr.themeLocked"));
+        next = "dark";
+      }
       ls.set("theme", next);
       return next;
     });
-  }, []);
+  }, [t]);
 
   // Упрощённая графика: слабые Android-устройства роняют слои композитора
   // (мигающие/пропадающие элементы) под грузом backdrop-filter и блюров
@@ -539,6 +546,14 @@ function AppInner() {
     if (!supabaseEnabled || !uid || tab !== "creator") return;
     fetchReceivedDonationsTotal(uid).then(setRealDonationsTotal);
   }, [uid, tab]);
+
+  // Апгрейд любого типа открывает неоновую тему; при его потере тема честно
+  // откатывается — иначе отключивший Plus навсегда остался бы с эксклюзивом
+  const hasAnyUpgrade = plusActive || cpStatus === "active" || cpStatus === "grace";
+  neonAllowedRef.current = hasAnyUpgrade;
+  useEffect(() => {
+    if (theme === "neon" && !hasAnyUpgrade) { setTheme("dark"); ls.set("theme", "dark"); }
+  }, [theme, hasAnyUpgrade]);
 
   const avatar = customAvatar ?? AVATARS[avatarIdx] ?? AVATARS[0];
 
