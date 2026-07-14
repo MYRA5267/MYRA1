@@ -581,6 +581,86 @@ export const Waveform = React.memo(function Waveform({ progress, color, onSeek, 
   );
 });
 
+/**
+ * Декоративный поток частиц — canvas вместо DOM-баров: один слой рисования
+ * дешевле для WebView-композитора, чем десятки div'ов, и позволяет живую
+ * органическую волну без backdrop-filter/blur-элементов. Только визуал —
+ * не скраббер (для перемотки остаётся обычный Waveform).
+ */
+export const ParticleWave = React.memo(function ParticleWave({ progress, playing, color, height = 40 }: {
+  progress: number; playing: boolean; color: string; height?: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const liveRef = useRef({ progress, playing });
+  liveRef.current = { progress, playing };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    // В упрощённой графике — редкие частицы и один статичный кадр без rAF-цикла,
+    // тот же принцип гейтинга, что у параллакса орба (player.tsx)
+    const simple = !!document.querySelector(".fx-simple");
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const resize = () => {
+      const r = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, r.width * dpr);
+      canvas.height = Math.max(1, r.height * dpr);
+    };
+    resize();
+
+    const N = simple ? 34 : 110;
+    const particles = Array.from({ length: N }, (_, i) => ({
+      x: i / N,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.5 + Math.random() * 0.7,
+      size: 0.8 + Math.random() * 1.6,
+    }));
+
+    let t = 0;
+    const draw = () => {
+      const { progress: prog, playing: isPlaying } = liveRef.current;
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.shadowBlur = 5 * dpr;
+      ctx.shadowColor = color;
+      for (const p of particles) {
+        const wobble = Math.sin(p.x * 11 + t * p.speed) * 0.32 + Math.sin(p.x * 3.2 - t * 0.6) * 0.24;
+        const y = h / 2 + wobble * (h * 0.4);
+        const x = p.x * w;
+        const ahead = p.x * 100 > prog;
+        const shimmer = 0.55 + 0.45 * Math.sin(p.phase + t * p.speed * 2.2);
+        let alpha = (ahead ? 0.28 : 1) * shimmer;
+        if (!isPlaying) alpha *= 0.5;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(x, y, p.size * dpr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+    };
+
+    if (simple) { draw(); return; }
+
+    let raf = 0;
+    const loop = () => {
+      if (!document.hidden) { t += 0.016; draw(); }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    window.addEventListener("resize", resize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+    };
+  }, [color]);
+
+  return <canvas ref={canvasRef} className="w-full block" style={{ height }} />;
+});
+
 // ─── Структура трека на волне (эвристика, см. structure.ts) ────────────────
 // Цвета/иконки — просто устойчивый визуальный словарь секций, одинаковый для
 // всех треков, чтобы пользователь быстро научился узнавать «розовое — припев»
