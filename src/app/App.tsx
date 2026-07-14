@@ -33,7 +33,7 @@ import {
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
 import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, SplitSheet, AchievementsSheet, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
-const LiveSessionSheet = lazy(() => import("./live").then(m => ({ default: m.LiveSessionSheet })));
+const RoomSheet = lazy(() => import("./roomSheet").then(m => ({ default: m.RoomSheet })));
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
 // Вынесено на уровень модуля — статичная строка, незачем пересобирать на каждый рендер
@@ -267,7 +267,7 @@ function AppInner() {
   const openCreatorPlus = useCallback(() => setCreatorPlusOpen(true), []);
   const openWrapped = useCallback(() => setWrappedOpen(true), []);
   const openStats = useCallback(() => setStatsOpen(true), []);
-  const [liveFriend, setLiveFriend] = useState<Friend | null>(null);
+  const [roomOpen, setRoomOpen] = useState(false);
   const [sleepLeft, setSleepLeft] = useState<number | null>(null);
   const [myTracks, setMyTracks] = useState<Track[]>([]);
 
@@ -568,7 +568,7 @@ function AppInner() {
 
   // dev-хук для интеграционных проверок
   if ((import.meta as any).env?.DEV) {
-    (window as any).__myra = { tab, playerOpen, artistName, blendFriend: blendFriend?.name ?? null, liveFriend: liveFriend?.name ?? null, accountOpen, creatorPlusOpen, wrappedOpen, statsOpen, playlistId, onboarded, myTracks: myTracks.length, audio, qualityIdx };
+    (window as any).__myra = { tab, playerOpen, artistName, blendFriend: blendFriend?.name ?? null, roomOpen, accountOpen, creatorPlusOpen, wrappedOpen, statsOpen, playlistId, onboarded, myTracks: myTracks.length, audio, qualityIdx };
   }
 
   // Локальные файлы пользователя из IndexedDB
@@ -869,10 +869,7 @@ function AppInner() {
     toast(t("cr.deleted"));
   }, [t]);
 
-  const openLive = useCallback((f: Friend) => {
-    setLiveFriend(f);
-    if (!(currentTrack.id === f.track.id && audio.playing)) playTrack(f.track);
-  }, [currentTrack.id, audio.playing, playTrack]);
+  const openRooms = useCallback(() => setRoomOpen(true), []);
 
   // Автопереход: повтор → тот же трек заново, перемешивание → случайный,
   // иначе умная волна без повторов. Ручной next — по очереди (или случайно)
@@ -1104,7 +1101,7 @@ function AppInner() {
   // Хуки ленивого маунта — строго до раннего return (правила хуков)
   const devEver = useEverOpened(devPanelOpen);
   const adminEver = useEverOpened(adminSupportOpen);
-  const liveEver = useEverOpened(liveFriend !== null);
+  const roomEver = useEverOpened(roomOpen);
 
   // Данные «Эха месяца» считаются только при изменении статистики, а не на
   // каждый рендер AppInner (topArtist звался дважды + два прохода по queue)
@@ -1151,7 +1148,7 @@ function AppInner() {
         playing={audio.playing}
         onNavigate={navigateTab}
         onOpenBlend={setBlendFriend}
-        onOpenLive={openLive}
+        onOpenRooms={openRooms}
         onPlayWave={startWave}
         onPlayRadio={playRadio}
         onLikeTrack={toggleLike}
@@ -1527,16 +1524,18 @@ function AppInner() {
         onPublish={publishRelease}
       />
 
-      {liveEver && (
+      {roomEver && (
         <Suspense fallback={null}>
-          <LiveSessionSheet
-            friend={liveFriend}
-            onClose={() => setLiveFriend(null)}
+          <RoomSheet
+            open={roomOpen}
+            onClose={() => setRoomOpen(false)}
             currentTrack={currentTrack}
             playing={audio.playing}
-            progress={audio.progress}
+            progress={Math.round(audio.progress)}
             onToggle={togglePlay}
-            onPlay={playTrack}
+            onPlayTrack={playTrack}
+            onSeek={audio.seek}
+            queue={queue}
             avatar={avatar}
           />
         </Suspense>

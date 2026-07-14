@@ -273,16 +273,16 @@ function HeroWave({ playing }: { playing: boolean }) {
   return <Waveform progress={progress} playing={playing} color="#a78bfa" height={30} seed={11} bars={56} dim />;
 }
 
-export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack, playing, onNavigate, onOpenBlend, onOpenLive, onPlayWave, onPlayRadio, onLikeTrack, onPauseMain, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid }: {
+export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack, playing, onNavigate, onOpenBlend, onOpenRooms, onPlayWave, onPlayRadio, onLikeTrack, onPauseMain, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid }: {
   onPlay: (t: Track) => void; currentTrack: Track; playing: boolean; onNavigate: (tab: string) => void;
-  onOpenBlend: (f: Friend) => void; onOpenLive: (f: Friend) => void; onPlayWave: () => void; onPlayRadio: () => void;
+  onOpenBlend: (f: Friend) => void; onOpenRooms: () => void; onPlayWave: () => void; onPlayRadio: () => void;
   onLikeTrack: (id: number) => void; onPauseMain: () => void; onOpenArtist: (name: string) => void;
   onOpenRealArtist: (id: string) => void; avatar: string;
   activity: ActivityItem[];
   friendsFeed: FriendFeedItem[]; onOpenPeopleSearch: () => void; onOpenRealProfile: (p: PublicProfile) => void;
   uid: string | null;
 }) {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [notifOpen, setNotifOpen] = useState(false);
   // Кружок на колокольчике — честный: только когда есть события новее последнего
   // открытия панели. Раньше он горел всегда, даже при пустом списке
@@ -518,39 +518,19 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
         </div>
       )}
 
-      {/* Друзья слушают */}
+      {/* Совместные комнаты — настоящий MVP на Supabase Realtime (см. rooms.tsx):
+          вместо демо-ленты фейковых "друзей" (FRIENDS всегда пустой массив) —
+          рабочая кнопка входа в реальную синхронную комнату */}
       <div className="px-5 mb-8">
-        <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("home.friends")}</h2>
-        {FRIENDS.length === 0 ? (
-          <button onClick={inviteBlend} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
-            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
-              <UserPlus size={15} style={{ color: currentTrack.c2 }} />
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("home.friendsEmpty")}</div>
-              <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("home.friendsEmptySub")}</div>
-            </div>
-          </button>
-        ) : (
-        <div className="flex gap-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {FRIENDS.map(f => (
-            <motion.div key={f.name} whileTap={{ scale: 0.94 }} className="flex-shrink-0 cursor-pointer text-center" style={{ width: 76 }} onClick={() => { onOpenLive(f); toast(t("home.withFriend", lang === "ru" ? f.inst : f.en, f.track.title)); }}>
-              <div className="relative mx-auto mb-2" style={{ width: 62, height: 62 }}>
-                <div className="absolute inset-0 rounded-full" style={{ padding: 2, background: f.live ? `linear-gradient(135deg, ${f.track.c2}, #8b5cf6)` : "color-mix(in srgb, var(--wash) 12%, transparent)" }}>
-                  <img src={f.img} alt={f.name} className="w-full h-full rounded-full object-cover" style={{ border: "2.5px solid var(--bg2)" }} />
-                </div>
-                {f.live && (
-                  <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "var(--bg2)" }}>
-                    <EQ color={f.track.c2} size={8} />
-                  </div>
-                )}
-              </div>
-              <div className="text-xs font-medium truncate" style={{ fontFamily: F.b }}>{lang === "ru" ? f.name : f.en}</div>
-              <div className="text-[10px] truncate" style={{ color: "color-mix(in srgb, var(--fg) 38%, transparent)", fontFamily: F.b }}>{f.track.title}</div>
-            </motion.div>
-          ))}
-        </div>
-        )}
+        <button onClick={onOpenRooms} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
+            <Radio size={15} style={{ color: currentTrack.c2 }} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("room.entry")}</div>
+            <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("room.entrySub")}</div>
+          </div>
+        </button>
       </div>
 
       {/* Продолжить */}
