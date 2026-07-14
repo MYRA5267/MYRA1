@@ -9,7 +9,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
-import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, useProgress, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
+import { F, GLASS, SPRING, TiltCard, Aurora, ParticleWave, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, useProgress, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
 import { useLang, type Lang } from "./i18n";
 import { lastNDays, type ActivityItem } from "./stats";
 import { MyraWordmark } from "./logo";
@@ -267,10 +267,11 @@ function FriendFeedRow({ item, playingId, onToggle, onOpenProfile }: {
 }
 
 // Волна hero-карточки подписана на прогресс через контекст — прогресс не
-// попадает в пропсы HomeScreen, и главная не перерисовывается каждый тик
+// попадает в пропсы HomeScreen, и главная не перерисовывается каждый тик.
+// Поток частиц вместо баров: органичнее и дешевле для WebView-композитора
 function HeroWave({ playing }: { playing: boolean }) {
   const progress = useProgress();
-  return <Waveform progress={progress} playing={playing} color="#a78bfa" height={30} seed={11} bars={56} dim />;
+  return <ParticleWave progress={progress} playing={playing} color="#c4b5fd" height={44} />;
 }
 
 export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack, playing, onNavigate, onOpenBlend, onOpenRooms, onPlayWave, onPlayRadio, onLikeTrack, onPauseMain, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid }: {
@@ -370,7 +371,16 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
         <TiltCard
           max={5}
           className="relative rounded-[28px] overflow-hidden cursor-pointer"
-          style={{ background: "linear-gradient(140deg, rgba(18,8,58,0.9), rgba(59,7,100,0.75))", border: "1px solid color-mix(in srgb, var(--wash) 10%, transparent)", boxShadow: waveActive ? `0 0 70px ${TRACKS[0].c2}45` : "0 16px 50px rgba(124,58,237,0.18)" }}
+          style={{
+            background: "linear-gradient(140deg, rgba(18,8,58,0.9), rgba(59,7,100,0.75))",
+            backdropFilter: "blur(28px) saturate(1.7)",
+            WebkitBackdropFilter: "blur(28px) saturate(1.7)",
+            border: "1px solid color-mix(in srgb, var(--wash) 10%, transparent)",
+            borderTop: "1px solid var(--glass-edge)",
+            boxShadow: waveActive
+              ? `0 0 70px ${TRACKS[0].c2}45, 0 0 130px rgba(246,184,200,0.18)`
+              : "0 16px 50px rgba(124,58,237,0.18)",
+          }}
           onClick={() => (playing && waveActive ? onPlay(currentTrack) : onPlayWave())}
         >
           <Aurora c2="#8b5cf6" />
