@@ -13,6 +13,7 @@
 
 import { ls, type Track } from "./data";
 import { useEffect, useState } from "react";
+import { isWeakEnvironment } from "./lib";
 
 export type SectionKind = "intro" | "verse" | "chorus" | "bridge" | "outro";
 
@@ -157,21 +158,13 @@ function labelSections(bp: number[], energy: number[]): SectionKind[] {
  * любой проблеме (сеть, CORS, неподдерживаемый формат, слишком короткий трек) —
  * вызывающий код должен просто не показывать секции, никогда не бросать исключение.
  */
-/** Та же эвристика слабого железа, что у автовключения упрощённой графики:
-    декод целого трека в PCM — пиковые десятки мегабайт памяти, на дешёвом
-    Android-телефоне это способно уронить WebView целиком */
-function isWeakDevice(): boolean {
-  const nav = navigator as Navigator & { deviceMemory?: number };
-  return (nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4
-    || (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
-}
-
 export async function analyzeTrackStructure(url: string): Promise<TrackSection[] | null> {
   try {
     if (!url) return null;
-    // На слабом железе честно пропускаем анализ: трек и так стримится в
-    // <audio>, а параллельное второе скачивание + полный PCM-декод — нет
-    if (isWeakDevice()) return null;
+    // На слабом железе (и в Android WebView — см. isWeakEnvironment в lib.tsx)
+    // честно пропускаем анализ: трек и так стримится в <audio>, а
+    // параллельное второе скачивание + полный PCM-декод — нет
+    if (isWeakEnvironment()) return null;
     const res = await fetch(url);
     if (!res.ok) return null;
     const arrayBuffer = await res.arrayBuffer();

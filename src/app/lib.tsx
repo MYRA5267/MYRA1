@@ -117,6 +117,26 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
 export const ThemeCtx = createContext<{ theme: ThemeName; toggleTheme: () => void }>({ theme: "dark", toggleTheme: () => {} });
 export const useTheme = () => useContext(ThemeCtx);
 
+/**
+ * "Слабая среда" — это ДВЕ разные оси, а не одна: слабое железо (мало ядер/
+ * памяти) — и отдельно Android WebView (наш APK через Capacitor), у которого
+ * компоновка backdrop-filter объективно хуже, чем в обычном мобильном
+ * Chrome, НЕЗАВИСИМО от мощности процессора — это ограничение слоёв
+ * GPU-композитора WebView, а не вычислительная мощность. Поэтому даже на
+ * недорогом-но-не-слабом телефоне (проходит проверку по ядрам/памяти) полная
+ * графика внутри WebView может мигать/пропадать — то, что раньше объясняли
+ * только "слабым железом", на самом деле в основном это.
+ */
+export function isWeakEnvironment(): boolean {
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  const weakHardware = (nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4;
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  // "; wv)" — стандартный маркер Android System WebView в UA (обычный Chrome
+  // для Android его не проставляет); window.Capacitor — тот же сигнал для APK
+  const androidWebView = /; wv\)/.test(navigator.userAgent) || "Capacitor" in window;
+  return weakHardware || reducedMotion || androidWebView;
+}
+
 // Прогресс воспроизведения (целый %) отдельным контекстом: его потребляют
 // только точечные виджеты (hero-волна Прилива, волна сайдбара), а экраны
 // не получают progress пропом — и не перерисовываются целиком каждый тик
@@ -463,8 +483,6 @@ export const Aurora = React.memo(function Aurora({ c2, opacity = 1 }: { c2: stri
       <div className="absolute rounded-full" style={{ width: "70%", height: "70%", left: "-10%", top: "-20%", background: `radial-gradient(circle, ${c2}30 0%, transparent 65%)`, filter: "blur(40px)", animation: "drift1 14s ease-in-out infinite" }} />
       <div className="absolute rounded-full" style={{ width: "60%", height: "60%", right: "-15%", top: "10%", background: "radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 65%)", filter: "blur(40px)", animation: "drift2 18s ease-in-out infinite" }} />
       <div className="absolute rounded-full" style={{ width: "55%", height: "55%", left: "20%", bottom: "-25%", background: `radial-gradient(circle, ${c2}22 0%, transparent 65%)`, filter: "blur(40px)", animation: "drift3 16s ease-in-out infinite" }} />
-      {/* Жемчужно-розовый отсвет — тёплая нота фирменного «перелива» в остальном холодной авроре */}
-      <div className="absolute rounded-full" style={{ width: "40%", height: "40%", right: "5%", bottom: "-10%", background: "radial-gradient(circle, rgba(246,184,200,0.14) 0%, transparent 65%)", filter: "blur(40px)", animation: "drift1 20s ease-in-out infinite" }} />
     </div>
   );
 });

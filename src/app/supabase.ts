@@ -11,9 +11,21 @@ const env = (import.meta as any).env ?? {};
 const url = env.VITE_SUPABASE_URL;
 const anonKey = env.VITE_SUPABASE_ANON_KEY;
 
-export const supabaseEnabled = Boolean(url && anonKey);
+// createClient() кидает синхронно на невалидный URL (например опечатка в
+// секрете CI) — без try/catch это падение случалось бы на этапе загрузки
+// модуля, ДО монтирования React, и давало бы белый экран без единой строки
+// UI. Офлайн-режим должен быть безопасным фолбэком и для битой конфигурации,
+// не только для отсутствующей
+let client: SupabaseClient | null = null;
+try {
+  if (url && anonKey) client = createClient(url, anonKey);
+} catch (err) {
+  console.warn("Supabase createClient:", err);
+  client = null;
+}
 
-export const supabase: SupabaseClient | null = supabaseEnabled ? createClient(url, anonKey) : null;
+export const supabaseEnabled = client !== null;
+export const supabase: SupabaseClient | null = client;
 
 export type UserRole = "artist" | "listener";
 

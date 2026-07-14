@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
 import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, LEADERBOARD_PEERS, LOCAL_PALETTE, type Track, type Friend, type Playlist } from "./data";
-import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark, deriveHandle, type ThemeName } from "./lib";
+import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark, deriveHandle, isWeakEnvironment, type ThemeName } from "./lib";
 import { smartNext, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
@@ -103,16 +103,14 @@ function AppInner() {
     });
   }, [t]);
 
-  // Упрощённая графика: слабые Android-устройства роняют слои композитора
-  // (мигающие/пропадающие элементы) под грузом backdrop-filter и блюров
+  // Упрощённая графика: слабые Android-устройства (и любой Android WebView —
+  // у него компоновка backdrop-filter объективно хуже Chrome, независимо от
+  // мощности процессора) роняют слои композитора — мигающие/пропадающие
+  // элементы под грузом backdrop-filter и блюров
   const [simpleFx, setSimpleFxState] = useState(() => {
     // Явный выбор пользователя всегда важнее автоэвристики
     try { if (localStorage.getItem("myra.simpleFx") !== null) return ls.get("simpleFx", false); } catch { /* приватный режим */ }
-    // Автовключение на слабом железе и при системном "убрать анимации"
-    // (энергосбережение Android часто включает prefers-reduced-motion)
-    const nav = navigator as Navigator & { deviceMemory?: number };
-    return (nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4
-      || (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
+    return isWeakEnvironment();
   });
   const toggleSimpleFx = useCallback(() => {
     setSimpleFxState((s: boolean) => { ls.set("simpleFx", !s); return !s; });
