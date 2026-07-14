@@ -1,9 +1,10 @@
 -- ============================================================================
 -- MYRA — схема базы данных (Supabase / Postgres)
 -- ============================================================================
--- Файл идемпотентно не является (таблицы создаются один раз), но рассчитан на
--- то, что его целиком, сверху вниз, вставляют в Supabase SQL Editor на чистом
--- проекте.
+-- Файл идемпотентен: весь целиком, сверху вниз, можно вставлять в Supabase
+-- SQL Editor и жать Run сколько угодно раз — на чистом проекте, и повторно
+-- после того, как в файл дописали новую секцию. Уже существующие таблицы/
+-- политики/индексы/колонки пропускаются, создаётся только то, чего не хватает.
 --
 -- Архитектурная граница (важно!):
 --   Каталог/контент (массив TRACKS в src/app/data.ts — 8 демо-треков с
@@ -20,7 +21,7 @@ create extension if not exists pgcrypto;
 -- ============================================================================
 -- 1. profiles — профили пользователей: одна строка на аккаунт
 -- ============================================================================
-create table public.profiles (
+create table if not exists public.profiles (
   id         uuid primary key references auth.users(id) on delete cascade,
   username   text not null,
   handle     text, -- публичный @хендл; если пусто, фронтенд сам генерирует его из username
@@ -34,17 +35,20 @@ alter table public.profiles enable row level security;
 -- Смотреть профиль может кто угодно (нужно для будущего лидерборда и
 -- страниц артистов — публичные данные). Почта сюда намеренно не входит —
 -- она PII и живёт отдельно, в profile_private (см. ниже)
+drop policy if exists "profiles_select_public" on public.profiles;
 create policy "profiles_select_public"
   on public.profiles for select
   using (true);
 
 -- Создать свой профиль может только сам пользователь (обычно это делает
 -- триггер handle_new_user, но политика оставлена и для прямых вставок с клиента)
+drop policy if exists "profiles_insert_own" on public.profiles;
 create policy "profiles_insert_own"
   on public.profiles for insert
   with check (auth.uid() = id);
 
 -- Редактировать можно только свой собственный профиль
+drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own"
   on public.profiles for update
   using (auth.uid() = id)
@@ -58,7 +62,7 @@ create policy "profiles_update_own"
 -- Вынесена из profiles в отдельную таблицу именно поэтому: profiles публично
 -- читаем (using (true)) ради лидерборда/профилей артистов, и если бы email
 -- лежал в той же таблице, он утёк бы вместе с публичными полями всем подряд.
-create table public.profile_private (
+create table if not exists public.profile_private (
   user_id    uuid primary key references public.profiles(id) on delete cascade,
   email      text,
   updated_at timestamptz not null default now()
@@ -68,14 +72,17 @@ alter table public.profile_private enable row level security;
 
 -- Видеть и писать свою почту может только сам пользователь — публичного
 -- SELECT здесь нет и не должно быть
+drop policy if exists "profile_private_select_own" on public.profile_private;
 create policy "profile_private_select_own"
   on public.profile_private for select
   using (auth.uid() = user_id);
 
+drop policy if exists "profile_private_insert_own" on public.profile_private;
 create policy "profile_private_insert_own"
   on public.profile_private for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "profile_private_update_own" on public.profile_private;
 create policy "profile_private_update_own"
   on public.profile_private for update
   using (auth.uid() = user_id)
@@ -87,7 +94,7 @@ create policy "profile_private_update_own"
 -- ============================================================================
 -- ВНИМАНИЕ: сюда не попадают демо-треки из статичного каталога (data.ts) —
 -- только то, что артист сам загрузил через Студию/форму релиза.
-create table public.tracks (
+create table if not exists public.tracks (
   id         uuid primary key default gen_random_uuid(),
   owner_id   uuid not null references public.profiles(id) on delete cascade,
   title      text not null,
@@ -99,27 +106,31 @@ create table public.tracks (
 );
 
 -- Ускоряет выборку «все треки артиста» (профиль артиста, Студия)
-create index tracks_owner_id_idx on public.tracks (owner_id);
+create index if not exists tracks_owner_id_idx on public.tracks (owner_id);
 
 alter table public.tracks enable row level security;
 
 -- Треки публичны — их может смотреть/слушать кто угодно
+drop policy if exists "tracks_select_public" on public.tracks;
 create policy "tracks_select_public"
   on public.tracks for select
   using (true);
 
 -- Публиковать трек можно только от своего имени (owner_id = сам пользователь)
+drop policy if exists "tracks_insert_own" on public.tracks;
 create policy "tracks_insert_own"
   on public.tracks for insert
   with check (auth.uid() = owner_id);
 
 -- Редактировать можно только свои треки
+drop policy if exists "tracks_update_own" on public.tracks;
 create policy "tracks_update_own"
   on public.tracks for update
   using (auth.uid() = owner_id)
   with check (auth.uid() = owner_id);
 
 -- Удалять можно только свои треки
+drop policy if exists "tracks_delete_own" on public.tracks;
 create policy "tracks_delete_own"
   on public.tracks for delete
   using (auth.uid() = owner_id);
@@ -133,7 +144,7 @@ create policy "tracks_delete_own"
 -- либо строка вида "catalog:3" — числовой id статичного демо-трека из
 -- каталога, которого в таблице tracks нет и никогда не будет. Жёсткий FK
 -- здесь физически невозможен из-за смешанной природы источника.
-create table public.comments (
+create table if not exists public.comments (
   id         uuid primary key default gen_random_uuid(),
   track_id   text not null,
   user_id    uuid not null references public.profiles(id) on delete cascade,
@@ -143,11 +154,12 @@ create table public.comments (
 );
 
 -- Обычный btree-индекс для быстрой выборки «все комментарии этого трека»
-create index comments_track_id_idx on public.comments (track_id);
+create index if not exists comments_track_id_idx on public.comments (track_id);
 
 alter table public.comments enable row level security;
 
 -- Комментарии публичны — их видит кто угодно
+drop policy if exists "comments_select_public" on public.comments;
 create policy "comments_select_public"
   on public.comments for select
   using (true);
@@ -155,6 +167,7 @@ create policy "comments_select_public"
 -- Писать комментарий можно только от своего имени
 -- (UPDATE/DELETE-политик намеренно нет — комментарии неизменяемы/append-only,
 -- как и на текущем фронтенде: добавить можно, отредактировать/удалить нельзя)
+drop policy if exists "comments_insert_own" on public.comments;
 create policy "comments_insert_own"
   on public.comments for insert
   with check (auth.uid() = user_id);
@@ -167,7 +180,7 @@ create policy "comments_insert_own"
 -- артисты каталога пока не являются реальными аккаунтами. Это зеркалит
 -- существующий флоу доната из ArtistSheet на фронтенде, который тоже
 -- работает по имени артиста, а не по id.
-create table public.donations (
+create table if not exists public.donations (
   id         uuid primary key default gen_random_uuid(),
   from_user  uuid not null references public.profiles(id) on delete cascade,
   to_artist  text not null,
@@ -178,11 +191,13 @@ create table public.donations (
 alter table public.donations enable row level security;
 
 -- Видеть свои донаты может только сам отправитель
+drop policy if exists "donations_select_own" on public.donations;
 create policy "donations_select_own"
   on public.donations for select
   using (auth.uid() = from_user);
 
 -- Создавать донат можно только от своего имени
+drop policy if exists "donations_insert_own" on public.donations;
 create policy "donations_insert_own"
   on public.donations for insert
   with check (auth.uid() = from_user);
@@ -192,7 +207,7 @@ create policy "donations_insert_own"
 -- 5. subscriptions — статус подписки MYRA Pro (в коде иногда встречается
 --    старое название "Creator+" — это одно и то же)
 -- ============================================================================
-create table public.subscriptions (
+create table if not exists public.subscriptions (
   user_id             uuid primary key references public.profiles(id) on delete cascade,
   status              text not null default 'none' check (status in ('none', 'active', 'grace')),
   current_period_end  timestamptz,
@@ -202,6 +217,7 @@ create table public.subscriptions (
 alter table public.subscriptions enable row level security;
 
 -- Видеть свой статус подписки может только сам пользователь
+drop policy if exists "subscriptions_select_own" on public.subscriptions;
 create policy "subscriptions_select_own"
   on public.subscriptions for select
   using (auth.uid() = user_id);
@@ -212,6 +228,7 @@ create policy "subscriptions_select_own"
 -- статус 'active' должен ставить только доверенный бэкенд/вебхук оплаты
 -- сервисным ключом, который не связан RLS). Клиенту разрешена только
 -- самостоятельная отмена — переход НЕ в 'active' (например, в 'grace' или 'none')
+drop policy if exists "subscriptions_update_own" on public.subscriptions;
 create policy "subscriptions_update_own"
   on public.subscriptions for update
   using (auth.uid() = user_id)
@@ -221,7 +238,7 @@ create policy "subscriptions_update_own"
 -- ============================================================================
 -- 6. follows — подписки пользователя на артистов (по имени артиста)
 -- ============================================================================
-create table public.follows (
+create table if not exists public.follows (
   id          uuid primary key default gen_random_uuid(),
   follower_id uuid not null references public.profiles(id) on delete cascade,
   artist_name text not null,
@@ -232,16 +249,19 @@ create table public.follows (
 alter table public.follows enable row level security;
 
 -- Список фоллоу публичен (нужно для счётчиков подписчиков артиста и т.п.)
+drop policy if exists "follows_select_public" on public.follows;
 create policy "follows_select_public"
   on public.follows for select
   using (true);
 
 -- Подписаться можно только от своего имени
+drop policy if exists "follows_insert_own" on public.follows;
 create policy "follows_insert_own"
   on public.follows for insert
   with check (auth.uid() = follower_id);
 
 -- Отписаться можно только от своего имени
+drop policy if exists "follows_delete_own" on public.follows;
 create policy "follows_delete_own"
   on public.follows for delete
   using (auth.uid() = follower_id);
@@ -283,6 +303,7 @@ $$;
 
 -- SECURITY DEFINER выше позволяет функции обойти RLS таблиц profiles/subscriptions
 -- (она выполняется от имени владельца функции, а не от анонимного/нового пользователя)
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
@@ -295,7 +316,8 @@ create trigger on_auth_user_created
 -- должна ещё получить право на операцию с ТАБЛИЦЕЙ вообще — иначе Postgres
 -- откажет с "permission denied for table ...", даже не дойдя до проверки RLS.
 -- При создании таблиц через Table Editor в Supabase это делается автоматически;
--- при создании через SQL Editor (как здесь) — нужно явно.
+-- при создании через SQL Editor (как здесь) — нужно явно. GRANT сам по себе
+-- идемпотентен — повторный запуск той же выдачи прав никогда не ошибается.
 grant usage on schema public to anon, authenticated;
 
 grant select on public.profiles to anon, authenticated;
@@ -334,21 +356,25 @@ on conflict (id) do nothing;
 
 -- Бакет публичный на чтение — трек слушает кто угодно, без авторизации
 -- (как и сама таблица tracks, см. tracks_select_public выше)
+drop policy if exists "tracks_storage_select_public" on storage.objects;
 create policy "tracks_storage_select_public"
   on storage.objects for select
   using (bucket_id = 'tracks');
 
 -- Заливать файл можно только в свою же папку {auth.uid()}/...
+drop policy if exists "tracks_storage_insert_own" on storage.objects;
 create policy "tracks_storage_insert_own"
   on storage.objects for insert
   with check (bucket_id = 'tracks' and auth.uid()::text = (storage.foldername(name))[1]);
 
 -- Перезаливать (upsert) можно только свои же файлы
+drop policy if exists "tracks_storage_update_own" on storage.objects;
 create policy "tracks_storage_update_own"
   on storage.objects for update
   using (bucket_id = 'tracks' and auth.uid()::text = (storage.foldername(name))[1]);
 
 -- Удалять можно только свои файлы
+drop policy if exists "tracks_storage_delete_own" on storage.objects;
 create policy "tracks_storage_delete_own"
   on storage.objects for delete
   using (bucket_id = 'tracks' and auth.uid()::text = (storage.foldername(name))[1]);
@@ -362,7 +388,7 @@ create policy "tracks_storage_delete_own"
 -- Это защита от самовыдачи админки — если бы insert был разрешён с клиента,
 -- любой авторизованный пользователь мог бы вписать себя в эту таблицу и
 -- получить доступ к чужой переписке в support_messages ниже.
-create table public.admins (
+create table if not exists public.admins (
   user_id uuid primary key references public.profiles(id) on delete cascade
 );
 
@@ -370,6 +396,7 @@ alter table public.admins enable row level security;
 
 -- Каждый может проверить только СВОЮ строку ("я админ?") — этого достаточно
 -- клиенту для гейта UI. Видеть весь список админов никому не нужно.
+drop policy if exists "admins_select_own" on public.admins;
 create policy "admins_select_own"
   on public.admins for select
   using (auth.uid() = user_id);
@@ -381,7 +408,7 @@ create policy "admins_select_own"
 -- user_id — это автор ТРЕДА (обычный пользователь, чей это тикет), а не автор
 -- конкретной строки: когда админ отвечает в чужом тикете, его ответ тоже
 -- пишется с этим же user_id (id треда), только с from_role='support'.
-create table public.support_messages (
+create table if not exists public.support_messages (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references public.profiles(id) on delete cascade,
   from_role  text not null check (from_role in ('user', 'support', 'ai')),
@@ -391,11 +418,12 @@ create table public.support_messages (
 );
 
 -- Ускоряет выборку «весь тред этого пользователя» (свой чат и админ-инбокс)
-create index support_messages_user_id_idx on public.support_messages (user_id);
+create index if not exists support_messages_user_id_idx on public.support_messages (user_id);
 
 alter table public.support_messages enable row level security;
 
 -- Свой тред видит сам пользователь...
+drop policy if exists "support_messages_select_own" on public.support_messages;
 create policy "support_messages_select_own"
   on public.support_messages for select
   using (auth.uid() = user_id);
@@ -404,6 +432,7 @@ create policy "support_messages_select_own"
 -- операции объединяются через OR, отдельный security definer не нужен —
 -- admins сама читаема хотя бы для своей строки, exists() внутри чужой
 -- RLS-политики это использует обычным select)
+drop policy if exists "support_messages_select_admin" on public.support_messages;
 create policy "support_messages_select_admin"
   on public.support_messages for select
   using (exists (select 1 from public.admins where user_id = auth.uid()));
@@ -413,6 +442,7 @@ create policy "support_messages_select_admin"
 -- from_role='ai' здесь тоже разрешён: автоответ ИИ в чате сохраняется тем же
 -- клиентским запросом от имени самого пользователя, отдельного сервисного
 -- вызова под это не заводим.
+drop policy if exists "support_messages_insert_own" on public.support_messages;
 create policy "support_messages_insert_own"
   on public.support_messages for insert
   with check (auth.uid() = user_id and from_role in ('user', 'ai'));
@@ -420,6 +450,7 @@ create policy "support_messages_insert_own"
 -- Админ отвечает в ЧУЖОМ треде (user_id = id треда, а не его собственный uid) —
 -- это в принципе не покрывается "auth.uid() = user_id", поэтому нужна отдельная
 -- insert-политика именно для админов, тоже через exists() в admins
+drop policy if exists "support_messages_insert_admin" on public.support_messages;
 create policy "support_messages_insert_admin"
   on public.support_messages for insert
   with check (from_role = 'support' and exists (select 1 from public.admins where user_id = auth.uid()));
@@ -427,6 +458,7 @@ create policy "support_messages_insert_admin"
 -- UPDATE нужен админам — пометить сообщения пользователя прочитанными
 -- (read_at) при открытии треда в инбоксе. Обычным пользователям UPDATE не
 -- нужен: переписка, как и комментарии выше, append-only с их стороны.
+drop policy if exists "support_messages_update_admin" on public.support_messages;
 create policy "support_messages_update_admin"
   on public.support_messages for update
   using (exists (select 1 from public.admins where user_id = auth.uid()));
@@ -452,13 +484,14 @@ grant select, insert, update on public.support_messages to authenticated;
 -- on delete set null — если артист позже удалит аккаунт, история доната у
 -- отправителя не должна пропадать, просто перестаёт указывать на профиль.
 alter table public.donations
-  add column to_user_id uuid references public.profiles(id) on delete set null;
+  add column if not exists to_user_id uuid references public.profiles(id) on delete set null;
 
-create index donations_to_user_id_idx on public.donations (to_user_id);
+create index if not exists donations_to_user_id_idx on public.donations (to_user_id);
 
 -- До этой секции донат мог видеть только отправитель (donations_select_own) —
 -- получателю банально нечего было видеть, все получатели были демо-каталогом.
 -- Теперь настоящему артисту нужно видеть, что ему реально задонатили.
+drop policy if exists "donations_select_received" on public.donations;
 create policy "donations_select_received"
   on public.donations for select
   using (auth.uid() = to_user_id);
@@ -474,7 +507,7 @@ create policy "donations_select_received"
 -- по смыслу сущность с другим ключом (followee_id uuid -> profiles.id),
 -- поэтому это отдельная новая таблица, а не столбец в старой и не изменение
 -- уже существующей секции 6.
-create table public.user_follows (
+create table if not exists public.user_follows (
   id          uuid primary key default gen_random_uuid(),
   follower_id uuid not null references public.profiles(id) on delete cascade,
   followee_id uuid not null references public.profiles(id) on delete cascade,
@@ -485,8 +518,8 @@ create table public.user_follows (
 
 -- Ускоряет и "на кого я подписан" (лента друзей на клиенте), и возможный
 -- будущий публичный счётчик подписчиков
-create index user_follows_follower_id_idx on public.user_follows (follower_id);
-create index user_follows_followee_id_idx on public.user_follows (followee_id);
+create index if not exists user_follows_follower_id_idx on public.user_follows (follower_id);
+create index if not exists user_follows_followee_id_idx on public.user_follows (followee_id);
 
 alter table public.user_follows enable row level security;
 
@@ -495,16 +528,19 @@ alter table public.user_follows enable row level security;
 -- человек, не показывается публично (нет ни счётчика подписчиков, ни списка
 -- "кто подписан на меня" в интерфейсе). Ужесточать/открывать можно позже,
 -- если понадобится публичный счётчик на профиле артиста.
+drop policy if exists "user_follows_select_own" on public.user_follows;
 create policy "user_follows_select_own"
   on public.user_follows for select
   using (auth.uid() = follower_id);
 
 -- Подписаться можно только от своего имени
+drop policy if exists "user_follows_insert_own" on public.user_follows;
 create policy "user_follows_insert_own"
   on public.user_follows for insert
   with check (auth.uid() = follower_id);
 
 -- Отписаться можно только от своего имени
+drop policy if exists "user_follows_delete_own" on public.user_follows;
 create policy "user_follows_delete_own"
   on public.user_follows for delete
   using (auth.uid() = follower_id);
