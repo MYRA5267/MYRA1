@@ -3,16 +3,17 @@ import {
   Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight, ChevronLeft, ArrowRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
-  Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine, Search,
+  Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine, Search, Flag,
+  FileText, ShieldCheck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, ls, svgAvatar, trackFromRow, type Track, type Friend } from "./data";
+import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, REPORT_REASONS, ls, svgAvatar, trackFromRow, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, Toggle, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
 import { monthDays, splitAmountByShares, minutesOf, currentMonthKey, type ArtistShare } from "./stats";
 import { buildAchievements, ACHIEVEMENTS, type AchievementCounters } from "./achievements";
-import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, type SupportMessageRow, type ArtistProfileData, type PublicProfile } from "./supabase";
+import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, submitReport, createPayment, type SupportMessageRow, type ArtistProfileData, type PublicProfile, type ReportTargetType } from "./supabase";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
 
@@ -49,8 +50,8 @@ function FakeQR({ seed }: { seed: number }) {
 // донат — сюда передаётся только отображаемое имя и обработчик суммы.
 // key={artistLabel} на стороне родителя сбрасывает весь внутренний стейт при
 // смене артиста — отдельный reset-эффект тут не нужен.
-function DonateWidget({ open, artistLabel, c2, onDonate }: {
-  open: boolean; artistLabel: string; c2: string; onDonate: (amount: number) => void;
+function DonateWidget({ open, artistLabel, c2, toUserId, onDonate }: {
+  open: boolean; artistLabel: string; c2: string; toUserId?: string; onDonate: (amount: number) => void;
 }) {
   const { t } = useLang();
   const [stage, setStage] = useState<"pick" | "pay" | "sent">("pick");
@@ -122,9 +123,28 @@ function DonateWidget({ open, artistLabel, c2, onDonate }: {
                   <motion.button
                     whileTap={{ scale: 0.97 }}
                     disabled={processing}
-                    onClick={() => {
+                    onClick={async () => {
                       if (method === "card" && (cardNum.replace(/\s/g, "").length < 16 || cardExp.length < 5 || cardCvc.length < 3)) { toast(t("don.cardIncomplete")); return; }
                       setProcessing(true);
+
+                      // Сначала пробуем настоящий платёж через ЮKassa — если она
+                      // настроена (см. create-payment/index.ts), уводим на её
+                      // hosted-страницу оплаты и НЕ вызываем onDonate здесь: реальный
+                      // донат запишется позже, на сервере, вебхуком после
+                      // подтверждения оплаты, а не оптимистично на клиенте
+                      try {
+                        const { data } = await createPayment("donation", finalAmount, { toArtist: artistLabel, toUserId });
+                        if (data?.confirmation_url) {
+                          window.location.href = data.confirmation_url;
+                          return;
+                        }
+                      } catch (err) {
+                        console.warn("createPayment:", err);
+                      }
+
+                      // ЮKassa не настроена (нормальное состояние сейчас, пока нет
+                      // мерчант-аккаунта) или вернула ошибку — прежний симулированный
+                      // флоу, без единого изменения в его поведении
                       setTimeout(() => {
                         setProcessing(false);
                         setStage("sent");
@@ -367,6 +387,7 @@ export function RealArtistSheet({ artistId, onClose, onPlay, currentTrack, playi
           open={donateOpen}
           artistLabel={name}
           c2={REAL_ARTIST_C2}
+          toUserId={artistId}
           onDonate={amt => onDonate?.(artistId, name, amt)}
         />
 
@@ -991,6 +1012,16 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
               </div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
+            <a href="./privacy.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+              <ShieldCheck size={15} style={{ color: "#60a5fa" }} />
+              <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.privacy")}</div>
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+            </a>
+            <a href="./terms.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+              <FileText size={15} style={{ color: "#a3a3a3" }} />
+              <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.terms")}</div>
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+            </a>
           </div>
 
           <motion.button whileTap={{ scale: 0.98 }} onClick={() => setDeleteQ(true)} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-medium" style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.18)", color: "#f87171", fontFamily: F.b }}>
@@ -1043,8 +1074,25 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
   const [cancelQ, setCancelQ] = useState(false);
   useEffect(() => { if (open) setState(status !== "none" ? "done" : "offer"); }, [open, status]);
 
-  const pay = () => {
+  const pay = async () => {
     setState("paying");
+
+    // Сначала пробуем настоящий платёж через ЮKassa (см. create-payment/index.ts).
+    // Если она настроена — уводим на её hosted-страницу оплаты; активацию
+    // подписки (status='active') в этом случае ставит вебхук после
+    // подтверждённой оплаты, а не onActivate() здесь оптимистично
+    try {
+      const { data } = await createPayment("subscription", 499, { planId: "pro" });
+      if (data?.confirmation_url) {
+        window.location.href = data.confirmation_url;
+        return;
+      }
+    } catch (err) {
+      console.warn("createPayment:", err);
+    }
+
+    // ЮKassa не настроена (нормальное состояние сейчас) или вернула ошибку —
+    // прежний симулированный флоу, без единого изменения в его поведении
     setTimeout(() => { setState("done"); onActivate(); toast.success(t("cp.done")); }, 1600);
   };
 
@@ -1220,7 +1268,25 @@ export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactiv
 
               <motion.button
                 whileTap={{ scale: 0.97 }}
-                onClick={() => { onActivate(); toast.success(t("plus.done")); }}
+                onClick={async () => {
+                  // Сначала пробуем настоящий платёж через ЮKassa (см.
+                  // create-payment/index.ts) — если настроена, уводим на её
+                  // hosted-страницу; активацию подписки в этом случае ставит
+                  // вебхук после подтверждённой оплаты, а не onActivate() тут
+                  try {
+                    const { data } = await createPayment("subscription", price, { planId: student ? "plus-student" : "plus" });
+                    if (data?.confirmation_url) {
+                      window.location.href = data.confirmation_url;
+                      return;
+                    }
+                  } catch (err) {
+                    console.warn("createPayment:", err);
+                  }
+                  // ЮKassa не настроена (нормальное состояние сейчас) или вернула
+                  // ошибку — прежняя мгновенная активация, без изменений
+                  onActivate();
+                  toast.success(t("plus.done"));
+                }}
                 className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b, boxShadow: "0 12px 40px rgba(52,211,153,0.35)" }}
               >
@@ -2129,6 +2195,87 @@ export function SupportSheet({ open, onClose, uid }: { open: boolean; onClose: (
             </motion.button>
           </div>
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Жалоба на контент (трек/комментарий) ────────────────────────────────────
+// MVP-модерация (см. schema.sql, секции 12-13 и src/app/dev.tsx —
+// ModerationSheet, очередь для админов). Открывается из FullPlayer
+// (src/app/player.tsx) — по кнопке в шапке для трека целиком и по кнопке
+// рядом с конкретным комментарием (только для реальных, синхронизированных
+// с Supabase комментариев — у затравочных/локальных нет id, жаловаться там
+// физически не на что, см. Comment.id в data.ts).
+export function ReportSheet({ open, onClose, uid, targetType, targetId }: {
+  open: boolean; onClose: () => void; uid: string | null;
+  targetType: ReportTargetType; targetId: string | null;
+}) {
+  const { t } = useLang();
+  const [reason, setReason] = useState<string>(REPORT_REASONS[0].code);
+  const [details, setDetails] = useState("");
+  const [sending, setSending] = useState(false);
+
+  // Сброс формы при каждом новом открытии — иначе повторная жалоба на другой
+  // трек унаследовала бы причину/текст от предыдущей
+  useEffect(() => { if (open) { setReason(REPORT_REASONS[0].code); setDetails(""); } }, [open]);
+
+  const submit = async () => {
+    // reporter_id обязателен и в RLS (auth.uid() = reporter_id), и по смыслу —
+    // анонимную жалобу некому и не на что вешать. Без входа честнее сказать
+    // об этом прямо, чем притвориться, что жалоба ушла
+    if (!uid) { toast(t("report.needLogin")); return; }
+    if (!targetId) { onClose(); return; }
+    setSending(true);
+    const { error } = await submitReport(uid, targetType, targetId, reason, details);
+    setSending(false);
+    if (error) { toast(t("report.error")); return; }
+    toast(t("report.sent"));
+    onClose();
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose} z={73}>
+      <div className="px-6 pt-7 pb-8">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.4)" }}>
+              <Flag size={15} style={{ color: "#f87171" }} />
+            </div>
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>{t("report.title")}</div>
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            <X size={16} />
+          </button>
+        </div>
+        <div className="text-xs mb-5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("report.sub")}</div>
+
+        <div className="flex flex-col gap-2 mb-4">
+          {REPORT_REASONS.map(r => {
+            const active = reason === r.code;
+            return (
+              <button key={r.code} onClick={() => setReason(r.code)} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-left" style={{ ...GLASS, border: `1px solid ${active ? "rgba(248,113,113,0.5)" : "transparent"}` }}>
+                <span className="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${active ? "#f87171" : "color-mix(in srgb, var(--fg) 30%, transparent)"}` }}>
+                  {active && <span className="w-2 h-2 rounded-full" style={{ background: "#f87171" }} />}
+                </span>
+                <span className="text-sm font-medium" style={{ fontFamily: F.b }}>{t(r.labelKey)}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <textarea
+          value={details}
+          onChange={e => setDetails(e.target.value)}
+          placeholder={t("report.detailsPh")}
+          rows={3}
+          className="w-full px-4 py-3 rounded-2xl bg-transparent outline-none text-sm resize-none mb-5"
+          style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
+        />
+
+        <motion.button whileTap={{ scale: 0.97 }} disabled={sending} onClick={submit} className="w-full py-3.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #ef4444, #f87171)", color: "#fff", fontFamily: F.b, opacity: sending ? 0.7 : 1 }}>
+          <Flag size={14} /> {t("report.submit")}
+        </motion.button>
       </div>
     </Sheet>
   );

@@ -241,7 +241,11 @@ export const LYRICS: Record<number, { en: string[]; ru: string }[]> = {
   ],
 };
 
-export interface Comment { pct: number; user: string; text: string; likes: number; avatar: string }
+// id — только у комментариев из public.comments (реальный трек, синхронизированный
+// с Supabase): нужен, чтобы дать пожаловаться на конкретный комментарий (см.
+// submitReport/ReportSheet). У затравочных и локальных комментариев id нет и
+// быть не может — они не строки в базе, жаловаться там физически не на что.
+export interface Comment { id?: string; pct: number; user: string; text: string; likes: number; avatar: string }
 
 /** Затравочные комментарии — свои для каждого трека, а не один и тот же набор на все */
 export const SEED_COMMENTS: Record<number, Comment[]> = {
@@ -311,6 +315,17 @@ export const TASTE_GENRES = [
   ["Synthwave", "#8b5cf6"], ["Lo-fi", "#34d399"], ["Hip-Hop", "#fb923c"], ["Ambient", "#38bdf8"],
   ["Indie", "#f472b6"], ["Pop", "#fdba74"], ["Rock", "#f87171"], ["Electronic", "#22d3ee"],
   ["Jazz", "#facc15"], ["Classical", "#c4b5fd"], ["Techno", "#4ade80"], ["R&B", "#fb7185"],
+] as const;
+
+// Причины жалобы (Студия → публичный трек, чат плеера → комментарий). code —
+// то, что реально пишется в reports.reason (стабильная строка, не зависящая
+// от языка интерфейса), labelKey — i18n-ключ для отображения в UI (пикер
+// в ReportSheet и очередь модерации в dev.tsx делят один и тот же список).
+export const REPORT_REASONS = [
+  { code: "copyright", labelKey: "report.reasonCopyright" },
+  { code: "abusive",   labelKey: "report.reasonAbusive" },
+  { code: "spam",      labelKey: "report.reasonSpam" },
+  { code: "other",     labelKey: "report.reasonOther" },
 ] as const;
 
 export interface Playlist {

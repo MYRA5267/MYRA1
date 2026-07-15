@@ -28,7 +28,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   "home.continue":   { ru: "Продолжить", en: "Continue" },
   "home.all":        { ru: "Все", en: "All" },
   "home.notifs":     { ru: "УВЕДОМЛЕНИЯ", en: "NOTIFICATIONS" },
-  "don.simNote":     { ru: "оплата пока симулируется — реальные деньги не списываются", en: "payments are simulated for now — no real money is charged" },
+  "don.simNote":     { ru: "оплата пока симулируется — реальные платежи появятся с подключением ЮKassa", en: "payments are simulated for now — real billing arrives with YooKassa" },
   "wd.simNote":      { ru: "вывод пока симулируется — реальные деньги не приходят", en: "withdrawals are simulated for now — no real money arrives" },
   "sup.offlineNote": { ru: "Сообщение сохранено на этом устройстве. Без подключения к серверу оно не дойдёт до команды — попробуй позже из сети", en: "Message saved on this device. Without a server connection it won't reach the team — try again when online" },
   "cr.statsLocked":  { ru: "Детальная аналитика входит в MYRA Pro", en: "Detailed analytics is part of MYRA Pro" },
@@ -217,6 +217,8 @@ const STR: Record<string, { ru: string; en: string }> = {
   "acc.avatar":    { ru: "Аватар", en: "Avatar" },
   "acc.support":   { ru: "Поддержка", en: "Support" },
   "acc.supportSub":{ ru: "отвечаем в течение часа", en: "we reply within an hour" },
+  "acc.privacy":   { ru: "Политика конфиденциальности", en: "Privacy Policy" },
+  "acc.terms":     { ru: "Условия использования", en: "Terms of Service" },
   "acc.delete":    { ru: "Удалить аккаунт", en: "Delete account" },
   "acc.deleteQ":   { ru: "Точно удалить аккаунт?", en: "Really delete your account?" },
   "acc.deleteSub": { ru: "Плейлисты, лайки и Созвуки будут стёрты навсегда", en: "Playlists, likes and Unisons will be erased forever" },
@@ -432,8 +434,12 @@ const STR: Record<string, { ru: string; en: string }> = {
   "pl.reordered": { ru: "Порядок треков обновлён", en: "Track order updated" },
 
   // Онбординг и вход
-  "ob.s1t":     { ru: "Вся музыка — в одном месте", en: "All your music in one place" },
-  "ob.s1s":     { ru: "Стриминг, чарты и инди-сцена. Больше не нужно три приложения.", en: "Streaming, charts and the indie scene. No more juggling three apps." },
+  // Раньше здесь было "Вся музыка в одном месте" — обещание лицензированного
+  // каталога мейджор-лейблов, которого у нас физически нет (контент — своя
+  // библиотека + то, что независимые артисты сами публикуют через Студию).
+  // Текст переписан под то, что приложение реально делает, а не звучит громче
+  "ob.s1t":     { ru: "Открывай независимых артистов", en: "Discover independent artists" },
+  "ob.s1s":     { ru: "Своя библиотека плюс живая инди-сцена — слушай, делись, поддерживай напрямую.", en: "Your own library plus a living indie scene — listen, share, support directly." },
   "ob.s2t":     { ru: "Артисты получают напрямую", en: "Artists get paid directly" },
   "ob.s2s":     { ru: "Донаты без комиссии и честные алгоритмы для новых имён.", en: "Zero-fee donations and fair algorithms for new names." },
   "ob.s3t":     { ru: "Слушай вместе с друзьями", en: "Listen together" },
@@ -558,6 +564,37 @@ const STR: Record<string, { ru: string; en: string }> = {
   "dev.supportReplyPh": { ru: "Ответ пользователю…", en: "Reply to user…" },
   "dev.supportErr":     { ru: "Не удалось отправить ответ", en: "Failed to send reply" },
   "dev.supportAiTag":   { ru: "ИИ", en: "AI" },
+  "dev.moderationRow":  { ru: "Модерация", en: "Moderation" },
+
+  // Жалоба на контент — трек в шапке плеера, комментарий в чате (MVP-модерация,
+  // см. schema.sql секции 12-13 и src/app/overlays.tsx — ReportSheet)
+  "report.title":     { ru: "Пожаловаться", en: "Report" },
+  "report.sub":       { ru: "Расскажи, что не так — модератор проверит и примет решение", en: "Tell us what's wrong — a moderator will review it" },
+  "report.reasonCopyright": { ru: "Нарушение авторских прав", en: "Copyright infringement" },
+  "report.reasonAbusive":   { ru: "Оскорбительный контент", en: "Abusive content" },
+  "report.reasonSpam":      { ru: "Спам", en: "Spam" },
+  "report.reasonOther":     { ru: "Другое", en: "Other" },
+  "report.detailsPh": { ru: "Детали (необязательно)…", en: "Details (optional)…" },
+  "report.submit":    { ru: "Отправить жалобу", en: "Submit report" },
+  "report.sent":      { ru: "Жалоба отправлена", en: "Report submitted" },
+  "report.error":     { ru: "Не удалось отправить жалобу — попробуй ещё раз", en: "Couldn't submit the report — try again" },
+  "report.needLogin": { ru: "Войди в аккаунт, чтобы отправить жалобу", en: "Sign in to submit a report" },
+
+  // Очередь модерации для админов (двух создателей MYRA) — src/app/dev.tsx, ModerationSheet
+  "mod.title":         { ru: "Модерация", en: "Moderation" },
+  "mod.empty":         { ru: "Открытых жалоб нет", en: "No open reports" },
+  "mod.commentTarget": { ru: "Жалоба на комментарий", en: "Comment report" },
+  "mod.reporter":      { ru: "От", en: "From" },
+  "mod.openTrack":     { ru: "Открыть трек", en: "Open track" },
+  "mod.hide":          { ru: "Скрыть трек", en: "Hide track" },
+  "mod.unhide":        { ru: "Вернуть трек", en: "Unhide track" },
+  "mod.hidden":        { ru: "Трек скрыт", en: "Track hidden" },
+  "mod.unhidden":      { ru: "Трек возвращён в публичный доступ", en: "Track unhidden" },
+  "mod.resolve":       { ru: "Решено", en: "Resolve" },
+  "mod.dismiss":       { ru: "Отклонить", en: "Dismiss" },
+  "mod.resolved":      { ru: "Жалоба закрыта как решённая", en: "Report marked resolved" },
+  "mod.dismissed":     { ru: "Жалоба отклонена", en: "Report dismissed" },
+  "mod.err":           { ru: "Не получилось — попробуй ещё раз", en: "Couldn't do that — try again" },
 
   // Скрытые достижения — уведомление при открытии
   "ach.unlocked": { ru: "Достижение открыто: «{0}»", en: "Achievement unlocked: “{0}”" },

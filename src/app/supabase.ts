@@ -133,6 +133,22 @@ export async function setSubscriptionStatus(status: SubStatus) {
   return supabase.functions.invoke<{ ok: boolean }>("set-subscription", { body: { status } });
 }
 
+// Реальный платёж через ЮKassa — идёт через Edge Function create-payment,
+// которая держит YOOKASSA_SHOP_ID/YOOKASSA_SECRET_KEY на сервере (см.
+// supabase/functions/create-payment). Пока их там нет (мерчант-аккаунт ещё не
+// оформлен), функция отвечает 503 payments_not_configured — вызывающий код
+// (DonateWidget/CreatorPlusSheet/ListenerPlusSheet в overlays.tsx) трактует
+// ЛЮБУЮ ошибку отсюда (включая supabaseEnabled === false) как "откатись на
+// прежний симулированный флоу", а не как повод падать.
+export async function createPayment(
+  kind: "donation" | "subscription",
+  amount: number,
+  opts: { toArtist?: string; toUserId?: string; planId?: string } = {},
+) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: new Error("supabase not configured") };
+  return supabase.functions.invoke<{ confirmation_url: string; payment_id: string }>("create-payment", { body: { kind, amount, ...opts } });
+}
+
 // Реальное удаление аккаунта (auth.users + всё, что на него ссылается, через
 // on delete cascade) — идёт через Edge Function delete-account, потому что
 // удалить самого себя из auth.users клиент не может ни при каком RLS
@@ -454,4 +470,102 @@ export async function fetchFriendsFeed(followingIds: string[], limit = 30): Prom
     const { profiles, ...track } = row;
     return { ...track, owner: profiles };
   });
+}
+
+// ─── Модерация: жалобы на треки/комментарии + скрытие трека ────────────────
+// MVP-модерация (см. schema.sql, секции 12-13): раньше не было вообще
+// никакого способа пожаловаться на контент или снять трек с публикации,
+// кроме как автору удалить себя самому. reporter_id/admins проверяются RLS,
+// клиенту здесь достаточно вызвать insert/select/update — база сама решит,
+// что разрешено.
+
+export type ReportTargetType = "track" | "comment";
+export type ReportStatus = "open" | "resolved" | "dismissed";
+
+export interface ReportRow {
+  id: string;
+  reporter_id: string;
+  target_type: ReportTargetType;
+  target_id: string;
+  reason: string;
+  details: string | null;
+  status: ReportStatus;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+// targetId — та же конвенция, что и у comments.track_id (см. fetchComments
+// выше): либо настоящий uuid (tracks.id/comments.id), либо "catalog:N" для
+// демо-контента статичного каталога, у которого нет строки в базе
+export async function submitReport(reporterId: string, targetType: ReportTargetType, targetId: string, reason: string, details?: string) {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  const { error } = await supabase
+    .from("reports")
+    .insert({ reporter_id: reporterId, target_type: targetType, target_id: targetId, reason, details: details?.trim() || null });
+  return { error };
+}
+
+export interface OpenReportRow extends ReportRow {
+  // Заполняется только для жалоб на реальный (не catalog:N) трек — чтобы
+  // админ увидел название, а не голый uuid. Для комментариев отдельного
+  // лукапа нет (MVP): reason/details обычно уже достаточно для решения.
+  trackTitle: string | null;
+  trackAudioUrl: string | null;
+  reporterName: string | null;
+}
+
+// Инбокс модерации: один select всех открытых жалоб (RLS сама отдаёт все
+// строки, если запрос идёт от админа) + два IN-запроса для подписи (имя
+// репортера, название/ссылка трека) — тот же приём, что и в
+// fetchAllSupportThreads, объём жалоб слишком мал для отдельной view/RPC
+export async function fetchOpenReports(): Promise<OpenReportRow[]> {
+  if (!supabaseEnabled || !supabase) return [];
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("status", "open")
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  const rows = data as ReportRow[];
+
+  const trackIds = [...new Set(rows.filter(r => r.target_type === "track" && !r.target_id.startsWith("catalog:")).map(r => r.target_id))];
+  const reporterIds = [...new Set(rows.map(r => r.reporter_id))];
+
+  const [{ data: tracksData }, { data: profilesData }] = await Promise.all([
+    trackIds.length
+      ? supabase.from("tracks").select("id, title, audio_url").in("id", trackIds)
+      : Promise.resolve({ data: [] as { id: string; title: string; audio_url: string }[] }),
+    reporterIds.length
+      ? supabase.from("profiles").select("id, username").in("id", reporterIds)
+      : Promise.resolve({ data: [] as { id: string; username: string }[] }),
+  ]);
+
+  const tracks = new Map((tracksData ?? []).map(tr => [tr.id, tr]));
+  const reporterNames = new Map((profilesData ?? []).map(p => [p.id, p.username]));
+
+  return rows.map(r => ({
+    ...r,
+    trackTitle: tracks.get(r.target_id)?.title ?? null,
+    trackAudioUrl: tracks.get(r.target_id)?.audio_url ?? null,
+    reporterName: reporterNames.get(r.reporter_id) ?? null,
+  }));
+}
+
+export async function resolveReport(reportId: string, status: "resolved" | "dismissed") {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  const { error } = await supabase
+    .from("reports")
+    .update({ status, resolved_at: new Date().toISOString() })
+    .eq("id", reportId);
+  return { error };
+}
+
+// Админ-действие: скрыть/вернуть трек. trackId — обязательно настоящий uuid
+// tracks.id (демо-каталог в базе не существует и скрыть его нельзя — это
+// вообще не строка). RLS (tracks_update_admin, schema.sql) — единственная
+// реальная защита: без неё запрос просто не обновит ни одной строки.
+export async function hideTrack(trackId: string, hidden: boolean) {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  const { error } = await supabase.from("tracks").update({ hidden }).eq("id", trackId);
+  return { error };
 }
