@@ -558,6 +558,37 @@ const STR: Record<string, { ru: string; en: string }> = {
   "dev.supportReplyPh": { ru: "Ответ пользователю…", en: "Reply to user…" },
   "dev.supportErr":     { ru: "Не удалось отправить ответ", en: "Failed to send reply" },
   "dev.supportAiTag":   { ru: "ИИ", en: "AI" },
+  "dev.moderationRow":  { ru: "Модерация", en: "Moderation" },
+
+  // Жалоба на контент — трек в шапке плеера, комментарий в чате (MVP-модерация,
+  // см. schema.sql секции 12-13 и src/app/overlays.tsx — ReportSheet)
+  "report.title":     { ru: "Пожаловаться", en: "Report" },
+  "report.sub":       { ru: "Расскажи, что не так — модератор проверит и примет решение", en: "Tell us what's wrong — a moderator will review it" },
+  "report.reasonCopyright": { ru: "Нарушение авторских прав", en: "Copyright infringement" },
+  "report.reasonAbusive":   { ru: "Оскорбительный контент", en: "Abusive content" },
+  "report.reasonSpam":      { ru: "Спам", en: "Spam" },
+  "report.reasonOther":     { ru: "Другое", en: "Other" },
+  "report.detailsPh": { ru: "Детали (необязательно)…", en: "Details (optional)…" },
+  "report.submit":    { ru: "Отправить жалобу", en: "Submit report" },
+  "report.sent":      { ru: "Жалоба отправлена", en: "Report submitted" },
+  "report.error":     { ru: "Не удалось отправить жалобу — попробуй ещё раз", en: "Couldn't submit the report — try again" },
+  "report.needLogin": { ru: "Войди в аккаунт, чтобы отправить жалобу", en: "Sign in to submit a report" },
+
+  // Очередь модерации для админов (двух создателей MYRA) — src/app/dev.tsx, ModerationSheet
+  "mod.title":         { ru: "Модерация", en: "Moderation" },
+  "mod.empty":         { ru: "Открытых жалоб нет", en: "No open reports" },
+  "mod.commentTarget": { ru: "Жалоба на комментарий", en: "Comment report" },
+  "mod.reporter":      { ru: "От", en: "From" },
+  "mod.openTrack":     { ru: "Открыть трек", en: "Open track" },
+  "mod.hide":          { ru: "Скрыть трек", en: "Hide track" },
+  "mod.unhide":        { ru: "Вернуть трек", en: "Unhide track" },
+  "mod.hidden":        { ru: "Трек скрыт", en: "Track hidden" },
+  "mod.unhidden":      { ru: "Трек возвращён в публичный доступ", en: "Track unhidden" },
+  "mod.resolve":       { ru: "Решено", en: "Resolve" },
+  "mod.dismiss":       { ru: "Отклонить", en: "Dismiss" },
+  "mod.resolved":      { ru: "Жалоба закрыта как решённая", en: "Report marked resolved" },
+  "mod.dismissed":     { ru: "Жалоба отклонена", en: "Report dismissed" },
+  "mod.err":           { ru: "Не получилось — попробуй ещё раз", en: "Couldn't do that — try again" },
 
   // Скрытые достижения — уведомление при открытии
   "ach.unlocked": { ru: "Достижение открыто: «{0}»", en: "Achievement unlocked: “{0}”" },

@@ -21,6 +21,7 @@ import { MyraWordmark } from "./logo";
 // скачивается, пока фича ни разу не понадобилась, но exit-анимации сохраняются
 const DevPanelSheet = lazy(() => import("./dev").then(m => ({ default: m.DevPanelSheet })));
 const AdminSupportSheet = lazy(() => import("./dev").then(m => ({ default: m.AdminSupportSheet })));
+const ModerationSheet = lazy(() => import("./dev").then(m => ({ default: m.ModerationSheet })));
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import type { UserRole } from "./auth";
@@ -237,6 +238,7 @@ function AppInner() {
   const [devMode, setDevModeState] = useState(() => ls.get("devMode", false));
   const [devPanelOpen, setDevPanelOpen] = useState(false);
   const [adminSupportOpen, setAdminSupportOpen] = useState(false);
+  const [moderationOpen, setModerationOpen] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [customAvatar, setCustomAvatar] = useState<string | null>(() => ls.get<string | null>("customAvatar", null));
   const [followed, setFollowed] = useState<Set<string>>(() => new Set(ls.get<string[]>("followed", [])));
@@ -440,6 +442,7 @@ function AppInner() {
   }, [t]);
   const openDevPanel = useCallback(() => setDevPanelOpen(true), []);
   const openAdminSupport = useCallback(() => setAdminSupportOpen(true), []);
+  const openModeration = useCallback(() => setModerationOpen(true), []);
   const openPlus = useCallback(() => setPlusOpen(true), []);
   const handleGrantXp = useCallback((xp: number) => { setStats(prev => grantXp(prev, xp)); }, []);
   const addBalance = useCallback((amt: number) => {
@@ -1017,6 +1020,7 @@ function AppInner() {
     setDevModeState(false);
     setDevPanelOpen(false);
     setAdminSupportOpen(false);
+    setModerationOpen(false);
     setPlusOpen(false);
     setUserRole("listener");
     setCustomAvatar(null);
@@ -1099,6 +1103,7 @@ function AppInner() {
   // Хуки ленивого маунта — строго до раннего return (правила хуков)
   const devEver = useEverOpened(devPanelOpen);
   const adminEver = useEverOpened(adminSupportOpen);
+  const moderationEver = useEverOpened(moderationOpen);
   const roomEver = useEverOpened(roomOpen);
 
   // Данные «Эха месяца» считаются только при изменении статистики, а не на
@@ -1494,6 +1499,7 @@ function AppInner() {
             onAddBalance={addBalance}
             onGrantXp={handleGrantXp}
             onOpenAdminSupport={openAdminSupport}
+            onOpenModeration={openModeration}
           />
         </Suspense>
       )}
@@ -1501,6 +1507,12 @@ function AppInner() {
       {adminEver && (
         <Suspense fallback={null}>
           <AdminSupportSheet open={adminSupportOpen} onClose={() => setAdminSupportOpen(false)} uid={uid} />
+        </Suspense>
+      )}
+
+      {moderationEver && (
+        <Suspense fallback={null}>
+          <ModerationSheet open={moderationOpen} onClose={() => setModerationOpen(false)} uid={uid} />
         </Suspense>
       )}
 

@@ -3,16 +3,16 @@ import {
   Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight, ChevronLeft, ArrowRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
-  Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine, Search,
+  Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine, Search, Flag,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, ls, svgAvatar, trackFromRow, type Track, type Friend } from "./data";
+import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, REPORT_REASONS, ls, svgAvatar, trackFromRow, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, Toggle, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
 import { monthDays, splitAmountByShares, minutesOf, currentMonthKey, type ArtistShare } from "./stats";
 import { buildAchievements, ACHIEVEMENTS, type AchievementCounters } from "./achievements";
-import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, type SupportMessageRow, type ArtistProfileData, type PublicProfile } from "./supabase";
+import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, submitReport, type SupportMessageRow, type ArtistProfileData, type PublicProfile, type ReportTargetType } from "./supabase";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
 
@@ -2129,6 +2129,87 @@ export function SupportSheet({ open, onClose, uid }: { open: boolean; onClose: (
             </motion.button>
           </div>
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Жалоба на контент (трек/комментарий) ────────────────────────────────────
+// MVP-модерация (см. schema.sql, секции 12-13 и src/app/dev.tsx —
+// ModerationSheet, очередь для админов). Открывается из FullPlayer
+// (src/app/player.tsx) — по кнопке в шапке для трека целиком и по кнопке
+// рядом с конкретным комментарием (только для реальных, синхронизированных
+// с Supabase комментариев — у затравочных/локальных нет id, жаловаться там
+// физически не на что, см. Comment.id в data.ts).
+export function ReportSheet({ open, onClose, uid, targetType, targetId }: {
+  open: boolean; onClose: () => void; uid: string | null;
+  targetType: ReportTargetType; targetId: string | null;
+}) {
+  const { t } = useLang();
+  const [reason, setReason] = useState<string>(REPORT_REASONS[0].code);
+  const [details, setDetails] = useState("");
+  const [sending, setSending] = useState(false);
+
+  // Сброс формы при каждом новом открытии — иначе повторная жалоба на другой
+  // трек унаследовала бы причину/текст от предыдущей
+  useEffect(() => { if (open) { setReason(REPORT_REASONS[0].code); setDetails(""); } }, [open]);
+
+  const submit = async () => {
+    // reporter_id обязателен и в RLS (auth.uid() = reporter_id), и по смыслу —
+    // анонимную жалобу некому и не на что вешать. Без входа честнее сказать
+    // об этом прямо, чем притвориться, что жалоба ушла
+    if (!uid) { toast(t("report.needLogin")); return; }
+    if (!targetId) { onClose(); return; }
+    setSending(true);
+    const { error } = await submitReport(uid, targetType, targetId, reason, details);
+    setSending(false);
+    if (error) { toast(t("report.error")); return; }
+    toast(t("report.sent"));
+    onClose();
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose} z={73}>
+      <div className="px-6 pt-7 pb-8">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.4)" }}>
+              <Flag size={15} style={{ color: "#f87171" }} />
+            </div>
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>{t("report.title")}</div>
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            <X size={16} />
+          </button>
+        </div>
+        <div className="text-xs mb-5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("report.sub")}</div>
+
+        <div className="flex flex-col gap-2 mb-4">
+          {REPORT_REASONS.map(r => {
+            const active = reason === r.code;
+            return (
+              <button key={r.code} onClick={() => setReason(r.code)} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-left" style={{ ...GLASS, border: `1px solid ${active ? "rgba(248,113,113,0.5)" : "transparent"}` }}>
+                <span className="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${active ? "#f87171" : "color-mix(in srgb, var(--fg) 30%, transparent)"}` }}>
+                  {active && <span className="w-2 h-2 rounded-full" style={{ background: "#f87171" }} />}
+                </span>
+                <span className="text-sm font-medium" style={{ fontFamily: F.b }}>{t(r.labelKey)}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <textarea
+          value={details}
+          onChange={e => setDetails(e.target.value)}
+          placeholder={t("report.detailsPh")}
+          rows={3}
+          className="w-full px-4 py-3 rounded-2xl bg-transparent outline-none text-sm resize-none mb-5"
+          style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
+        />
+
+        <motion.button whileTap={{ scale: 0.97 }} disabled={sending} onClick={submit} className="w-full py-3.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #ef4444, #f87171)", color: "#fff", fontFamily: F.b, opacity: sending ? 0.7 : 1 }}>
+          <Flag size={14} /> {t("report.submit")}
+        </motion.button>
       </div>
     </Sheet>
   );
