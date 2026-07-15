@@ -4,6 +4,7 @@ import {
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
   Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine, Search,
+  FileText, ShieldCheck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -991,6 +992,16 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
               </div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
+            <a href="./privacy.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+              <ShieldCheck size={15} style={{ color: "#60a5fa" }} />
+              <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.privacy")}</div>
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+            </a>
+            <a href="./terms.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+              <FileText size={15} style={{ color: "#a3a3a3" }} />
+              <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.terms")}</div>
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+            </a>
           </div>
 
           <motion.button whileTap={{ scale: 0.98 }} onClick={() => setDeleteQ(true)} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-medium" style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.18)", color: "#f87171", fontFamily: F.b }}>

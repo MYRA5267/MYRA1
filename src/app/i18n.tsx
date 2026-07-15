@@ -217,6 +217,8 @@ const STR: Record<string, { ru: string; en: string }> = {
   "acc.avatar":    { ru: "Аватар", en: "Avatar" },
   "acc.support":   { ru: "Поддержка", en: "Support" },
   "acc.supportSub":{ ru: "отвечаем в течение часа", en: "we reply within an hour" },
+  "acc.privacy":   { ru: "Политика конфиденциальности", en: "Privacy Policy" },
+  "acc.terms":     { ru: "Условия использования", en: "Terms of Service" },
   "acc.delete":    { ru: "Удалить аккаунт", en: "Delete account" },
   "acc.deleteQ":   { ru: "Точно удалить аккаунт?", en: "Really delete your account?" },
   "acc.deleteSub": { ru: "Плейлисты, лайки и Созвуки будут стёрты навсегда", en: "Playlists, likes and Unisons will be erased forever" },
@@ -432,8 +434,12 @@ const STR: Record<string, { ru: string; en: string }> = {
   "pl.reordered": { ru: "Порядок треков обновлён", en: "Track order updated" },
 
   // Онбординг и вход
-  "ob.s1t":     { ru: "Вся музыка — в одном месте", en: "All your music in one place" },
-  "ob.s1s":     { ru: "Стриминг, чарты и инди-сцена. Больше не нужно три приложения.", en: "Streaming, charts and the indie scene. No more juggling three apps." },
+  // Раньше здесь было "Вся музыка в одном месте" — обещание лицензированного
+  // каталога мейджор-лейблов, которого у нас физически нет (контент — своя
+  // библиотека + то, что независимые артисты сами публикуют через Студию).
+  // Текст переписан под то, что приложение реально делает, а не звучит громче
+  "ob.s1t":     { ru: "Открывай независимых артистов", en: "Discover independent artists" },
+  "ob.s1s":     { ru: "Своя библиотека плюс живая инди-сцена — слушай, делись, поддерживай напрямую.", en: "Your own library plus a living indie scene — listen, share, support directly." },
   "ob.s2t":     { ru: "Артисты получают напрямую", en: "Artists get paid directly" },
   "ob.s2s":     { ru: "Донаты без комиссии и честные алгоритмы для новых имён.", en: "Zero-fee donations and fair algorithms for new names." },
   "ob.s3t":     { ru: "Слушай вместе с друзьями", en: "Listen together" },
