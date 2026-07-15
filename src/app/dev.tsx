@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, Zap, Sparkles, Wallet, Mic2, Headphones, Lock, RotateCcw, Wrench, Inbox, ChevronRight, ChevronLeft, Send, Loader2, ShieldAlert , Bug } from "lucide-react";
+import { X, Zap, Sparkles, Wallet, Mic2, Headphones, Lock, RotateCcw, Wrench, Inbox, ChevronRight, ChevronLeft, Send, Loader2, ShieldAlert, Bug, Flag, EyeOff, Eye, CheckCheck, XCircle, ExternalLink } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { ls } from "./data";
+import { ls, REPORT_REASONS } from "./data";
 import { F, GLASS, Sheet } from "./lib";
 import { useLang } from "./i18n";
 import { buildAchievements, type AchievementCounters } from "./achievements";
 import type { UserRole } from "./auth";
-import { isAdmin, fetchAllSupportThreads, fetchSupportThread, sendSupportMessage, markSupportThreadRead, type SupportMessageRow, type SupportThreadPreview } from "./supabase";
+import { isAdmin, fetchAllSupportThreads, fetchSupportThread, sendSupportMessage, markSupportThreadRead, fetchOpenReports, resolveReport, hideTrack, type SupportMessageRow, type SupportThreadPreview, type OpenReportRow } from "./supabase";
 
 // ─── Панель разработчика ──────────────────────────────────────────────────────
 // Только для создателей MYRA. Активируется семью быстрыми тапами по аватару в
@@ -19,7 +19,7 @@ import { isAdmin, fetchAllSupportThreads, fetchSupportThread, sendSupportMessage
 const XP_PRESETS = [500, 2500, 10000];
 const BALANCE_PRESETS = [1000, 10000];
 
-export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetRole, cpStatus, onSetCp, plusActive, onSetPlus, balance, onAddBalance, onGrantXp, onOpenAdminSupport }: {
+export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetRole, cpStatus, onSetCp, plusActive, onSetPlus, balance, onAddBalance, onGrantXp, onOpenAdminSupport, onOpenModeration }: {
   open: boolean; onClose: () => void; level: number;
   counters: AchievementCounters;
   userRole: UserRole; onSetRole: (r: UserRole) => void;
@@ -28,6 +28,7 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
   balance: number; onAddBalance: (amt: number) => void;
   onGrantXp: (xp: number) => void;
   onOpenAdminSupport: () => void;
+  onOpenModeration: () => void;
 }) {
   const { t } = useLang();
   // achVersion — форс-пересчёт после сброса прогресса кнопкой ниже
@@ -74,6 +75,17 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
             <Inbox size={15} style={{ color: "#22d3ee" }} />
           </div>
           <div className="flex-1 text-left text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.supportRow")}</div>
+          <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+        </motion.button>
+
+        {/* Очередь модерации — тот же паттерн, что и инбокс поддержки выше:
+            devMode лишь показывает кнопку, реальный доступ к чужим жалобам
+            проверяет сам ModerationSheet (таблица admins) */}
+        <motion.button whileTap={{ scale: 0.98 }} onClick={onOpenModeration} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-2" style={{ ...GLASS, border: "1px solid rgba(248,113,113,0.3)" }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(248,113,113,0.14)" }}>
+            <Flag size={15} style={{ color: "#f87171" }} />
+          </div>
+          <div className="flex-1 text-left text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.moderationRow")}</div>
           <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
         </motion.button>
 
@@ -326,6 +338,149 @@ export function AdminSupportSheet({ open, onClose, uid }: { open: boolean; onClo
 
         {allowed && activeThread && (
           <AdminThreadView userId={activeThread.userId} username={activeThread.username} onBack={() => { setActiveThread(null); loadThreads(); }} />
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Очередь модерации для админов (двух создателей MYRA) ────────────────────
+// Точка входа — кнопка в DevPanelSheet выше, тот же паттерн, что и у инбокса
+// поддержки: devMode лишь ПОКАЗЫВАЕТ кнопку, реальный доступ к чужим жалобам
+// проверяется отдельно через isAdmin(uid) при открытии (таблица admins — она
+// и есть источник правды, см. schema.sql секции 12-13). Не в admins — пусто,
+// без единой чужой жалобы, что бы ни включил девMode на клиенте.
+
+const fmtReportTime = (iso: string) => new Date(iso).toLocaleString([], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+function reportReasonLabel(code: string, t: (key: string) => string) {
+  const found = REPORT_REASONS.find(r => r.code === code);
+  return found ? t(found.labelKey) : code;
+}
+
+export function ModerationSheet({ open, onClose, uid }: { open: boolean; onClose: () => void; uid: string | null }) {
+  const { t } = useLang();
+  // null = проверяем, true/false = результат isAdmin(uid)
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [reports, setReports] = useState<OpenReportRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  // Локальный оверрайд hidden по target_id трека — чтобы кнопка "скрыть/
+  // вернуть" переключалась мгновенно, не дожидаясь рефетча всей очереди
+  const [hiddenOverride, setHiddenOverride] = useState<Record<string, boolean>>({});
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetchOpenReports().then(list => { setReports(list); setLoading(false); });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!uid) { setAllowed(false); return; }
+    setAllowed(null);
+    setHiddenOverride({});
+    isAdmin(uid).then(ok => { setAllowed(ok); if (ok) load(); });
+  }, [open, uid, load]);
+
+  const resolve = async (id: string, status: "resolved" | "dismissed") => {
+    setBusyId(id);
+    const { error } = await resolveReport(id, status);
+    setBusyId(null);
+    if (error) { toast(t("mod.err")); return; }
+    setReports(prev => prev.filter(r => r.id !== id));
+    toast(status === "resolved" ? t("mod.resolved") : t("mod.dismissed"));
+  };
+
+  const toggleHide = async (targetId: string, currentlyHidden: boolean) => {
+    setBusyId(targetId);
+    const { error } = await hideTrack(targetId, !currentlyHidden);
+    setBusyId(null);
+    if (error) { toast(t("mod.err")); return; }
+    setHiddenOverride(prev => ({ ...prev, [targetId]: !currentlyHidden }));
+    toast(!currentlyHidden ? t("mod.hidden") : t("mod.unhidden"));
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose} z={71}>
+      <div className="px-6 pt-7 pb-8 flex flex-col" style={{ height: "min(78vh, 640px)" }}>
+        <div className="flex items-center justify-between mb-5 flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.4)" }}>
+              <Flag size={15} style={{ color: "#f87171" }} />
+            </div>
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>{t("mod.title")}</div>
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {allowed === null && (
+          <div className="flex-1 flex items-center justify-center"><Loader2 size={20} className="animate-spin" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} /></div>
+        )}
+
+        {allowed === false && (
+          <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 px-4">
+            <ShieldAlert size={22} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
+            <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.supportDenied")}</div>
+            <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("dev.supportDeniedSub")}</div>
+          </div>
+        )}
+
+        {allowed && (
+          <div className="flex-1 overflow-y-auto flex flex-col gap-2.5" style={{ scrollbarWidth: "none" }}>
+            {loading && (
+              <div className="flex justify-center py-8"><Loader2 size={18} className="animate-spin" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} /></div>
+            )}
+            {!loading && reports.length === 0 && (
+              <div className="text-xs text-center py-8" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("mod.empty")}</div>
+            )}
+            {reports.map(r => {
+              const isTrack = r.target_type === "track";
+              const isRealTrack = isTrack && !r.target_id.startsWith("catalog:");
+              const hidden = hiddenOverride[r.target_id] ?? false;
+              const busy = busyId === r.id || busyId === r.target_id;
+              return (
+                <div key={r.id} className="p-3.5 rounded-2xl flex flex-col gap-2" style={GLASS}>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background: "rgba(248,113,113,0.15)", color: "#f87171", fontFamily: F.m }}>
+                      {reportReasonLabel(r.reason, t)}
+                    </span>
+                    <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{fmtReportTime(r.created_at)}</span>
+                  </div>
+
+                  <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>
+                    {isTrack ? (r.trackTitle ?? r.target_id) : t("mod.commentTarget")}
+                  </div>
+                  {r.details && (
+                    <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>{r.details}</div>
+                  )}
+                  <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>
+                    {t("mod.reporter")}: {r.reporterName ?? r.reporter_id.slice(0, 8)}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap mt-1">
+                    {isRealTrack && r.trackAudioUrl && (
+                      <a href={r.trackAudioUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)", color: "color-mix(in srgb, var(--fg) 70%, transparent)", fontFamily: F.b }}>
+                        <ExternalLink size={12} /> {t("mod.openTrack")}
+                      </a>
+                    )}
+                    {isRealTrack && (
+                      <button disabled={busy} onClick={() => toggleHide(r.target_id, hidden)} className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold" style={{ background: hidden ? "rgba(52,211,153,0.15)" : "rgba(250,204,21,0.15)", color: hidden ? "#34d399" : "#facc15", fontFamily: F.b, opacity: busy ? 0.6 : 1 }}>
+                        {hidden ? <Eye size={12} /> : <EyeOff size={12} />} {hidden ? t("mod.unhide") : t("mod.hide")}
+                      </button>
+                    )}
+                    <button disabled={busy} onClick={() => resolve(r.id, "resolved")} className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold" style={{ background: "rgba(34,211,238,0.15)", color: "#22d3ee", fontFamily: F.b, opacity: busy ? 0.6 : 1 }}>
+                      <CheckCheck size={12} /> {t("mod.resolve")}
+                    </button>
+                    <button disabled={busy} onClick={() => resolve(r.id, "dismissed")} className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)", color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b, opacity: busy ? 0.6 : 1 }}>
+                      <XCircle size={12} /> {t("mod.dismiss")}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </Sheet>

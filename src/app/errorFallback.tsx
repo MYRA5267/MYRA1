@@ -1,4 +1,5 @@
 import { GLASS, F, THEMES, type ThemeName } from "./lib";
+import { sentryEnabled } from "./sentry";
 
 // ─── Экран после краха рендера ─────────────────────────────────────────────
 // Показывается Sentry ErrorBoundary в main.tsx вместо белого экрана — именно
@@ -42,7 +43,9 @@ export function ErrorFallback() {
           Что-то пошло не так
         </div>
         <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "color-mix(in srgb, var(--fg) 70%, transparent)", marginBottom: 22 }}>
-          Приложение столкнулось с ошибкой. Мы уже знаем о ней — попробуйте перезагрузить страницу.
+          {sentryEnabled
+            ? "Приложение столкнулось с ошибкой. Мы уже знаем о ней — попробуйте перезагрузить страницу."
+            : "Приложение столкнулось с ошибкой. Попробуйте перезагрузить страницу."}
         </div>
         <button
           onClick={() => window.location.reload()}

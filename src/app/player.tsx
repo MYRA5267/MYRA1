@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat,
-  ChevronDown, Share2, Volume2, VolumeX, Globe,
+  ChevronDown, Share2, Volume2, VolumeX, Globe, Flag,
   MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2, Flame, Blend,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -13,6 +13,7 @@ import { useLang } from "./i18n";
 import { supabaseEnabled, fetchComments, postComment } from "./supabase";
 import { enqueueSyncOp, isNetworkError } from "./syncQueue";
 import { useTrackStructure, sectionForPct } from "./structure";
+import { ReportSheet } from "./overlays";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
@@ -43,6 +44,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
     fetchComments(remoteTrackId).then(({ data }) => {
       if (cancelled) return;
       setRemoteComments(data.map(row => ({
+        id: row.id,
         pct: Number(row.pct),
         user: row.profiles?.handle || deriveHandle(row.profiles?.username ?? "user"),
         text: row.text,
@@ -59,6 +61,12 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   // Коллективные хайлайты: места, где комментарии нескольких людей легли рядом
   const hotMoments = useMemo(() => commentHotMoments(comments), [comments]);
   const [commentText, setCommentText] = useState("");
+  // Жалоба на трек целиком (кнопка в шапке) или на конкретный комментарий
+  // (кнопка у строки комментария, только для реальных — см. Comment.id).
+  // target_id — та же конвенция, что и track_id у комментариев (см. data.ts):
+  // настоящий uuid для опубликованных треков, "catalog:N" для демо-каталога
+  const [reportTarget, setReportTarget] = useState<{ type: "track" | "comment"; id: string } | null>(null);
+  const reportTrackId = remoteTrackId ?? `catalog:${track.id}`;
   const volRef = useRef<HTMLDivElement>(null);
   const volDragging = useRef(false);
 
@@ -179,9 +187,14 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
             </button>
           ))}
         </div>
-        <motion.button whileTap={{ scale: 0.85 }} onClick={shareTrack} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={GLASS}>
-          <Share2 size={16} />
-        </motion.button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <motion.button whileTap={{ scale: 0.85 }} onClick={() => setReportTarget({ type: "track", id: reportTrackId })} title={t("report.title")} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={GLASS}>
+            <Flag size={15} />
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.85 }} onClick={shareTrack} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={GLASS}>
+            <Share2 size={16} />
+          </motion.button>
+        </div>
       </div>
 
       <div className="relative z-10 flex-1 overflow-hidden flex flex-col">
@@ -391,8 +404,16 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                     </div>
                     <div className="text-sm" style={{ color: "color-mix(in srgb, var(--fg) 78%, transparent)", fontFamily: F.b }}>{c.text}</div>
                   </div>
-                  <div className="flex items-center gap-1 text-xs flex-shrink-0" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }}>
+                  <div className="flex items-center gap-2 text-xs flex-shrink-0" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }}>
                     <Heart size={10} /> {c.likes}
+                    {/* Пожаловаться можно только на реальный комментарий (id есть
+                        только у строк из public.comments) — у затравочных и
+                        локальных комментариев жаловаться физически не на что */}
+                    {c.id && (
+                      <button onClick={() => setReportTarget({ type: "comment", id: c.id! })} title={t("report.title")} className="opacity-60 hover:opacity-100 transition-opacity">
+                        <Flag size={11} />
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -447,6 +468,14 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
           </motion.div>
         )}
       </div>
+
+      <ReportSheet
+        open={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        uid={uid}
+        targetType={reportTarget?.type ?? "track"}
+        targetId={reportTarget?.id ?? null}
+      />
     </div>
   );
 }
