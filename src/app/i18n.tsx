@@ -145,6 +145,8 @@ const STR: Record<string, { ru: string; en: string }> = {
   "cp.doneSub":   { ru: "Безлимит офлайн, Hi-Res и аналитика уже открыты", en: "Unlimited offline, Hi-Res and analytics are now unlocked" },
   "cp.great":     { ru: "Отлично", en: "Great" },
   "cp.cancel":    { ru: "Подписка активна до конца оплаченного периода", en: "Active until the end of the paid period" },
+  // Общий суффикс цены для hero-карточек Pro/Plus (используется в обеих шторках)
+  "cp.perMonth":  { ru: "/мес", en: "/mo" },
 
   // Профиль / настройки
   "pr.wrapped":     { ru: "Эхо ", en: "Echo " },

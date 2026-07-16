@@ -1125,22 +1125,25 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
 
   return (
     <Sheet open={open} onClose={onClose} z={65}>
-      <div className="relative px-6 pt-8 pb-8 overflow-hidden">
-        <Aurora c2="#8b5cf6" opacity={0.6} />
+      <div className="relative px-6 pt-8 pb-8">
         <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
 
-        <div className="relative z-10">
-          {state === "done" ? (
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="text-center py-6">
+        {state === "done" ? (
+          // Статус подписки — та же премиальная тёмная hero-карточка со свечением,
+          // что и предложение оформить: активный/grace-статус теперь тоже
+          // «настоящая» карточка, а не голый текст по центру шторки
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="myra-plus-done" style={{ "--plus-accent": "#8b5cf6" } as React.CSSProperties}>
+            <Aurora c2="#8b5cf6" opacity={0.55} />
+            <div className="relative z-10">
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ ...SPRING, delay: 0.15 }} className="w-20 h-20 rounded-full mx-auto mb-5 flex items-center justify-center" style={{ background: "rgba(52,211,153,0.13)", border: "1.5px solid rgba(52,211,153,0.4)" }}>
                 <Check size={34} style={{ color: "#34d399" }} />
               </motion.div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("cp.done")}</div>
-              <div className="text-sm mt-2 mb-2" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("cp.doneSub")}</div>
-              <div className="text-xs mb-7" style={{ color: status === "grace" ? "#fb923c" : "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{status === "grace" ? t("cp.graceNote") : t("cp.cancel")}</div>
-              <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="px-10 py-3 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em", color: "#f7f5ff" }}>{t("cp.done")}</div>
+              <div className="text-sm mt-2 mb-2" style={{ color: "rgba(239,236,250,0.58)", fontFamily: F.b }}>{t("cp.doneSub")}</div>
+              <div className="text-xs mb-7" style={{ color: status === "grace" ? "#fb923c" : "rgba(239,236,250,0.4)", fontFamily: F.m }}>{status === "grace" ? t("cp.graceNote") : t("cp.cancel")}</div>
+              <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="px-10 py-3 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}>
                 {t("cp.great")}
               </motion.button>
               {status === "grace" ? (
@@ -1152,46 +1155,53 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
                   {t("cp.cancelBtn")}
                 </button>
               )}
-            </motion.div>
-          ) : (
-            <>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4" style={{ background: "rgba(139,92,246,0.16)", border: "1px solid rgba(139,92,246,0.35)" }}>
-                <Crown size={13} style={{ color: "#c4b5fd" }} />
-                <span className="text-xs font-semibold" style={{ color: "#c4b5fd", fontFamily: F.m }}>{t("cp.title")}</span>
+            </div>
+          </motion.div>
+        ) : (
+          <>
+            {/* Hero — та же порода карточки, что у апсейла в Студии (тёмное
+                свечение под цвет тарифа), но теперь это полноценная шапка
+                шторки: чип, заголовок, подпись и вынесенная отдельно цена */}
+            <div className="myra-plus-hero mb-6" style={{ "--plus-accent": "#8b5cf6" } as React.CSSProperties}>
+              <Aurora c2="#8b5cf6" opacity={0.5} />
+              <div className="relative z-10">
+                <span className="myra-plus-chip"><Crown size={12} /> {t("cp.title")}</span>
+                <div className="myra-plus-hero-title">{t("cr.earn")}</div>
+                <div className="myra-plus-hero-sub">{t("cp.sub")}</div>
+                <div className="myra-plus-hero-price">
+                  <strong>499₽</strong>
+                  <span>{t("cp.perMonth")}</span>
+                </div>
               </div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 27, letterSpacing: "-0.03em", lineHeight: 1.1 }} className="mb-2">{t("cr.earn")}</div>
-              <div className="text-sm mb-4" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("cp.sub")}</div>
+            </div>
 
-              {/* Плашка «зарабатывают в 2.4 раза больше» удалена: статистика была
-                  выдумана — у MYRA пока нет данных, чтобы такое утверждать */}
-              <div className="flex flex-col gap-2.5 mb-7">
-                {BENEFITS.map((b, i) => (
-                  <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={GLASS}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(139,92,246,0.2)" }}>
-                      <b.Icon size={15} style={{ color: "#c4b5fd" }} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
-                      <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+            {/* Плашка «зарабатывают в 2.4 раза больше» удалена: статистика была
+                выдумана — у MYRA пока нет данных, чтобы такое утверждать */}
+            <div className="myra-plus-benefits mb-6">
+              {BENEFITS.map((b, i) => (
+                <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="myra-plus-benefit-row" style={{ "--plus-accent": "#8b5cf6" } as React.CSSProperties}>
+                  <div className="myra-plus-benefit-icon"><b.Icon size={15} /></div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
 
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                disabled={state === "paying"}
-                onClick={pay}
-                className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
-                style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b, boxShadow: "0 12px 40px rgba(139,92,246,0.4)" }}
-              >
-                {state === "paying" ? (<><Loader2 size={16} className="animate-spin" /> {t("cp.paying")}</>) : t("cp.pay")}
-              </motion.button>
-              {/* Та же честная подпись, что у Plus и донатов */}
-              <div className="text-[10px] text-center mt-2.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("don.simNote")}</div>
-            </>
-          )}
-        </div>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              disabled={state === "paying"}
+              onClick={pay}
+              className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b, boxShadow: "0 12px 40px rgba(139,92,246,0.4)" }}
+            >
+              {state === "paying" ? (<><Loader2 size={16} className="animate-spin" /> {t("cp.paying")}</>) : t("cp.pay")}
+            </motion.button>
+            {/* Та же честная подпись, что у Plus и донатов */}
+            <div className="text-[10px] text-center mt-2.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("don.simNote")}</div>
+          </>
+        )}
       </div>
 
       <ConfirmSheet
@@ -1231,20 +1241,22 @@ export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactiv
 
   return (
     <Sheet open={open} onClose={onClose} z={65}>
-      <div className="relative px-6 pt-8 pb-8 overflow-hidden">
-        <Aurora c2="#34d399" opacity={0.55} />
+      <div className="relative px-6 pt-8 pb-8">
         <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
 
-        <div className="relative z-10">
-          {active ? (
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="text-center py-6">
+        {active ? (
+          // Тот же премиальный hero-контейнер, что и у предложения — активный
+          // статус тоже настоящая карточка со свечением, а не голый текст
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="myra-plus-done" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
+            <Aurora c2="#34d399" opacity={0.5} />
+            <div className="relative z-10">
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ ...SPRING, delay: 0.15 }} className="w-20 h-20 rounded-full mx-auto mb-5 flex items-center justify-center" style={{ background: "rgba(52,211,153,0.13)", border: "1.5px solid rgba(52,211,153,0.4)" }}>
                 <Check size={34} style={{ color: "#34d399" }} />
               </motion.div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("plus.done")}</div>
-              <div className="text-sm mt-2 mb-2" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("plus.doneSub")}</div>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em", color: "#f7f5ff" }}>{t("plus.done")}</div>
+              <div className="text-sm mt-2 mb-2" style={{ color: "rgba(239,236,250,0.58)", fontFamily: F.b }}>{t("plus.doneSub")}</div>
               <div className="text-xs mb-7" style={{ color: "#34d399", fontFamily: F.m }}>{t("plus.price")}</div>
               <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="px-10 py-3 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b }}>
                 {t("cp.great")}
@@ -1252,69 +1264,73 @@ export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactiv
               <button onClick={() => { onDeactivate(); toast(t("plus.deactivated")); }} className="block mx-auto mt-4 text-xs transition-colors hover:text-red-300" style={{ color: "rgba(248,113,113,0.75)", fontFamily: F.b }}>
                 {t("plus.deactivate")}
               </button>
-            </motion.div>
-          ) : (
-            <>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4" style={{ background: "rgba(52,211,153,0.14)", border: "1px solid rgba(52,211,153,0.35)" }}>
-                <Star size={13} style={{ color: "#6ee7b7" }} />
-                <span className="text-xs font-semibold" style={{ color: "#6ee7b7", fontFamily: F.m }}>MYRA Plus</span>
+            </div>
+          </motion.div>
+        ) : (
+          <>
+            {/* Hero — цена в заголовке реагирует на студенческий тумблер ниже
+                (раньше здесь была захардкожена строка "199₽/мес" даже когда
+                студенческая скидка была включена — теперь показывает то же
+                число, что и кнопка активации) */}
+            <div className="myra-plus-hero mb-6" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
+              <Aurora c2="#34d399" opacity={0.45} />
+              <div className="relative z-10">
+                <span className="myra-plus-chip"><Star size={12} /> MYRA Plus</span>
+                <div className="myra-plus-hero-title">{price}₽{t("cp.perMonth")}</div>
+                <div className="myra-plus-hero-sub">{t("plus.sub")}</div>
               </div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 27, letterSpacing: "-0.03em", lineHeight: 1.1 }} className="mb-2">{t("plus.price")}</div>
-              <div className="text-sm mb-5" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("plus.sub")}</div>
+            </div>
 
-              <div className="flex flex-col gap-2.5 mb-7">
-                {BENEFITS.map((b, i) => (
-                  <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={GLASS}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(52,211,153,0.16)" }}>
-                      <b.Icon size={15} style={{ color: "#6ee7b7" }} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
-                      <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
-                    </div>
-                  </motion.div>
-                ))}
+            <div className="myra-plus-benefits mb-6">
+              {BENEFITS.map((b, i) => (
+                <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="myra-plus-benefit-row" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
+                  <div className="myra-plus-benefit-icon"><b.Icon size={15} /></div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Студенческий тариф */}
+            <div className="myra-plus-toggle-row mb-6" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("plus.student")} · {t("plus.priceStudent")}</div>
+                <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("plus.studentSub")}</div>
               </div>
+              <Toggle on={student} onChange={() => setStudent(s => !s)} color="#34d399" />
+            </div>
 
-              {/* Студенческий тариф */}
-              <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-4" style={GLASS}>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("plus.student")} · {t("plus.priceStudent")}</div>
-                  <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("plus.studentSub")}</div>
-                </div>
-                <Toggle on={student} onChange={() => setStudent(s => !s)} color="#34d399" />
-              </div>
-
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={async () => {
-                  // Сначала пробуем настоящий платёж через ЮKassa (см.
-                  // create-payment/index.ts) — если настроена, уводим на её
-                  // hosted-страницу; активацию подписки в этом случае ставит
-                  // вебхук после подтверждённой оплаты, а не onActivate() тут
-                  try {
-                    const { data } = await createPayment("subscription", price, { planId: student ? "plus-student" : "plus" });
-                    if (data?.confirmation_url) {
-                      window.location.href = data.confirmation_url;
-                      return;
-                    }
-                  } catch (err) {
-                    console.warn("createPayment:", err);
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={async () => {
+                // Сначала пробуем настоящий платёж через ЮKassa (см.
+                // create-payment/index.ts) — если настроена, уводим на её
+                // hosted-страницу; активацию подписки в этом случае ставит
+                // вебхук после подтверждённой оплаты, а не onActivate() тут
+                try {
+                  const { data } = await createPayment("subscription", price, { planId: student ? "plus-student" : "plus" });
+                  if (data?.confirmation_url) {
+                    window.location.href = data.confirmation_url;
+                    return;
                   }
-                  // ЮKassa не настроена (нормальное состояние сейчас) или вернула
-                  // ошибку — прежняя мгновенная активация, без изменений
-                  onActivate();
-                  toast.success(t("plus.done"));
-                }}
-                className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
-                style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b, boxShadow: "0 12px 40px rgba(52,211,153,0.35)" }}
-              >
-                {t("plus.activate", price)}
-              </motion.button>
-              <div className="text-[10px] text-center mt-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("plus.simNote")}</div>
-            </>
-          )}
-        </div>
+                } catch (err) {
+                  console.warn("createPayment:", err);
+                }
+                // ЮKassa не настроена (нормальное состояние сейчас) или вернула
+                // ошибку — прежняя мгновенная активация, без изменений
+                onActivate();
+                toast.success(t("plus.done"));
+              }}
+              className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b, boxShadow: "0 12px 40px rgba(52,211,153,0.35)" }}
+            >
+              {t("plus.activate", price)}
+            </motion.button>
+            <div className="text-[10px] text-center mt-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("plus.simNote")}</div>
+          </>
+        )}
       </div>
     </Sheet>
   );
