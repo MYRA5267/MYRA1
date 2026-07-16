@@ -742,6 +742,7 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
   const you = { name: userName, avatar, level, minutesWeek, streak, you: true as const };
   const rows = [...LEADERBOARD_PEERS.map(p => ({ ...p, you: false as const })), you]
     .sort((a, b) => metric === "level" ? b.level - a.level : metric === "minutes" ? b.minutesWeek - a.minutesWeek : b.streak - a.streak);
+  const youRank = rows.findIndex(u => u.you) + 1;
 
   const METRICS = [
     { id: "level" as const,   label: t("rt.level"),   icon: Crown },
@@ -753,63 +754,91 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
     metric === "level" ? t("rt.lvlLabel", u.level) : metric === "minutes" ? t("rt.minLabel", u.minutesWeek) : t("rt.streakLabel", u.streak);
 
   return (
-    <Page>
-      <div className="px-5 pt-6 pb-4">
-        <h1 style={{ fontFamily: F.d, fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em" }}>{t("nav.rating")}</h1>
-      </div>
+    <Page className="myra-experience-page myra-rating-page">
+      <div style={{ "--rating-accent": c2 } as React.CSSProperties}>
+        <header className="myra-rating-header px-5 pt-7 pb-5">
+          <span className="myra-page-eyebrow">MYRA RANKINGS</span>
+          <h1>{t("nav.rating")}</h1>
+          <p>{t("rt.subtitle")}</p>
+        </header>
 
-      {LEADERBOARD_PEERS.length === 0 && (
-        <div className="mx-5 mb-5 px-4 py-3.5 rounded-2xl flex items-center gap-3" style={GLASS}>
-          <Users size={16} style={{ color: c2, flexShrink: 0 }} />
-          <div className="min-w-0">
-            <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("rt.empty")}</div>
-            <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("rt.emptySub")}</div>
+        {/* Личная витрина: место в общем зачёте + три метрики, которые сами
+            переключают сортировку списка ниже — не дублируем отдельный таб-бар */}
+        <section className="myra-rating-hero mx-5 mb-6">
+          <div className="myra-rating-hero-top">
+            <div className="myra-rating-hero-avatar">
+              <img src={avatar} alt="" />
+              <span className="myra-rating-hero-rank">#{youRank}</span>
+            </div>
+            <div className="min-w-0">
+              <div className="myra-rating-hero-name truncate">{userName}</div>
+              <div className="myra-rating-hero-tag">
+                <Crown size={12} />
+                {t("rt.heroRank", youRank)}
+              </div>
+            </div>
+          </div>
+          <div className="myra-rating-hero-stats">
+            {METRICS.map(m => {
+              const Icon = m.icon;
+              const value = m.id === "level" ? level : m.id === "minutes" ? minutesWeek : streak;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setMetric(m.id)}
+                  aria-pressed={metric === m.id}
+                  className={`myra-rating-hero-stat${metric === m.id ? " is-active" : ""}`}
+                >
+                  <Icon size={15} />
+                  <strong>{value}</strong>
+                  <span>{m.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {LEADERBOARD_PEERS.length === 0 && (
+          <div className="myra-rating-note mx-5 mb-6">
+            <Users size={18} />
+            <div className="min-w-0">
+              <strong>{t("rt.empty")}</strong>
+              <span>{t("rt.emptySub")}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="myra-content-section px-5 pb-6">
+          <SectionHeading title={t("rt.leaderboardTitle")} />
+          <div className="myra-rating-list flex flex-col gap-1.5">
+            {rows.map((u, i) => (
+              <motion.div
+                key={u.you ? "you" : u.name}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileTap={u.you ? undefined : { scale: 0.98 }}
+                transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
+                className={`myra-rating-row${u.you ? " is-you" : ""}`}
+                onClick={() => { if (!u.you) onOpenPeer(u); }}
+              >
+                <div className="myra-rating-row-rank">{i + 1}</div>
+                <img src={u.avatar} alt="" className="myra-rating-row-avatar" />
+                <div className="myra-rating-row-copy">
+                  <strong>{u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}</strong>
+                  <span>{valueFor(u)}</span>
+                </div>
+                {i < 3 && <Crown size={16} style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#fb923c", flexShrink: 0 }} />}
+                {!u.you && <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />}
+              </motion.div>
+            ))}
           </div>
         </div>
-      )}
 
-      <div className="flex gap-1 mx-5 mb-6 p-1 rounded-full w-fit" style={GLASS}>
-        {METRICS.map(m => {
-          const Icon = m.icon;
-          return (
-            <button key={m.id} onClick={() => setMetric(m.id)} className="relative flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap" style={{ fontFamily: F.b, color: metric === m.id ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
-              {metric === m.id && <motion.div layoutId="rttab" className="absolute inset-0 rounded-full" style={{ background: `${c2}cc` }} transition={SPRING} />}
-              <Icon size={12} className="relative z-10" /><span className="relative z-10">{m.label}</span>
-            </button>
-          );
-        })}
+        {/* Достижения намеренно убраны с этого экрана: они скрытые — пользователь
+            узнаёт о каждом только в момент открытия (тост + уведомление).
+            Полный список остался в панели разработчика для проверки. */}
       </div>
-
-      <div className="px-5 flex flex-col gap-1.5">
-        {rows.map((u, i) => (
-          <motion.div
-            key={u.you ? "you" : u.name}
-            layout
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
-            className="flex items-center gap-3 p-3 rounded-2xl"
-            style={{ ...(u.you ? { background: `${c2}18`, border: `1px solid ${c2}44` } : GLASS), cursor: u.you ? "default" : "pointer" }}
-            onClick={() => { if (!u.you) onOpenPeer(u); }}
-          >
-            <div className="w-6 text-center font-bold text-sm flex-shrink-0" style={{ color: i < 3 ? c2 : "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{i + 1}</div>
-            <img src={u.avatar} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={u.you ? { border: `1.5px solid ${c2}` } : undefined} />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>
-                {u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}
-              </div>
-              <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 42%, transparent)", fontFamily: F.m }}>{valueFor(u)}</div>
-            </div>
-            {i < 3 && <Crown size={16} style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#fb923c", flexShrink: 0 }} />}
-            {!u.you && <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />}
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Достижения намеренно убраны с этого экрана: они скрытые — пользователь
-          узнаёт о каждом только в момент открытия (тост + уведомление).
-          Полный список остался в панели разработчика для проверки. */}
-      <div className="pb-6" />
     </Page>
   );
 });
@@ -1036,59 +1065,61 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
   };
 
   return (
-    <Page>
-      <div className="px-5 pt-6 pb-5 flex items-end justify-between">
+    <Page className="myra-experience-page myra-creator-page">
+      <header className="myra-creator-header px-5 pt-7 pb-5 flex items-start justify-between gap-4">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.2em] mb-1" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("cr.creator")}</div>
-          <h1 style={{ fontFamily: F.d, fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em" }}>{t("cr.studio")}</h1>
+          <span className="myra-page-eyebrow">MYRA STUDIO</span>
+          <h1>{t("cr.studio")}</h1>
+          <p>{t("cr.studioSub")}</p>
         </div>
         {creatorPlus && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-1" style={{ background: "rgba(139,92,246,0.16)", border: "1px solid rgba(139,92,246,0.35)" }}>
-            <Crown size={12} style={{ color: "#c4b5fd" }} />
-            <span className="text-[11px] font-semibold" style={{ color: "#c4b5fd", fontFamily: F.m }}>MYRA Pro</span>
+          <div className="myra-creator-pro-chip">
+            <Crown size={12} />
+            <span>MYRA Pro</span>
           </div>
         )}
-      </div>
+      </header>
 
-      <div className="px-5 mb-7">
-        <div className="rounded-[24px] p-5 mb-3 cursor-pointer" style={GLASS} onClick={openStatsGated}>
-          <div className="flex items-center justify-between mb-4">
+      <section className="myra-content-section px-5 mb-7">
+        {/* Хиро-карточка прослушиваний — та же тёмная стеклянная поверхность
+            со свечением, что у Home/Release-карточек, вместо плоской GLASS-плашки */}
+        <div className="myra-creator-hero" style={{ "--creator-accent": c2 } as React.CSSProperties} onClick={openStatsGated}>
+          <div className="myra-creator-hero-top">
             <div>
-              <div className="text-xs mb-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("cr.plays7")}</div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 26, letterSpacing: "-0.02em" }}>{weekTotal}</div>
+              <span className="myra-creator-hero-label">{t("cr.plays7")}</span>
+              <div className="myra-creator-hero-value">{weekTotal}</div>
             </div>
             {trendPct !== null && (
-              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold" style={{ background: trendPct >= 0 ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)", color: trendPct >= 0 ? "#34d399" : "#f87171", fontFamily: F.m }}>
+              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold flex-shrink-0" style={{ background: trendPct >= 0 ? "rgba(52,211,153,0.16)" : "rgba(248,113,113,0.16)", color: trendPct >= 0 ? "#34d399" : "#f87171", fontFamily: F.m }}>
                 <TrendingUp size={12} /> {trendPct >= 0 ? "+" : ""}{trendPct}%
               </div>
             )}
           </div>
           <InteractiveChart data={week} labels={WEEKDAYS} color={c2} height={72} markIndex={week.length - 1} valueLabel={v => t("cr.plays", v)} />
-          <div className="flex justify-between mt-1 text-[9px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>
+          <div className="myra-creator-hero-days">
             {WEEKDAYS.map(d => <span key={d}>{d}</span>)}
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2.5">
-          {[["0", t("cr.fans"), Users, openStatsGated], [balance.toLocaleString("ru-RU") + "₽", t("cr.donations"), Wallet, () => setWdOpen(true)], [String(myTracks.length), t("cr.releases"), Music2, openStatsGated]].map(([v, l, Icon, act]: any) => (
-            <motion.div key={l} whileTap={{ scale: 0.95 }} onClick={act} className="rounded-[20px] p-4 cursor-pointer" style={GLASS}>
-              <Icon size={15} style={{ color: c2 }} className="mb-2" />
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 17, letterSpacing: "-0.02em" }}>{v}</div>
-              <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{l}</div>
-            </motion.div>
-          ))}
+        {/* Строка статистики — тот же паттерн, что и .myra-library-overview в Полке:
+            общая стеклянная плашка с разделителями между колонками вместо трёх
+            отдельных карточек */}
+        <div className="myra-creator-overview" style={{ "--creator-accent": c2 } as React.CSSProperties}>
+          <button onClick={openStatsGated}><Users size={18} /><strong>0</strong><span>{t("cr.fans")}</span></button>
+          <button onClick={() => setWdOpen(true)}><Wallet size={18} /><strong>{balance.toLocaleString("ru-RU")}₽</strong><span>{t("cr.donations")}</span></button>
+          <button onClick={openStatsGated}><Music2 size={18} /><strong>{myTracks.length}</strong><span>{t("cr.releases")}</span></button>
         </div>
 
         {supabaseEnabled && realDonationsTotal > 0 && (
-          <div className="mt-2.5 flex items-center gap-2.5 px-4 py-3 rounded-2xl" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
-            <Gift size={14} style={{ color: "#34d399" }} />
+          <div className="myra-creator-real-donations">
+            <Gift size={14} style={{ color: "#34d399", flexShrink: 0 }} />
             <span className="text-xs" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{t("cr.realDonations", realDonationsTotal.toLocaleString("ru-RU"))}</span>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="px-5 mb-7">
-        <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("cr.newRelease")}</h2>
+      <section className="myra-content-section px-5 mb-7">
+        <SectionHeading title={t("cr.newRelease")} sub={t("cr.newReleaseSub")} />
         {/* Реальная загрузка: клик открывает выбор файла, drag-n-drop тоже работает */}
         <input
           ref={fileRef}
@@ -1098,7 +1129,7 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           onChange={e => { if (e.target.files?.length) { onStartRelease(e.target.files); e.target.value = ""; } }}
         />
         <div
-          className="flex flex-col items-center justify-center rounded-[20px] p-7 cursor-pointer transition-all"
+          className="myra-creator-dropzone"
           style={{ ...GLASS, border: dragOver ? `1.5px dashed ${c2}` : "1.5px dashed color-mix(in srgb, var(--wash) 16%, transparent)", background: dragOver ? `${c2}14` : GLASS.background }}
           onClick={() => fileRef.current?.click()}
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -1112,65 +1143,63 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>MP3 · FLAC · WAV · M4A</div>
         </div>
 
-        {/* Мои файлы */}
+        {/* Мои файлы — та же строка трека, что и в Полке (.myra-track-row) */}
         {myTracks.length > 0 && (
-          <div className="mt-4">
+          <div className="mt-5">
             <div className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("cr.myFiles")}</div>
-            {myTracks.map(tr => (
-              <motion.div key={tr.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-3 rounded-2xl mb-1.5 cursor-pointer hover:bg-white/5 transition-colors" style={{ background: "color-mix(in srgb, var(--wash) 03%, transparent)" }}>
-                <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
-                  <img src={tr.img} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-                  <div className="text-[10px] mt-0.5 flex items-center gap-1.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>
-                    <FileAudio size={10} style={{ color: tr.c2 }} /> {t("cr.local")}
+            <div className="flex flex-col gap-1">
+              {myTracks.map(tr => (
+                <PremiumTrackRow key={tr.id} track={tr} active={false} playing={false} onPlay={onPlay} />
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="myra-content-section px-5 mb-7">
+        <SectionHeading title={t("cr.myReleases")} sub={t("cr.myReleasesSub")} />
+        {topMyTracks.length === 0 ? (
+          <div className="myra-empty-state">
+            <Music2 size={24} />
+            <span>{t("cr.releasesEmpty")}</span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {topMyTracks.map(tr => (
+              <PremiumTrackRow
+                key={tr.id}
+                track={tr}
+                active={false}
+                playing={false}
+                onPlay={onPlay}
+                trailing={
+                  <div className="flex items-center gap-1.5" style={{ color: tr.c2, fontFamily: F.m, fontSize: 11 }}>
+                    <BarChart3 size={13} />{myPlaysByTrack[tr.id] ?? 0}
                   </div>
-                </div>
-                <Play size={14} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
-              </motion.div>
+                }
+              />
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="px-5 mb-7">
-        <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("cr.myReleases")}</h2>
-        {topMyTracks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center rounded-2xl" style={{ background: "color-mix(in srgb, var(--wash) 03%, transparent)" }}>
-            <Music2 size={24} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)" }} />
-            <div className="mt-3 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("cr.releasesEmpty")}</div>
-          </div>
-        ) : topMyTracks.map(tr => (
-          <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-3 rounded-2xl mb-2 cursor-pointer hover:bg-white/5 transition-colors" style={{ background: "color-mix(in srgb, var(--wash) 03%, transparent)" }}>
-            <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-              <img src={tr.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.75)" }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-              <div className="text-[10px] mt-1" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("cr.plays", myPlaysByTrack[tr.id] ?? 0)}</div>
-            </div>
-            <BarChart3 size={16} style={{ color: tr.c2 }} />
-          </div>
-        ))}
-      </div>
-
-      {/* MYRA Pro / Начни зарабатывать */}
-      <div className="px-5">
-        <TiltCard max={5} className="rounded-[24px] p-6 overflow-hidden relative cursor-pointer" style={{ background: "linear-gradient(135deg, rgba(18,8,58,0.85), rgba(59,7,100,0.7))", border: "1px solid rgba(139,92,246,0.3)" }} onClick={onOpenCreatorPlus}>
+      {/* MYRA Pro / Начни зарабатывать — премиальная карточка со свечением,
+          той же породы, что и хиро-карточка выше, а не плоская плашка-приписка */}
+      <section className="myra-content-section px-5">
+        <TiltCard max={5} className="myra-creator-pro-card" onClick={onOpenCreatorPlus}>
           <Aurora c2="#8b5cf6" opacity={0.6} />
           <div className="relative z-10">
             <div className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>MYRA Pro</div>
-            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em", color: ON_DARK }} className="mb-1.5">
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 21, letterSpacing: "-0.025em", color: ON_DARK }} className="mb-1.5">
               {creatorPlus ? t("cr.active") : t("cr.earn")}
             </div>
-            <div className="text-xs mb-4" style={{ color: onDark(50), fontFamily: F.b }}>{creatorPlus ? t("cp.cancel") : t("cr.earnSub")}</div>
+            <div className="text-xs mb-4" style={{ color: onDark(52), fontFamily: F.b }}>{creatorPlus ? t("cp.cancel") : t("cr.earnSub")}</div>
             <motion.button whileTap={{ scale: 0.95 }} onClick={e => { e.stopPropagation(); onOpenCreatorPlus(); }} className="px-6 py-2.5 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}>
               {creatorPlus ? t("cr.manage") : t("cr.connect")}
             </motion.button>
           </div>
         </TiltCard>
-      </div>
+      </section>
 
       <WithdrawSheet open={wdOpen} onClose={() => setWdOpen(false)} balance={balance} c2={c2} onDone={onWithdraw} />
     </Page>
@@ -1229,18 +1258,22 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
   }, [lang]);
 
   return (
-    <Page>
-      <div className="px-5 pt-8 pb-6 text-center">
-        <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mb-4" onClick={onAvatarTap}>
+    <Page className="myra-experience-page myra-profile-page">
+      {/* Идентичность — эйбрау + аватар + бейджи роли/тарифа/мецената/разработчика
+          теперь живут в собственной карточке со свечением под цвет текущего трека,
+          а не голым текстом на фоне страницы (тот же язык, что у hero Главной) */}
+      <div className="myra-content-section myra-profile-hero mx-5 mt-6 mb-6 px-5 pt-8 pb-7 text-center" style={{ "--profile-accent": c2 } as React.CSSProperties}>
+        <span className="myra-page-eyebrow">MYRA PROFILE</span>
+        <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mt-1" onClick={onAvatarTap}>
           <img src={avatar} alt="avatar" className="w-24 h-24 rounded-full object-cover mx-auto" style={{ border: `2px solid ${c2}`, boxShadow: `0 0 40px ${c2}50` }} />
           <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}aa)` }}>
             {userRole === "artist" ? <Mic2Icon /> : <Headphones size={12} />}
           </div>
         </motion.div>
-        <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{userName}</div>
+        <div className="myra-profile-name">{userName}</div>
         <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
         {/* Бейджи — эксклюзивные для роли + Pro/Plus, «Меценат» и «Разработчик» */}
-        <div className="flex justify-center gap-2 mt-3.5 flex-wrap px-6">
+        <div className="myra-profile-badges">
           {badges.map(b => {
             const Icon = b.icon;
             return (
@@ -1249,14 +1282,6 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
               </span>
             );
           })}
-        </div>
-        <div className="flex justify-center gap-10 mt-6">
-          {[[String(follows), t("pr.follows")], ["0", t("pr.fans")], [fmtCount(totalPlays), t("pr.plays")]].map(([v, l]) => (
-            <div key={l} className="text-center">
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 19, color: c2, letterSpacing: "-0.02em" }}>{v}</div>
-              <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{l}</div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -1278,12 +1303,19 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
         </div>
       )}
 
+      {/* Статистика — тот же паттерн стат-плиток, что в Медиатеке (myra-library-overview) */}
+      <section className="myra-profile-stats myra-content-section mx-5 mb-6" style={{ "--profile-accent": c2 } as React.CSSProperties}>
+        <div><Users size={18} /><strong>{follows}</strong><span>{t("pr.follows")}</span></div>
+        <div><Heart size={18} /><strong>0</strong><span>{t("pr.fans")}</span></div>
+        <div><BarChart3 size={18} /><strong>{fmtCount(totalPlays)}</strong><span>{t("pr.plays")}</span></div>
+      </section>
+
       {/* Настройки: декоративные тумблеры (уведомления, автозагрузка с фейковыми
           цифрами, AI-фильтр) убраны совсем — они ничего реального не делали, а
           настоящие настройки спрятаны в аккордеон, чтобы профиль не был простынёй */}
       <div className="px-5 flex flex-col gap-1.5">
         {/* Достижения — вернулись из дев-панели в профиль */}
-        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAchievements}>
+        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAchievements}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${c2}1c` }}><Trophy size={15} style={{ color: c2 }} /></div>
           <div className="flex-1">
             <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.achievements")}</div>
@@ -1294,7 +1326,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         {/* Прозрачный сплит — компактной строкой вместо полноширинного баннера,
             чтобы профиль не был двумя одинаковыми по весу плашками подряд */}
-        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenSplit}>
+        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenSplit}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(250,204,21,0.16)" }}><Gift size={15} style={{ color: "#facc15" }} /></div>
           <div className="flex-1">
             <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.split")}{t("pr.splitAccent")}</div>
@@ -1307,7 +1339,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
             не закончился; теперь появляется только в последние 3 дня месяца, когда
             recap реально имеет смысл смотреть */}
         {isMonthEndWindow() && (
-          <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenWrapped}>
+          <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenWrapped}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(139,92,246,0.16)" }}><Sparkles size={15} style={{ color: "#a78bfa" }} /></div>
             <div className="flex-1">
               <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.wrapped")}{t("pr.month")}</div>
@@ -1346,7 +1378,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         <motion.div
           whileTap={{ scale: 0.99 }}
-          className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer"
+          className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer"
           style={GLASS}
           onClick={() => {
             // Free: цикл AAC ↔ FLAC (Hi-Res — привилегия апгрейда). Ранний
@@ -1407,7 +1439,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
         </div>
 
         {/* Язык — реально переключает интерфейс */}
-        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={() => setLang(lang === "ru" ? "en" : "ru")}>
+        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={() => setLang(lang === "ru" ? "en" : "ru")}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Globe size={15} /></div>
           <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.lang")}</div>
           <div className="flex gap-1 p-1 rounded-full" style={{ background: "color-mix(in srgb, var(--wash) 06%, transparent)" }}>
@@ -1420,7 +1452,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           </div>
         </motion.div>
 
-        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAccount}>
+        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAccount}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Settings size={15} /></div>
           <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.account")}</div>
           <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
@@ -1428,7 +1460,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         {/* Панель разработчика — появляется после 7 тапов по аватару */}
         {devMode && (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={{ ...GLASS, border: "1px solid rgba(244,114,182,0.35)" }} onClick={onOpenDevPanel}>
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={{ ...GLASS, border: "1px solid rgba(244,114,182,0.35)" }} onClick={onOpenDevPanel}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(244,114,182,0.12)" }}><Wrench size={15} style={{ color: "#f472b6" }} /></div>
             <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("dev.row")}</div>
             <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
