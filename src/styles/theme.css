@@ -2313,6 +2313,22 @@
 
 .myra-detail svg { width: 100%; height: 100%; display: block; }
 
+/* Реальный ассет (public/detail/detail.webp), когда он появится в
+   репозитории — та же трактовка интенсивности, что у процедурных лент */
+.myra-detail-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(8px) saturate(1.2) brightness(0.9);
+  transform-origin: 48% 40%;
+  animation: myra-detail-breathe 15s ease-in-out infinite;
+  transition: opacity 0.8s ease;
+}
+
+.myra-detail-tint { position: absolute; inset: 0; }
+
 .myra-detail-ribbon {
   filter: blur(34px);
   opacity: 0.55;
@@ -2334,21 +2350,27 @@
 }
 
 /* Варианты интенсивности — тот же ассет, разная заметность под контекст */
+.myra-detail--full .myra-detail-photo { opacity: 0.6; }
 .myra-detail--soft .myra-detail-ribbon { opacity: 0.26; }
 .myra-detail--soft .myra-detail-ribbon-b { opacity: 0.18; }
+.myra-detail--soft .myra-detail-photo { opacity: 0.32; }
 .myra-detail--blur .myra-detail-ribbon { filter: blur(64px); opacity: 0.3; }
 .myra-detail--blur .myra-detail-ribbon-b { filter: blur(74px); opacity: 0.2; }
+.myra-detail--blur .myra-detail-photo { filter: blur(30px) saturate(1.1) brightness(0.9); opacity: 0.36; }
 .myra-detail--mobile .myra-detail-ribbon { filter: blur(22px); }
 .myra-detail--mobile .myra-detail-ribbon-b { filter: blur(28px); }
+.myra-detail--mobile .myra-detail-photo { filter: blur(5px) saturate(1.15) brightness(0.9); opacity: 0.5; }
 
 /* Пауза — дыхание замедляется, а не останавливается рывком */
 .myra-detail--paused .myra-detail-ribbon { animation-duration: 30s; opacity: 0.34; }
 .myra-detail--paused .myra-detail-ribbon-b { animation-duration: 38s; opacity: 0.24; }
+.myra-detail--paused .myra-detail-photo { animation-duration: 34s; opacity: 0.4; }
 
-/* Слабые устройства/Android WebView: статичная версия — вторая лента и
-   движение убраны, первая остаётся статичным цветовым пятном (не пусто) */
+/* Слабые устройства/Android WebView: статичная версия — вторая лента/фото
+   без движения, первый слой остаётся статичным цветовым пятном (не пусто) */
 .fx-simple .myra-detail-ribbon { animation: none !important; filter: blur(18px); }
 .fx-simple .myra-detail-ribbon-b { display: none; }
+.fx-simple .myra-detail-photo { animation: none !important; filter: blur(4px) brightness(0.9); }
 
 /* Мини-плеер: тонкая полоса-акцент сверху, а не полноценный фон — "не
    перегружать mini player эффектами" (см. план, раздел 4) */
@@ -2367,5 +2389,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .myra-detail-ribbon,
-  .myra-detail-ribbon-b { animation: none !important; }
+  .myra-detail-ribbon-b,
+  .myra-detail-photo { animation: none !important; }
 }

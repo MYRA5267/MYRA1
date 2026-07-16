@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, TiltCard, Aurora, ParticleWave, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, useProgress, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
+import { DetailBackdrop } from "./detail";
 import { useLang, type Lang } from "./i18n";
 import { lastNDays, isMonthEndWindow, type ActivityItem } from "./stats";
 import { MyraWordmark } from "./logo";
@@ -442,7 +443,10 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
           }}
           onClick={() => (playing && waveActive ? onPlay(currentTrack) : onPlayWave())}
         >
-          <Aurora c2="#8b5cf6" />
+          {/* DETAIL вместо фиксированной Aurora — hero-блок теперь несёт фирменный
+              мотив, но заметно тише Full Player (variant="soft"), чтобы не спорить
+              с текстом/карточками (см. план, раздел 5) */}
+          <DetailBackdrop variant="soft" accent="#8b5cf6" active={waveActive} />
           <div className="myra-home-flow-main relative z-10 flex items-center justify-between p-6">
             <div className="myra-home-flow-copy">
               <div className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>{t("home.flow")}</div>
