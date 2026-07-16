@@ -1543,6 +1543,618 @@
   .myra-creator-hero { transition-duration: 1ms !important; transform: none !important; }
 }
 
+/* ─── AccountSheet (бывш. настройки аккаунта в Profile) — та же тёмная
+   hero-карточка со свечением для уровня/XP, что и у Рейтинга/Студии, плюс
+   сгруппированные карточки-списки строк вместо однородных GLASS-плашек
+   подряд для полей профиля, тарифа/импорта/поддержки и правовых документов ─── */
+.myra-account-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background:
+    radial-gradient(circle at 80% -14%, rgba(139,92,246,0.26), transparent 55%),
+    linear-gradient(160deg, rgba(17,8,46,0.95), rgba(7,4,20,0.94) 74%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 20px 54px rgba(0,0,0,0.26);
+}
+
+.myra-account-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.08);
+}
+
+.myra-account-hero-stats > div {
+  min-width: 0;
+  padding: 9px 6px;
+  text-align: center;
+  background: rgba(8,6,20,0.55);
+}
+
+.myra-account-section-label {
+  display: block;
+  margin-bottom: 10px;
+  color: color-mix(in srgb, var(--fg) 40%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.myra-account-card {
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-top: 1px solid var(--glass-edge);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: var(--glass-shadow);
+}
+
+.myra-account-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--fg) 6%, transparent);
+}
+
+.myra-account-field:last-child { border-bottom: 0; }
+
+.myra-account-field-label {
+  margin-bottom: 2px;
+  color: color-mix(in srgb, var(--fg) 40%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.myra-account-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--fg) 6%, transparent);
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.myra-account-row:last-child { border-bottom: 0; }
+
+.myra-account-row:hover {
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+  transform: translateX(3px);
+}
+
+.myra-account-danger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(248,113,113,0.2);
+  background: rgba(248,113,113,0.07);
+  color: #f87171;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.myra-account-danger:hover {
+  background: rgba(248,113,113,0.11);
+  border-color: rgba(248,113,113,0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-account-row { transition-duration: 1ms !important; transform: none !important; }
+}
+
+/* ─── MYRA Pro / MYRA Plus — шторки подписки (CreatorPlusSheet, ListenerPlusSheet):
+   тёмная hero-карточка со свечением (тот же язык, что у Studio/Rating/Onboarding)
+   вместо стопки плоских GLASS-блоков, tracked-out чип вместо голой подписи и общие
+   строки бенефитов с hover, как в Полке/Рейтинге. Один набор классов на оба тарифа
+   через --plus-accent (у Pro — фиолетовый, у Plus — зелёный) ─── */
+.myra-plus-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--plus-accent) 38%, transparent);
+  color: color-mix(in srgb, var(--plus-accent) 82%, #fff);
+  background: color-mix(in srgb, var(--plus-accent) 16%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.myra-plus-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(22px, 4vw, 28px) clamp(20px, 4vw, 24px) clamp(20px, 3.4vw, 23px);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 86% 0%, color-mix(in srgb, var(--plus-accent) 34%, transparent), transparent 55%),
+    linear-gradient(150deg, rgba(17,10,36,0.97), rgba(6,5,13,0.96) 72%);
+  border: 1px solid color-mix(in srgb, var(--plus-accent) 30%, rgba(255,255,255,0.1));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 26px 70px rgba(0,0,0,0.34);
+}
+
+.myra-plus-hero-title {
+  margin-top: 13px;
+  max-width: 300px;
+  color: #f7f5ff;
+  font-family: "Sora", sans-serif;
+  font-size: clamp(23px, 6vw, 28px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+.myra-plus-hero-sub {
+  margin-top: 8px;
+  max-width: 340px;
+  color: rgba(239,236,250,0.58);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.myra-plus-hero-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.myra-plus-hero-price strong {
+  color: #fff;
+  font-family: "Sora", sans-serif;
+  font-size: clamp(28px, 7vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.myra-plus-hero-price span {
+  color: rgba(239,236,250,0.45);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.myra-plus-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.myra-plus-benefit-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 6px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.myra-plus-benefit-row:hover {
+  background: rgba(255,255,255,0.045);
+  border-color: rgba(255,255,255,0.08);
+  transform: translateX(3px);
+}
+
+.myra-plus-benefit-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--plus-accent) 18%, transparent);
+  color: color-mix(in srgb, var(--plus-accent) 85%, #fff);
+}
+
+.myra-plus-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.myra-plus-toggle-row:hover {
+  border-color: color-mix(in srgb, var(--plus-accent) 32%, rgba(255,255,255,0.08));
+}
+
+.myra-plus-done {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(30px, 7vw, 40px) clamp(20px, 4.4vw, 26px);
+  border-radius: 28px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--plus-accent) 28%, transparent), transparent 60%),
+    linear-gradient(150deg, rgba(17,10,36,0.97), rgba(6,5,13,0.96) 72%);
+  border: 1px solid color-mix(in srgb, var(--plus-accent) 26%, rgba(255,255,255,0.1));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 26px 70px rgba(0,0,0,0.34);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-plus-benefit-row { transition-duration: 1ms !important; transform: none !important; }
+}
+
+/* ─── AlbumSheet / PlaylistSheet — полноценное хиро-изображение с тем же
+   языком, что и .myra-artist-hero у ArtistSheet/RealArtistSheet (тёмный
+   оверлей поверх обложки + акцентный цвет через CSS custom property), но
+   отдельными классами: правки артистского хиро не должны молча утекать
+   сюда и наоборот. Строки треков переиспользуют .myra-track-row как есть
+   (см. .myra-track-row в разделе "Library" выше) — сам класс не трогаем,
+   он общий с несколькими экранами. Плейлисту нужна отдельная колонка под
+   ручку drag-n-drop, поэтому у него свой вариант строки —
+   .myra-playlist-track-row — визуально в тон, но не производный класс. ─── */
+.myra-album-hero {
+  position: relative;
+  height: clamp(200px, 30vh, 280px);
+  overflow: hidden;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--album-accent) 34%, #060610), #05050a 78%);
+}
+
+.myra-album-hero > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.5) saturate(1.15);
+  transform: scale(1.02);
+}
+
+.myra-album-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(3,3,8,0.05), rgba(3,3,8,0.22) 45%, rgba(8,8,16,0.98));
+  pointer-events: none;
+}
+
+.myra-album-hero > button,
+.myra-album-identity { z-index: 2; }
+
+.myra-album-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--album-accent) 36%, rgba(255,255,255,0.1));
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--album-accent) 78%, #fff);
+  background: rgba(0,0,0,0.26);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.myra-album-title {
+  display: block;
+  margin-top: 9px;
+  overflow: hidden;
+  color: #f7f5ff;
+  font-family: "Sora", sans-serif;
+  font-weight: 800;
+  font-size: clamp(22px, 4vw, 30px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myra-album-sub {
+  display: block;
+  margin-top: 5px;
+  color: rgba(244,244,250,0.56);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 12px;
+  transition: color 160ms ease;
+}
+
+.myra-album-sub:hover { color: #fff; }
+
+/* Плейлист — тот же приём; акцент берётся из первого трека плейлиста */
+.myra-playlist-hero {
+  position: relative;
+  height: clamp(200px, 30vh, 280px);
+  overflow: hidden;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--playlist-accent) 34%, #060610), #05050a 78%);
+}
+
+.myra-playlist-hero > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.5) saturate(1.15);
+  transform: scale(1.02);
+}
+
+.myra-playlist-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(3,3,8,0.05), rgba(3,3,8,0.22) 45%, rgba(8,8,16,0.98));
+  pointer-events: none;
+}
+
+.myra-playlist-hero > button,
+.myra-playlist-hero-identity { z-index: 2; }
+
+.myra-playlist-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--playlist-accent) 36%, rgba(255,255,255,0.1));
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--playlist-accent) 78%, #fff);
+  background: rgba(0,0,0,0.26);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.myra-playlist-hero-title {
+  display: block;
+  margin-top: 9px;
+  overflow: hidden;
+  color: #f7f5ff;
+  font-family: "Sora", sans-serif;
+  font-weight: 800;
+  font-size: clamp(22px, 4vw, 30px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myra-playlist-hero-sub {
+  display: block;
+  margin-top: 5px;
+  color: rgba(244,244,250,0.56);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 12px;
+}
+
+/* Строка трека плейлиста — визуальный язык .myra-track-row плюс своя
+   колонка под ручку drag-n-drop (сам .myra-track-row общий, не трогаем) */
+.myra-playlist-track-row {
+  display: grid;
+  grid-template-columns: 18px 50px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  cursor: grab;
+  transition: background 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+
+.myra-playlist-track-row:active { cursor: grabbing; }
+
+.myra-playlist-track-row:hover,
+.myra-playlist-track-row.is-active {
+  border-color: rgba(255,255,255,0.075);
+  background: rgba(255,255,255,0.045);
+}
+
+.myra-playlist-track-row.is-drag-source { opacity: 0.5; }
+
+.myra-playlist-track-row.is-drag-over {
+  border-color: color-mix(in srgb, var(--wash) 22%, transparent);
+  background: color-mix(in srgb, var(--wash) 08%, transparent);
+}
+
+.myra-playlist-track-row-grip {
+  display: flex;
+  color: color-mix(in srgb, var(--fg) 25%, transparent);
+  flex-shrink: 0;
+}
+
+.myra-playlist-track-row-cover {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  overflow: hidden;
+  border-radius: 15px;
+  flex-shrink: 0;
+}
+
+.myra-playlist-track-row-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+.myra-playlist-track-row-cover > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(0,0,0,0.26);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.myra-playlist-track-row:hover .myra-playlist-track-row-cover > span,
+.myra-playlist-track-row.is-active .myra-playlist-track-row-cover > span { opacity: 1; }
+
+.myra-playlist-track-row-copy { min-width: 0; }
+
+.myra-playlist-track-row-copy strong {
+  display: block;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myra-playlist-track-row-copy span {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--fg) 40%, transparent);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myra-playlist-track-row-duration {
+  color: color-mix(in srgb, var(--fg) 34%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+@media (max-width: 760px) {
+  .myra-album-hero,
+  .myra-playlist-hero { height: 220px; }
+  .myra-album-title,
+  .myra-playlist-hero-title { font-size: 23px; }
+  .myra-playlist-track-row { grid-template-columns: 14px 44px minmax(0, 1fr) 34px; gap: 9px; padding: 8px 6px; }
+  .myra-playlist-track-row-cover { width: 44px; height: 44px; border-radius: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-playlist-track-row { transition-duration: 1ms !important; }
+}
+
+/* ─── Общий язык шторок второй волны: PeerProfile, RealProfile, PeopleSearch,
+   Blend, Split, Achievements, StudioStats, ReleaseForm, Import, Support,
+   Report. Хиро — та же тёмная карточка со свечением, что .myra-account-hero,
+   но с настраиваемым через --sheet-accent акцентом (у каждой шторки свой цвет:
+   сосед по рейтингу, друг Созвука, жёлтые «деньги» Сплита). Карточка тёмная
+   в любой теме, поэтому текст внутри задаётся явными светлыми цветами
+   (ON_DARK/onDark), а не var(--fg). ─── */
+.myra-sheet-hero {
+  --sheet-accent: #8b5cf6;
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--sheet-accent) 26%, rgba(255,255,255,0.1));
+  background:
+    radial-gradient(circle at 80% -14%, color-mix(in srgb, var(--sheet-accent) 28%, transparent), transparent 55%),
+    linear-gradient(160deg, rgba(17,8,46,0.95), rgba(7,4,20,0.94) 74%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 20px 54px rgba(0,0,0,0.28);
+}
+
+.myra-sheet-avatar {
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid color-mix(in srgb, var(--sheet-accent) 75%, #fff);
+  box-shadow: 0 0 44px color-mix(in srgb, var(--sheet-accent) 42%, transparent);
+}
+
+/* Плитки статов внутри тёмного хиро — тот же рисунок, что .myra-account-hero-stats */
+.myra-sheet-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.08);
+}
+
+.myra-sheet-stats > div {
+  min-width: 0;
+  padding: 9px 6px;
+  text-align: center;
+  background: rgba(8,6,20,0.55);
+}
+
+/* Нейтральные карточка-группа, строка и mono-подпись — рисунок
+   .myra-account-card/.myra-account-row/.myra-account-section-label, но без
+   привязки имени к Аккаунту, для остальных шторок */
+.myra-sheet-eyebrow {
+  display: block;
+  margin-bottom: 10px;
+  color: color-mix(in srgb, var(--fg) 40%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.myra-sheet-card {
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-top: 1px solid var(--glass-edge);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: var(--glass-shadow);
+}
+
+.myra-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--fg) 6%, transparent);
+}
+
+.myra-sheet-row:last-child { border-bottom: 0; }
+
+.myra-sheet-row[data-clickable] {
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.myra-sheet-row[data-clickable]:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); }
+
+/* Строка трека в Созвуке (Blend) — язык .myra-playlist-track-row без ручки drag-n-drop */
+.myra-blend-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.myra-blend-row:hover {
+  border-color: rgba(255,255,255,0.075);
+  background: rgba(255,255,255,0.045);
+}
+
+.myra-blend-row-cover {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.myra-blend-row-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-sheet-row[data-clickable],
+  .myra-blend-row { transition-duration: 1ms !important; }
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

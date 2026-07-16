@@ -15,6 +15,10 @@ import { monthDays, splitAmountByShares, minutesOf, currentMonthKey, type Artist
 import { buildAchievements, ACHIEVEMENTS, type AchievementCounters } from "./achievements";
 import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, submitReport, createPayment, type SupportMessageRow, type ArtistProfileData, type PublicProfile, type ReportTargetType } from "./supabase";
 
+// Фирменный фиолетовый градиент приложения — единый для CTA, чипов и пузырей
+// чата (тот же, что был разбросан по шторкам инлайном)
+const ACCENT_GRAD = "linear-gradient(135deg, #8b5cf6, #a78bfa)";
+
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
 
 const fmtCardNum = (v: string) => v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})(?=.)/g, "$1 ");
@@ -430,20 +434,19 @@ export function PeerProfileSheet({ peer, onClose }: {
 
   return (
     <Sheet open={!!peer} onClose={onClose} z={59} center>
-      <div className="p-7">
-        <div className="text-center mb-6">
-          <img src={peer.avatar} alt="" className="w-20 h-20 rounded-full object-cover mx-auto mb-3" style={{ border: `2px solid ${c2}`, boxShadow: `0 0 40px ${c2}50` }} />
-          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em" }}>{name}</div>
-          <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>{t("acc.level", peer.level)}</div>
-        </div>
+      {/* Тёмное хиро вместо GLASS+Aurora — язык AccountSheet/Студии,
+          акцент соседа задаёт свечение через --sheet-accent */}
+      <div className="p-4">
+        <div className="myra-sheet-hero p-6 text-center" style={{ "--sheet-accent": c2 } as React.CSSProperties}>
+          <img src={peer.avatar} alt="" className="myra-sheet-avatar w-20 h-20 mx-auto mb-3" />
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: ON_DARK }}>{name}</div>
+          <div className="text-xs mt-1 mb-5" style={{ color: onDark(48), fontFamily: F.m }}>{t("acc.level", peer.level)}</div>
 
-        <div className="relative rounded-[22px] overflow-hidden p-4" style={GLASS}>
-          <Aurora c2={c2} opacity={0.35} />
-          <div className="relative z-10 flex gap-2">
+          <div className="myra-sheet-stats">
             {[[String(peer.minutesWeek), t("acc.stMin")], [String(peer.streak), t("acc.stStreak")], [peer.topGenre, t("acc.stGenre")]].map(([v, l]) => (
-              <div key={l} className="flex-1 rounded-xl px-2 py-2.5 text-center min-w-0" style={{ background: "color-mix(in srgb, var(--wash) 06%, transparent)" }}>
+              <div key={l}>
                 <div className="text-sm font-bold truncate" style={{ fontFamily: F.d, color: c2 }}>{v}</div>
-                <div className="text-[9px] mt-0.5 truncate" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{l}</div>
+                <div className="text-[9px] mt-0.5 truncate" style={{ fontFamily: F.b, color: onDark(48) }}>{l}</div>
               </div>
             ))}
           </div>
@@ -467,23 +470,27 @@ export function RealProfileSheet({ profile, onClose, isFollowing, onToggleFollow
 
   return (
     <Sheet open={!!profile} onClose={onClose} z={69} center>
-      <div className="p-7 text-center">
-        <img src={profile.avatar_url || AVATARS[0]} alt="" className="w-20 h-20 rounded-full object-cover mx-auto mb-3" style={{ border: "2px solid #8b5cf6", boxShadow: "0 0 40px rgba(139,92,246,0.3)" }} />
-        <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em" }}>{profile.username}</div>
-        <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>@{(profile.handle || profile.username).replace(/^@/, "")}</div>
-        {profile.role === "artist" && (
-          <div className="inline-flex items-center gap-1 mt-2.5 px-2.5 py-1 rounded-full text-[10px] font-semibold" style={{ background: "rgba(139,92,246,0.14)", color: "#a78bfa", fontFamily: F.m }}>
-            <BadgeCheck size={11} /> {t("soc.artistBadge")}
-          </div>
-        )}
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={() => onToggleFollow(profile.id)}
-          className="w-full mt-6 py-3.5 rounded-full text-sm font-semibold"
-          style={isFollowing ? { ...GLASS, fontFamily: F.b } : { background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}
-        >
-          {isFollowing ? t("ar.following") : t("ar.follow")}
-        </motion.button>
+      <div className="p-4">
+        <div className="myra-sheet-hero p-6 text-center">
+          <img src={profile.avatar_url || AVATARS[0]} alt="" className="myra-sheet-avatar w-20 h-20 mx-auto mb-3" />
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: ON_DARK }}>{profile.username}</div>
+          <div className="text-xs mt-1" style={{ color: onDark(48), fontFamily: F.m }}>@{(profile.handle || profile.username).replace(/^@/, "")}</div>
+          {profile.role === "artist" && (
+            <div className="inline-flex items-center gap-1 mt-2.5 px-2.5 py-1 rounded-full text-[10px] font-semibold" style={{ background: "rgba(139,92,246,0.2)", color: "#a78bfa", fontFamily: F.m }}>
+              <BadgeCheck size={11} /> {t("soc.artistBadge")}
+            </div>
+          )}
+          {/* GLASS здесь не годится: хиро всегда тёмное, а GLASS настроен под
+              текущую тему — в светлой он дал бы тёмный текст на тёмной карточке */}
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => onToggleFollow(profile.id)}
+            className="w-full mt-6 py-3.5 rounded-full text-sm font-semibold"
+            style={isFollowing ? { background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", color: ON_DARK, fontFamily: F.b } : { background: ACCENT_GRAD, color: "#fff", fontFamily: F.b }}
+          >
+            {isFollowing ? t("ar.following") : t("ar.follow")}
+          </motion.button>
+        </div>
       </div>
     </Sheet>
   );
@@ -545,28 +552,32 @@ export function PeopleSearchSheet({ open, onClose, followingIds, onToggleFollow,
           <div className="text-xs text-center py-6" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("soc.noResults")}</div>
         )}
 
-        {results.map(p => {
-          const isFollowing = followingIds.has(p.id);
-          return (
-            <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-2xl mb-1 hover:bg-white/5 transition-colors">
-              <button onClick={() => onOpenProfile(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-                <img src={p.avatar_url || AVATARS[0]} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{p.username}</div>
-                  <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>@{(p.handle || p.username).replace(/^@/, "")}</div>
+        {results.length > 0 && (
+          <div className="myra-sheet-card">
+            {results.map(p => {
+              const isFollowing = followingIds.has(p.id);
+              return (
+                <div key={p.id} className="myra-sheet-row" data-clickable>
+                  <button onClick={() => onOpenProfile(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                    <img src={p.avatar_url || AVATARS[0]} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{p.username}</div>
+                      <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>@{(p.handle || p.username).replace(/^@/, "")}</div>
+                    </div>
+                  </button>
+                  <motion.button
+                    whileTap={{ scale: 0.94 }}
+                    onClick={() => onToggleFollow(p.id)}
+                    className="px-4 py-2 rounded-full text-xs font-semibold flex-shrink-0"
+                    style={isFollowing ? { ...GLASS, fontFamily: F.b } : { background: ACCENT_GRAD, color: "#fff", fontFamily: F.b }}
+                  >
+                    {isFollowing ? t("ar.following") : t("ar.follow")}
+                  </motion.button>
                 </div>
-              </button>
-              <motion.button
-                whileTap={{ scale: 0.94 }}
-                onClick={() => onToggleFollow(p.id)}
-                className="px-4 py-2 rounded-full text-xs font-semibold flex-shrink-0"
-                style={isFollowing ? { ...GLASS, fontFamily: F.b } : { background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}
-              >
-                {isFollowing ? t("ar.following") : t("ar.follow")}
-              </motion.button>
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        )}
       </div>
     </Sheet>
   );
@@ -587,21 +598,22 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
   const c2 = cover.c2;
 
   return (
-    <Sheet open={!!album} onClose={onClose} z={55}>
-      <div className="relative" style={{ height: 200 }}>
-        <img src={cover.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.5)" }} />
-        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(13,13,26,1) 0%, transparent 60%)" }} />
+    <Sheet open={!!album} onClose={onClose} z={55} wide>
+      {/* Хиро того же языка, что .myra-artist-hero у ArtistSheet — тёмный
+          оверлей поверх обложки + акцент альбома через CSS custom property */}
+      <div className="myra-album-hero relative" style={{ "--album-accent": c2 } as React.CSSProperties}>
+        <img src={cover.img} alt="" className="w-full h-full object-cover" />
         <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
-        <div className="absolute bottom-3 left-6 right-6">
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-1" style={{ color: onDark(45), fontFamily: F.m }}>{t("al.type")}</div>
-          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 26, letterSpacing: "-0.03em", color: ON_DARK }}>{album}</div>
-          <button onClick={() => onOpenArtist(cover.artist)} className="text-xs mt-1 hover:text-white transition-colors" style={{ color: onDark(55), fontFamily: F.b }}>{cover.artist} · {t("al.nTracks", totalDur)}</button>
+        <div className="myra-album-identity absolute bottom-5 left-6 right-6">
+          <span className="myra-album-eyebrow">{t("al.type")}</span>
+          <div className="myra-album-title">{album}</div>
+          <button onClick={() => onOpenArtist(cover.artist)} className="myra-album-sub">{cover.artist} · {t("al.nTracks", totalDur)}</button>
         </div>
       </div>
 
-      <div className="px-6 pt-4 pb-8">
+      <div className="px-6 pt-5 pb-8">
         <div className="flex gap-2.5 mb-6">
           <motion.button whileTap={{ scale: 0.94 }} onClick={() => tracks[0] && onPlay(tracks[0])} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}>
             <Play size={16} fill="white" stroke="none" className="ml-0.5" /> {t("al.play")}
@@ -612,17 +624,27 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
           </motion.button>
         </div>
 
-        {tracks.map((tr, i) => (
-          <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors mb-1">
-            <div className="w-6 text-center text-xs" style={{ color: currentTrack.id === tr.id && playing ? c2 : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>
-              {currentTrack.id === tr.id && playing ? <EQ color={c2} size={10} /> : i + 1}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-              <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{tr.duration}</div>
-            </div>
-          </div>
-        ))}
+        {/* Строки треков — переиспользуем .myra-track-row (Полка/PremiumTrackRow),
+            не заводим отдельный стиль строки под альбом */}
+        <div className="flex flex-col gap-1">
+          {tracks.map(tr => {
+            const active = currentTrack.id === tr.id && playing;
+            return (
+              <div key={tr.id} className={`myra-track-row${active ? " is-active" : ""}`} onClick={() => onPlay(tr)}>
+                <div className="myra-track-row-cover">
+                  <img src={tr.img} alt="" loading="lazy" decoding="async" />
+                  <span>{active ? <EQ color="#fff" size={11} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}</span>
+                </div>
+                <div className="myra-track-row-copy">
+                  <strong>{tr.title}</strong>
+                  <button onClick={e => { e.stopPropagation(); onOpenArtist(tr.artist); }}>{tr.artist}</button>
+                </div>
+                <span className="myra-track-row-genre">{tr.genre}</span>
+                <span className="myra-track-row-duration">{tr.duration}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </Sheet>
   );
@@ -643,6 +665,9 @@ export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playi
   const [overIdx, setOverIdx] = useState<number | null>(null);
 
   const tracks = order.map(id => ALL_TRACKS.find(tr => tr.id === id)).filter((tr): tr is Track => !!tr);
+  // Плейлисты (в т.ч. созданные пользователем) не хранят свой акцентный цвет —
+  // берём его у первого трека, с нейтральным фиолетовым фолбэком для пустого
+  const accent = tracks[0]?.c2 ?? "#8b5cf6";
 
   const reorder = (from: number, to: number) => {
     if (from === to) return;
@@ -656,59 +681,80 @@ export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playi
   if (!pl) return <Sheet open={false} onClose={onClose} z={56}><div /></Sheet>;
 
   return (
-    <Sheet open={!!playlistId} onClose={onClose} z={56}>
-      <div className="relative px-6 pt-7 pb-8">
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+    <Sheet open={!!playlistId} onClose={onClose} z={56} wide>
+      {/* Тот же хиро-приём, что у AlbumSheet/ArtistSheet — акцент из первого трека */}
+      <div className="myra-playlist-hero relative" style={{ "--playlist-accent": accent } as React.CSSProperties}>
+        <img src={pl.img} alt="" className="w-full h-full object-cover" />
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
         {customPlIds?.has(pl.id) && (
-          <button onClick={() => { onDelete?.(pl.id); onClose(); }} className="absolute top-4 right-16 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(248,113,113,0.12)" }}>
+          <button onClick={() => { onDelete?.(pl.id); onClose(); }} className="absolute top-4 right-16 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(248,113,113,0.16)", backdropFilter: "blur(10px)" }}>
             <Trash2 size={15} style={{ color: "#f87171" }} />
           </button>
         )}
+        <div className="myra-playlist-hero-identity absolute bottom-5 left-6 right-6">
+          <span className="myra-playlist-hero-eyebrow">{t("lib.playlists")}</span>
+          <div className="myra-playlist-hero-title">{pl.name}</div>
+          <div className="myra-playlist-hero-sub">{t("lib.nTracks", tracks.length)}</div>
+        </div>
+      </div>
 
-        <div className="flex gap-4 mb-6">
-          <img src={pl.img} alt="" className="w-24 h-24 rounded-2xl object-cover flex-shrink-0" style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.4)" }} />
-          <div className="pt-1">
-            <div className="text-[10px] uppercase tracking-[0.16em] mb-1" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("lib.playlists")}</div>
-            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{pl.name}</div>
-            <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("lib.nTracks", tracks.length)}</div>
-            <div className="text-[10px] mt-2" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{t("pl.dragHint")}</div>
+      <div className="px-6 pt-5 pb-8">
+        {tracks.length > 0 && (
+          <div className="flex gap-2.5 mb-5">
+            <motion.button whileTap={{ scale: 0.94 }} onClick={() => onPlay(tracks[0])} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}99)`, color: "#fff", fontFamily: F.b }}>
+              <Play size={16} fill="white" stroke="none" className="ml-0.5" /> {t("pl.playAll")}
+            </motion.button>
+            {/* Шафл честный: реально запускает случайный трек плейлиста */}
+            <motion.button whileTap={{ scale: 0.96 }} onClick={() => { const tr = tracks[Math.floor(Math.random() * tracks.length)]; if (tr) { onPlay(tr); toast(t("pl.plShuffled")); } }} className="px-5 rounded-full text-sm font-semibold" style={{ ...GLASS, fontFamily: F.b }}>
+              <Shuffle size={15} />
+            </motion.button>
           </div>
+        )}
+
+        <div className="flex items-center gap-1.5 mb-4">
+          <GripVertical size={12} style={{ color: "color-mix(in srgb, var(--fg) 28%, transparent)" }} />
+          <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: "color-mix(in srgb, var(--fg) 32%, transparent)", fontFamily: F.m }}>{t("pl.dragHint")}</span>
         </div>
 
-        <div className="flex flex-col gap-1">
-          {tracks.map((tr, i) => (
-            <motion.div
-              key={tr.id}
-              layout
-              draggable
-              onDragStart={() => setDragIdx(i)}
-              onDragOver={e => { e.preventDefault(); setOverIdx(i); }}
-              onDragEnd={() => { if (dragIdx !== null && overIdx !== null) reorder(dragIdx, overIdx); setDragIdx(null); setOverIdx(null); }}
-              onClick={() => onPlay(tr)}
-              className="flex items-center gap-3 p-2.5 rounded-2xl cursor-grab active:cursor-grabbing transition-colors"
-              style={{
-                background: overIdx === i && dragIdx !== null ? "color-mix(in srgb, var(--wash) 08%, transparent)" : "color-mix(in srgb, var(--wash) 03%, transparent)",
-                border: overIdx === i && dragIdx !== null ? "1px solid color-mix(in srgb, var(--wash) 12%, transparent)" : "1px solid transparent",
-                opacity: dragIdx === i ? 0.5 : 1,
-              }}
-            >
-              <GripVertical size={14} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />
-              <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
-                <img src={tr.img} alt="" className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate flex items-center gap-2" style={{ fontFamily: F.b }}>
-                  {tr.title}
-                  {currentTrack.id === tr.id && playing && <EQ color={tr.c2} size={9} />}
-                </div>
-                <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.artist}</div>
-              </div>
-              <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{tr.duration}</span>
-            </motion.div>
-          ))}
-        </div>
+        {tracks.length === 0 ? (
+          <div className="myra-empty-state">
+            <span>{t("pl.emptyTracks")}</span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {/* Драг-н-дроп полностью как был: те же dragIdx/overIdx, тот же
+                reorder(from, to) — меняется только визуальное оформление строки */}
+            {tracks.map((tr, i) => {
+              const active = currentTrack.id === tr.id && playing;
+              const rowClass = `myra-playlist-track-row${active ? " is-active" : ""}${dragIdx === i ? " is-drag-source" : ""}${overIdx === i && dragIdx !== null ? " is-drag-over" : ""}`;
+              return (
+                <motion.div
+                  key={tr.id}
+                  layout
+                  draggable
+                  onDragStart={() => setDragIdx(i)}
+                  onDragOver={e => { e.preventDefault(); setOverIdx(i); }}
+                  onDragEnd={() => { if (dragIdx !== null && overIdx !== null) reorder(dragIdx, overIdx); setDragIdx(null); setOverIdx(null); }}
+                  onClick={() => onPlay(tr)}
+                  className={rowClass}
+                >
+                  <GripVertical size={14} className="myra-playlist-track-row-grip" />
+                  <div className="myra-playlist-track-row-cover">
+                    <img src={tr.img} alt="" loading="lazy" decoding="async" />
+                    <span>{active ? <EQ color="#fff" size={11} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}</span>
+                  </div>
+                  <div className="myra-playlist-track-row-copy">
+                    <strong>{tr.title}</strong>
+                    <span>{tr.artist}</span>
+                  </div>
+                  <span className="myra-playlist-track-row-duration">{tr.duration}</span>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </Sheet>
   );
@@ -732,30 +778,32 @@ export function BlendSheet({ friend, onClose, onPlay, currentTrack, playing, ava
 
   return (
     <Sheet open={!!friend} onClose={onClose} z={60}>
-      <div className="relative px-6 pt-8 pb-8 overflow-hidden">
-        <Aurora c2={c2} opacity={0.5} />
+      <div className="px-6 pt-6 pb-8">
+        {/* Тёмное хиро вместо Aurora на всю шторку — слияние аватаров
+            и процент совпадения теперь живут в одной карточке-«обложке» */}
+        <div className="myra-sheet-hero p-6 mb-6" style={{ "--sheet-accent": c2 } as React.CSSProperties}>
+          <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "rgba(0,0,0,0.35)", color: ON_DARK }}>
+            <X size={16} />
+          </button>
 
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
-          <X size={16} />
-        </button>
+          {/* Слияние аватаров */}
+          <div className="relative z-10 flex justify-center items-center mb-4" style={{ height: 96 }}>
+            <motion.img initial={{ x: -30, opacity: 0 }} animate={{ x: 12, opacity: 1 }} transition={{ ...SPRING, delay: 0.1 }} src={avatar} alt="" className="w-20 h-20 rounded-full object-cover relative" style={{ border: `3px solid ${c2}`, zIndex: 2 }} />
+            <motion.img initial={{ x: 30, opacity: 0 }} animate={{ x: -12, opacity: 1 }} transition={{ ...SPRING, delay: 0.18 }} src={friend.img} alt="" className="w-20 h-20 rounded-full object-cover" style={{ border: "3px solid #8b5cf6", zIndex: 1 }} />
+          </div>
 
-        {/* Слияние аватаров */}
-        <div className="relative z-10 flex justify-center items-center mb-5" style={{ height: 96 }}>
-          <motion.img initial={{ x: -30, opacity: 0 }} animate={{ x: 12, opacity: 1 }} transition={{ ...SPRING, delay: 0.1 }} src={avatar} alt="" className="w-20 h-20 rounded-full object-cover relative" style={{ border: `3px solid ${c2}`, zIndex: 2 }} />
-          <motion.img initial={{ x: 30, opacity: 0 }} animate={{ x: -12, opacity: 1 }} transition={{ ...SPRING, delay: 0.18 }} src={friend.img} alt="" className="w-20 h-20 rounded-full object-cover" style={{ border: "3px solid #8b5cf6", zIndex: 1 }} />
-        </div>
-
-        <div className="relative z-10 text-center mb-6">
-          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("bl.title", finst)}</div>
-          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, ...SPRING }} className="inline-flex items-baseline gap-2 mt-2 px-4 py-1.5 rounded-full" style={{ background: `${c2}1c`, border: `1px solid ${c2}38` }}>
-            <span style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, color: c2 }}>{friend.match}%</span>
-            <span className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>{t("bl.match")}</span>
-          </motion.div>
+          <div className="relative z-10 text-center">
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em", color: ON_DARK }}>{t("bl.title", finst)}</div>
+            <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, ...SPRING }} className="inline-flex items-baseline gap-2 mt-2 px-4 py-1.5 rounded-full" style={{ background: `${c2}24`, border: `1px solid ${c2}45` }}>
+              <span style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, color: c2 }}>{friend.match}%</span>
+              <span className="text-xs" style={{ color: onDark(58), fontFamily: F.b }}>{t("bl.match")}</span>
+            </motion.div>
+          </div>
         </div>
 
         {/* Общие жанры */}
-        <div className="relative z-10 mb-6">
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("bl.genres")}</div>
+        <div className="mb-6">
+          <span className="myra-sheet-eyebrow">{t("bl.genres")}</span>
           <div className="flex gap-2 flex-wrap">
             {["Lo-fi", "Synthwave", "Indie"].map(g => (
               <span key={g} className="px-3.5 py-1.5 rounded-full text-xs font-medium" style={{ ...GLASS, fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{g}</span>
@@ -764,10 +812,10 @@ export function BlendSheet({ friend, onClose, onPlay, currentTrack, playing, ava
         </div>
 
         {/* Плейлист */}
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("bl.playlist")}</div>
-            <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{t("bl.updates")}</div>
+        <div>
+          <div className="flex items-baseline justify-between">
+            <span className="myra-sheet-eyebrow">{t("bl.playlist")}</span>
+            <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{t("bl.updates")}</span>
           </div>
           <BlendTracks ids={shared} onPlay={onPlay} currentTrack={currentTrack} playing={playing} c2={c2} />
 
@@ -807,11 +855,11 @@ function BlendTracks({ ids, onPlay, currentTrack, playing, c2 }: {
   return (
     <div className="flex flex-col gap-1">
       {list.map((tr, i) => (
-        <motion.div key={tr.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.05 }} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors">
-          <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
-            <img src={tr.img} alt="" className="w-full h-full object-cover" />
+        <motion.div key={tr.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.05 }} onClick={() => onPlay(tr)} className="myra-blend-row">
+          <div className="myra-blend-row-cover">
+            <img src={tr.img} alt="" loading="lazy" decoding="async" />
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0">
             <div className="text-sm font-semibold truncate flex items-center gap-2" style={{ fontFamily: F.b }}>
               {tr.title}
               {currentTrack.id === tr.id && playing && <EQ color={c2} size={9} />}
@@ -866,42 +914,48 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
       <Sheet open={open} onClose={onClose} z={65}>
         <div className="px-6 pt-7 pb-8">
           <div className="flex items-center justify-between mb-6">
-            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("acc.title")}</div>
-            <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            <div>
+              <span className="myra-page-eyebrow">MYRA ACCOUNT</span>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("acc.title")}</div>
+            </div>
+            <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
               <X size={16} />
             </button>
           </div>
 
-          {/* Уровень меломана */}
-          <div className="relative rounded-[22px] overflow-hidden p-4 mb-5" style={GLASS}>
+          {/* Уровень меломана — тёмная hero-карточка со свечением (тот же язык,
+              что у Рейтинга/Студии), а не голая GLASS-плашка. Фон карточки
+              всегда тёмный независимо от темы, поэтому текст внутри — на
+              ON_DARK/onDark(), а не на var(--fg) (иначе в светлой теме текст
+              стал бы тёмным на тёмном) */}
+          <div className="myra-account-hero mb-6">
             <Aurora c2="#8b5cf6" opacity={0.35} />
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold" style={{ fontFamily: F.d, letterSpacing: "-0.01em" }}>{t("acc.level", level)}</span>
-                  <button onClick={() => setXpInfoOpen(true)} className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }}>
+                  <span className="text-xs font-bold" style={{ fontFamily: F.d, letterSpacing: "-0.01em", color: ON_DARK }}>{t("acc.level", level)}</span>
+                  <button onClick={() => setXpInfoOpen(true)} className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: onDark(40) }}>
                     <HelpCircle size={14} />
                   </button>
                 </div>
-                <span className="text-[10px]" style={{ fontFamily: F.m, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{xpIntoLevel} / {xpForLevel} XP</span>
+                <span className="text-[10px]" style={{ fontFamily: F.m, color: onDark(45) }}>{xpIntoLevel} / {xpForLevel} XP</span>
               </div>
-              <div className="rounded-full overflow-hidden mb-3" style={{ height: 6, background: "color-mix(in srgb, var(--wash) 10%, transparent)" }}>
+              <div className="rounded-full overflow-hidden mb-3" style={{ height: 6, background: "rgba(255,255,255,0.12)" }}>
                 <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, (xpIntoLevel / xpForLevel) * 100)}%` }} transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }} className="h-full rounded-full" style={{ background: "linear-gradient(90deg, #8b5cf6, #c4b5fd)" }} />
               </div>
-              <div className="flex gap-2">
+              <div className="myra-account-hero-stats">
                 {[[String(minutesWeek), t("acc.stMin")], [String(streak), t("acc.stStreak")], [topGenre ?? "—", t("acc.stGenre")]].map(([v, l]) => (
-                  <div key={l} className="flex-1 rounded-xl px-2 py-2 text-center" style={{ background: "color-mix(in srgb, var(--wash) 06%, transparent)" }}>
-                    <div className="text-xs font-bold truncate" style={{ fontFamily: F.d, color: "#a78bfa" }}>{v}</div>
-                    <div className="text-[9px] mt-0.5 truncate" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{l}</div>
+                  <div key={l}>
+                    <div className="text-xs font-bold truncate" style={{ fontFamily: F.d, color: "#c4b5fd" }}>{v}</div>
+                    <div className="text-[9px] mt-0.5 truncate" style={{ fontFamily: F.b, color: onDark(46) }}>{l}</div>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-
           {/* Аватар */}
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.avatar")}</div>
+          <span className="myra-account-section-label">{t("acc.avatar")}</span>
           <div className="flex gap-3 mb-6">
             {customAvatar && (
               <div className="relative rounded-full">
@@ -940,64 +994,71 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
             </label>
           </div>
 
-          {/* Имя */}
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.name")}</div>
-          <div className="flex gap-2.5 mb-5">
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              className="flex-1 px-4 py-3 rounded-2xl bg-transparent outline-none text-sm"
-              style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
-            />
-            <motion.button whileTap={{ scale: 0.95 }} onClick={() => { if (name.trim()) { onRename(name.trim()); toast(t("acc.saved")); } }} className="px-5 rounded-2xl text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
-              {t("acc.save")}
-            </motion.button>
-          </div>
-
-          {/* Хендл */}
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.handle")}</div>
-          <div className="flex gap-2.5 mb-5">
-            <input
-              value={handleInput}
-              onChange={e => setHandleInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") saveHandle(); }}
-              className="flex-1 px-4 py-3 rounded-2xl bg-transparent outline-none text-sm"
-              style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
-            />
-            <motion.button whileTap={{ scale: 0.95 }} onClick={saveHandle} className="px-5 rounded-2xl text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
-              {t("acc.save")}
-            </motion.button>
-          </div>
-
-          {/* Почта */}
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.email")}</div>
-          <div className="flex gap-2.5 mb-5">
-            <div className="flex-1 flex items-center gap-2.5 px-4 py-3 rounded-2xl" style={GLASS}>
-              <Mail size={14} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
-              <input
-                value={emailInput}
-                onChange={e => setEmailInput(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") saveEmail(); }}
-                type="email"
-                placeholder={t("acc.emailPlaceholder")}
-                className="flex-1 bg-transparent outline-none text-sm min-w-0"
-                style={{ color: "var(--fg)", fontFamily: F.b }}
-              />
+          {/* Личные данные: имя/хендл/почта теперь одна карточка с разделителями
+              вместо трёх одинаковых GLASS-плашек подряд — подпись поля живёт
+              над инпутом, кнопка сохранения — компактно справа от него */}
+          <span className="myra-account-section-label">{t("acc.sectionProfile")}</span>
+          <div className="myra-account-card mb-6">
+            <div className="myra-account-field">
+              <div className="flex-1 min-w-0">
+                <div className="myra-account-field-label">{t("acc.name")}</div>
+                <input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="w-full bg-transparent outline-none text-sm"
+                  style={{ color: "var(--fg)", fontFamily: F.b }}
+                />
+              </div>
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => { if (name.trim()) { onRename(name.trim()); toast(t("acc.saved")); } }} className="px-4 py-2 rounded-xl text-xs font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
+                {t("acc.save")}
+              </motion.button>
             </div>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={saveEmail} className="px-5 rounded-2xl text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
-              {t("acc.save")}
-            </motion.button>
+            <div className="myra-account-field">
+              <div className="flex-1 min-w-0">
+                <div className="myra-account-field-label">{t("acc.handle")}</div>
+                <input
+                  value={handleInput}
+                  onChange={e => setHandleInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveHandle(); }}
+                  className="w-full bg-transparent outline-none text-sm"
+                  style={{ color: "var(--fg)", fontFamily: F.b }}
+                />
+              </div>
+              <motion.button whileTap={{ scale: 0.95 }} onClick={saveHandle} className="px-4 py-2 rounded-xl text-xs font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
+                {t("acc.save")}
+              </motion.button>
+            </div>
+            <div className="myra-account-field">
+              <Mail size={14} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
+              <div className="flex-1 min-w-0">
+                <div className="myra-account-field-label">{t("acc.email")}</div>
+                <input
+                  value={emailInput}
+                  onChange={e => setEmailInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveEmail(); }}
+                  type="email"
+                  placeholder={t("acc.emailPlaceholder")}
+                  className="w-full bg-transparent outline-none text-sm"
+                  style={{ color: "var(--fg)", fontFamily: F.b }}
+                />
+              </div>
+              <motion.button whileTap={{ scale: 0.95 }} onClick={saveEmail} className="px-4 py-2 rounded-xl text-xs font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
+                {t("acc.save")}
+              </motion.button>
+            </div>
           </div>
 
-          {/* Подписка, импорт, поддержка */}
-          <div className="flex flex-col gap-1.5 mb-6">
-            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenPlan(); }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+          {/* Подписка, импорт, поддержка — одна карточка строк с ховером вместо
+              трёх отдельных GLASS-плашек */}
+          <span className="myra-account-section-label">{t("acc.sectionMore")}</span>
+          <div className="myra-account-card mb-6">
+            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenPlan(); }} className="myra-account-row">
               <Crown size={15} style={{ color: "#facc15" }} />
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.plan")}</div>
               <div className="text-xs" style={{ color: "#facc15", fontFamily: F.m }}>{planLabel}</div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
-            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenImport(); }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenImport(); }} className="myra-account-row">
               <ImportIcon size={15} style={{ color: "#8b5cf6" }} />
               <div className="flex-1">
                 <div className="text-sm" style={{ fontFamily: F.b }}>{t("im2.row")}</div>
@@ -1005,7 +1066,7 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
               </div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
-            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenSupport(); }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenSupport(); }} className="myra-account-row">
               <MessageCircle size={15} style={{ color: "#34d399" }} />
               <div className="flex-1">
                 <div className="text-sm" style={{ fontFamily: F.b }}>{t("acc.support")}</div>
@@ -1013,19 +1074,24 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
               </div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
-            <a href="./privacy.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+          </div>
+
+          {/* Правовые документы */}
+          <span className="myra-account-section-label">{t("acc.sectionDocs")}</span>
+          <div className="myra-account-card mb-6">
+            <a href="./privacy.html" target="_blank" rel="noopener noreferrer" className="myra-account-row">
               <ShieldCheck size={15} style={{ color: "#60a5fa" }} />
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.privacy")}</div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </a>
-            <a href="./terms.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+            <a href="./terms.html" target="_blank" rel="noopener noreferrer" className="myra-account-row">
               <FileText size={15} style={{ color: "#a3a3a3" }} />
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.terms")}</div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </a>
           </div>
 
-          <motion.button whileTap={{ scale: 0.98 }} onClick={() => setDeleteQ(true)} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-medium" style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.18)", color: "#f87171", fontFamily: F.b }}>
+          <motion.button whileTap={{ scale: 0.98 }} onClick={() => setDeleteQ(true)} className="myra-account-danger">
             <Trash2 size={14} /> {t("acc.delete")}
           </motion.button>
         </div>
@@ -1107,22 +1173,25 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
 
   return (
     <Sheet open={open} onClose={onClose} z={65}>
-      <div className="relative px-6 pt-8 pb-8 overflow-hidden">
-        <Aurora c2="#8b5cf6" opacity={0.6} />
+      <div className="relative px-6 pt-8 pb-8">
         <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
 
-        <div className="relative z-10">
-          {state === "done" ? (
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="text-center py-6">
+        {state === "done" ? (
+          // Статус подписки — та же премиальная тёмная hero-карточка со свечением,
+          // что и предложение оформить: активный/grace-статус теперь тоже
+          // «настоящая» карточка, а не голый текст по центру шторки
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="myra-plus-done" style={{ "--plus-accent": "#8b5cf6" } as React.CSSProperties}>
+            <Aurora c2="#8b5cf6" opacity={0.55} />
+            <div className="relative z-10">
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ ...SPRING, delay: 0.15 }} className="w-20 h-20 rounded-full mx-auto mb-5 flex items-center justify-center" style={{ background: "rgba(52,211,153,0.13)", border: "1.5px solid rgba(52,211,153,0.4)" }}>
                 <Check size={34} style={{ color: "#34d399" }} />
               </motion.div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("cp.done")}</div>
-              <div className="text-sm mt-2 mb-2" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("cp.doneSub")}</div>
-              <div className="text-xs mb-7" style={{ color: status === "grace" ? "#fb923c" : "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{status === "grace" ? t("cp.graceNote") : t("cp.cancel")}</div>
-              <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="px-10 py-3 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em", color: "#f7f5ff" }}>{t("cp.done")}</div>
+              <div className="text-sm mt-2 mb-2" style={{ color: "rgba(239,236,250,0.58)", fontFamily: F.b }}>{t("cp.doneSub")}</div>
+              <div className="text-xs mb-7" style={{ color: status === "grace" ? "#fb923c" : "rgba(239,236,250,0.4)", fontFamily: F.m }}>{status === "grace" ? t("cp.graceNote") : t("cp.cancel")}</div>
+              <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="px-10 py-3 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}>
                 {t("cp.great")}
               </motion.button>
               {status === "grace" ? (
@@ -1134,46 +1203,53 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
                   {t("cp.cancelBtn")}
                 </button>
               )}
-            </motion.div>
-          ) : (
-            <>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4" style={{ background: "rgba(139,92,246,0.16)", border: "1px solid rgba(139,92,246,0.35)" }}>
-                <Crown size={13} style={{ color: "#c4b5fd" }} />
-                <span className="text-xs font-semibold" style={{ color: "#c4b5fd", fontFamily: F.m }}>{t("cp.title")}</span>
+            </div>
+          </motion.div>
+        ) : (
+          <>
+            {/* Hero — та же порода карточки, что у апсейла в Студии (тёмное
+                свечение под цвет тарифа), но теперь это полноценная шапка
+                шторки: чип, заголовок, подпись и вынесенная отдельно цена */}
+            <div className="myra-plus-hero mb-6" style={{ "--plus-accent": "#8b5cf6" } as React.CSSProperties}>
+              <Aurora c2="#8b5cf6" opacity={0.5} />
+              <div className="relative z-10">
+                <span className="myra-plus-chip"><Crown size={12} /> {t("cp.title")}</span>
+                <div className="myra-plus-hero-title">{t("cr.earn")}</div>
+                <div className="myra-plus-hero-sub">{t("cp.sub")}</div>
+                <div className="myra-plus-hero-price">
+                  <strong>499₽</strong>
+                  <span>{t("cp.perMonth")}</span>
+                </div>
               </div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 27, letterSpacing: "-0.03em", lineHeight: 1.1 }} className="mb-2">{t("cr.earn")}</div>
-              <div className="text-sm mb-4" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("cp.sub")}</div>
+            </div>
 
-              {/* Плашка «зарабатывают в 2.4 раза больше» удалена: статистика была
-                  выдумана — у MYRA пока нет данных, чтобы такое утверждать */}
-              <div className="flex flex-col gap-2.5 mb-7">
-                {BENEFITS.map((b, i) => (
-                  <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={GLASS}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(139,92,246,0.2)" }}>
-                      <b.Icon size={15} style={{ color: "#c4b5fd" }} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
-                      <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+            {/* Плашка «зарабатывают в 2.4 раза больше» удалена: статистика была
+                выдумана — у MYRA пока нет данных, чтобы такое утверждать */}
+            <div className="myra-plus-benefits mb-6">
+              {BENEFITS.map((b, i) => (
+                <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="myra-plus-benefit-row" style={{ "--plus-accent": "#8b5cf6" } as React.CSSProperties}>
+                  <div className="myra-plus-benefit-icon"><b.Icon size={15} /></div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
 
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                disabled={state === "paying"}
-                onClick={pay}
-                className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
-                style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b, boxShadow: "0 12px 40px rgba(139,92,246,0.4)" }}
-              >
-                {state === "paying" ? (<><Loader2 size={16} className="animate-spin" /> {t("cp.paying")}</>) : t("cp.pay")}
-              </motion.button>
-              {/* Та же честная подпись, что у Plus и донатов */}
-              <div className="text-[10px] text-center mt-2.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("don.simNote")}</div>
-            </>
-          )}
-        </div>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              disabled={state === "paying"}
+              onClick={pay}
+              className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b, boxShadow: "0 12px 40px rgba(139,92,246,0.4)" }}
+            >
+              {state === "paying" ? (<><Loader2 size={16} className="animate-spin" /> {t("cp.paying")}</>) : t("cp.pay")}
+            </motion.button>
+            {/* Та же честная подпись, что у Plus и донатов */}
+            <div className="text-[10px] text-center mt-2.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("don.simNote")}</div>
+          </>
+        )}
       </div>
 
       <ConfirmSheet
@@ -1213,20 +1289,22 @@ export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactiv
 
   return (
     <Sheet open={open} onClose={onClose} z={65}>
-      <div className="relative px-6 pt-8 pb-8 overflow-hidden">
-        <Aurora c2="#34d399" opacity={0.55} />
+      <div className="relative px-6 pt-8 pb-8">
         <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
 
-        <div className="relative z-10">
-          {active ? (
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="text-center py-6">
+        {active ? (
+          // Тот же премиальный hero-контейнер, что и у предложения — активный
+          // статус тоже настоящая карточка со свечением, а не голый текст
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="myra-plus-done" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
+            <Aurora c2="#34d399" opacity={0.5} />
+            <div className="relative z-10">
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ ...SPRING, delay: 0.15 }} className="w-20 h-20 rounded-full mx-auto mb-5 flex items-center justify-center" style={{ background: "rgba(52,211,153,0.13)", border: "1.5px solid rgba(52,211,153,0.4)" }}>
                 <Check size={34} style={{ color: "#34d399" }} />
               </motion.div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("plus.done")}</div>
-              <div className="text-sm mt-2 mb-2" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("plus.doneSub")}</div>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em", color: "#f7f5ff" }}>{t("plus.done")}</div>
+              <div className="text-sm mt-2 mb-2" style={{ color: "rgba(239,236,250,0.58)", fontFamily: F.b }}>{t("plus.doneSub")}</div>
               <div className="text-xs mb-7" style={{ color: "#34d399", fontFamily: F.m }}>{t("plus.price")}</div>
               <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="px-10 py-3 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b }}>
                 {t("cp.great")}
@@ -1234,69 +1312,73 @@ export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactiv
               <button onClick={() => { onDeactivate(); toast(t("plus.deactivated")); }} className="block mx-auto mt-4 text-xs transition-colors hover:text-red-300" style={{ color: "rgba(248,113,113,0.75)", fontFamily: F.b }}>
                 {t("plus.deactivate")}
               </button>
-            </motion.div>
-          ) : (
-            <>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4" style={{ background: "rgba(52,211,153,0.14)", border: "1px solid rgba(52,211,153,0.35)" }}>
-                <Star size={13} style={{ color: "#6ee7b7" }} />
-                <span className="text-xs font-semibold" style={{ color: "#6ee7b7", fontFamily: F.m }}>MYRA Plus</span>
+            </div>
+          </motion.div>
+        ) : (
+          <>
+            {/* Hero — цена в заголовке реагирует на студенческий тумблер ниже
+                (раньше здесь была захардкожена строка "199₽/мес" даже когда
+                студенческая скидка была включена — теперь показывает то же
+                число, что и кнопка активации) */}
+            <div className="myra-plus-hero mb-6" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
+              <Aurora c2="#34d399" opacity={0.45} />
+              <div className="relative z-10">
+                <span className="myra-plus-chip"><Star size={12} /> MYRA Plus</span>
+                <div className="myra-plus-hero-title">{price}₽{t("cp.perMonth")}</div>
+                <div className="myra-plus-hero-sub">{t("plus.sub")}</div>
               </div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 27, letterSpacing: "-0.03em", lineHeight: 1.1 }} className="mb-2">{t("plus.price")}</div>
-              <div className="text-sm mb-5" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("plus.sub")}</div>
+            </div>
 
-              <div className="flex flex-col gap-2.5 mb-7">
-                {BENEFITS.map((b, i) => (
-                  <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={GLASS}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(52,211,153,0.16)" }}>
-                      <b.Icon size={15} style={{ color: "#6ee7b7" }} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
-                      <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
-                    </div>
-                  </motion.div>
-                ))}
+            <div className="myra-plus-benefits mb-6">
+              {BENEFITS.map((b, i) => (
+                <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="myra-plus-benefit-row" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
+                  <div className="myra-plus-benefit-icon"><b.Icon size={15} /></div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Студенческий тариф */}
+            <div className="myra-plus-toggle-row mb-6" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("plus.student")} · {t("plus.priceStudent")}</div>
+                <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("plus.studentSub")}</div>
               </div>
+              <Toggle on={student} onChange={() => setStudent(s => !s)} color="#34d399" />
+            </div>
 
-              {/* Студенческий тариф */}
-              <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-4" style={GLASS}>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("plus.student")} · {t("plus.priceStudent")}</div>
-                  <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("plus.studentSub")}</div>
-                </div>
-                <Toggle on={student} onChange={() => setStudent(s => !s)} color="#34d399" />
-              </div>
-
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={async () => {
-                  // Сначала пробуем настоящий платёж через ЮKassa (см.
-                  // create-payment/index.ts) — если настроена, уводим на её
-                  // hosted-страницу; активацию подписки в этом случае ставит
-                  // вебхук после подтверждённой оплаты, а не onActivate() тут
-                  try {
-                    const { data } = await createPayment("subscription", price, { planId: student ? "plus-student" : "plus" });
-                    if (data?.confirmation_url) {
-                      window.location.href = data.confirmation_url;
-                      return;
-                    }
-                  } catch (err) {
-                    console.warn("createPayment:", err);
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={async () => {
+                // Сначала пробуем настоящий платёж через ЮKassa (см.
+                // create-payment/index.ts) — если настроена, уводим на её
+                // hosted-страницу; активацию подписки в этом случае ставит
+                // вебхук после подтверждённой оплаты, а не onActivate() тут
+                try {
+                  const { data } = await createPayment("subscription", price, { planId: student ? "plus-student" : "plus" });
+                  if (data?.confirmation_url) {
+                    window.location.href = data.confirmation_url;
+                    return;
                   }
-                  // ЮKassa не настроена (нормальное состояние сейчас) или вернула
-                  // ошибку — прежняя мгновенная активация, без изменений
-                  onActivate();
-                  toast.success(t("plus.done"));
-                }}
-                className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
-                style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b, boxShadow: "0 12px 40px rgba(52,211,153,0.35)" }}
-              >
-                {t("plus.activate", price)}
-              </motion.button>
-              <div className="text-[10px] text-center mt-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("plus.simNote")}</div>
-            </>
-          )}
-        </div>
+                } catch (err) {
+                  console.warn("createPayment:", err);
+                }
+                // ЮKassa не настроена (нормальное состояние сейчас) или вернула
+                // ошибку — прежняя мгновенная активация, без изменений
+                onActivate();
+                toast.success(t("plus.done"));
+              }}
+              className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b, boxShadow: "0 12px 40px rgba(52,211,153,0.35)" }}
+            >
+              {t("plus.activate", price)}
+            </motion.button>
+            <div className="text-[10px] text-center mt-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("plus.simNote")}</div>
+          </>
+        )}
       </div>
     </Sheet>
   );
@@ -1590,34 +1672,36 @@ export function SplitSheet({ open, onClose, shares, monthKey, donatedTotal, dona
           </div>
         ) : (
           <>
-            {/* Реальные доли слушания за месяц */}
-            <div className="rounded-[20px] p-5 mb-4" style={GLASS}>
+            {/* Реальные доли слушания за месяц — тёмное хиро с жёлтым
+                «денежным» акцентом; текст явными светлыми цветами, т.к. карточка
+                тёмная в любой теме (см. .myra-sheet-hero) */}
+            <div className="myra-sheet-hero p-5 mb-4" style={{ "--sheet-accent": "#facc15" } as React.CSSProperties}>
               <div className="flex justify-between items-baseline mb-4">
-                <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: isPastMonth ? "#facc15" : "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>
+                <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: isPastMonth ? "#facc15" : onDark(45), fontFamily: F.m }}>
                   {isPastMonth ? t("sp.sharesOf", monthLabel) : t("sp.shares")}
                 </div>
-                <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("sp.minutes", minutesOf(totalSec))}</div>
+                <div className="text-[10px]" style={{ color: onDark(45), fontFamily: F.m }}>{t("sp.minutes", minutesOf(totalSec))}</div>
               </div>
               {shares.slice(0, 8).map((sh, i) => {
                 const color = SPLIT_BAR_COLORS[i % SPLIT_BAR_COLORS.length];
                 const donated = donatedByArtist[sh.artist];
                 return (
                   <div key={sh.artist} className="mb-3 last:mb-0">
-                    <div className="flex justify-between items-center text-xs mb-1" style={{ fontFamily: F.b }}>
+                    <div className="flex justify-between items-center text-xs mb-1" style={{ fontFamily: F.b, color: ON_DARK }}>
                       <span className="truncate mr-3 flex items-center gap-2">
                         {sh.artist}
-                        {donated ? <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0" style={{ background: "rgba(250,204,21,0.12)", color: "#facc15", fontFamily: F.m }}><Gift size={9} /> {donated}₽</span> : null}
+                        {donated ? <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0" style={{ background: "rgba(250,204,21,0.14)", color: "#facc15", fontFamily: F.m }}><Gift size={9} /> {donated}₽</span> : null}
                       </span>
                       <span style={{ color, fontFamily: F.m }}>{sh.pct < 1 ? "<1" : Math.round(sh.pct)}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
                       <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(sh.pct, 1.5)}%` }} transition={{ duration: 0.6, delay: i * 0.05 }} className="h-full rounded-full" style={{ background: color }} />
                     </div>
                   </div>
                 );
               })}
               {donatedTotal > 0 && (
-                <div className="mt-4 pt-3 text-xs flex justify-between" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 08%, transparent)", fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 55%, transparent)" }}>
+                <div className="mt-4 pt-3 text-xs flex justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.1)", fontFamily: F.b, color: onDark(60) }}>
                   <span>{t("sp.donated")}</span><span style={{ color: "#facc15" }}>{donatedTotal}₽</span>
                 </div>
               )}
@@ -1700,12 +1784,14 @@ export function AchievementsSheet({ open, onClose, counters, c2 }: {
         </div>
         <div className="text-xs mb-6" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("ach.progress", doneCount, ACHIEVEMENTS.length)}</div>
 
-        <div className="flex flex-col gap-2">
+        {/* Одна сгруппированная карточка с разделителями вместо стопки
+            отдельных GLASS-плашек — как списки в AccountSheet */}
+        <div className="myra-sheet-card">
           {items.map(a => {
             const isOpen = unlocked.has(a.id);
             const Icon = a.icon;
             return isOpen ? (
-              <div key={a.id} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={{ ...GLASS, border: `1px solid ${c2}33` }}>
+              <div key={a.id} className="myra-sheet-row">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${c2}1c` }}>
                   <Icon size={16} style={{ color: c2 }} />
                 </div>
@@ -1716,7 +1802,7 @@ export function AchievementsSheet({ open, onClose, counters, c2 }: {
                 <Check size={15} style={{ color: c2 }} />
               </div>
             ) : (
-              <div key={a.id} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={{ ...GLASS, opacity: 0.55 }}>
+              <div key={a.id} className="myra-sheet-row" style={{ opacity: 0.55 }}>
                 <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
                   <Lock size={14} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
                 </div>
@@ -1804,10 +1890,11 @@ export function StudioStatsSheet({ open, onClose, c2, myTracks, myPlaysByTrack, 
           <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("st.audienceEmptySub")}</div>
         </div>
 
-        {/* Баланс */}
-        <div className="rounded-[20px] p-4" style={GLASS}>
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.donations")}</div>
-          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.03em", color: c2 }}>{balance.toLocaleString("ru-RU")}₽</div>
+        {/* Баланс — тёмное хиро с акцентным свечением, как денежные
+            карточки Студии */}
+        <div className="myra-sheet-hero p-5" style={{ "--sheet-accent": c2 } as React.CSSProperties}>
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: onDark(45), fontFamily: F.m }}>{t("st.donations")}</div>
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.03em", color: ON_DARK }}>{balance.toLocaleString("ru-RU")}₽</div>
         </div>
       </div>
     </Sheet>
@@ -1885,7 +1972,7 @@ export function ReleaseFormSheet({ open, file, defaultCover, onClose, onPublish 
         />
 
         {/* Жанр */}
-        <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("cr.genre")}</div>
+        <span className="myra-sheet-eyebrow">{t("cr.genre")}</span>
         <div className="flex flex-wrap gap-2 mb-5">
           {TASTE_GENRES.map(([g, c]) => {
             const on = genre === g;
@@ -1903,9 +1990,9 @@ export function ReleaseFormSheet({ open, file, defaultCover, onClose, onPublish 
         </div>
 
         {/* Текст песни */}
-        <div className="flex items-baseline gap-1.5 mb-2.5">
-          <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("cr.lyrics")}</div>
-          <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 28%, transparent)", fontFamily: F.m }}>· {t("cr.lyricsOptional")}</div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="myra-sheet-eyebrow">{t("cr.lyrics")}</span>
+          <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 28%, transparent)", fontFamily: F.m }}>· {t("cr.lyricsOptional")}</span>
         </div>
         <textarea
           value={lyrics}
@@ -1923,7 +2010,7 @@ export function ReleaseFormSheet({ open, file, defaultCover, onClose, onPublish 
             onPublish({ title: title.trim(), genre: genre!, lyrics: lyrics.trim(), cover });
           }}
           className="w-full py-4 rounded-full text-sm font-bold transition-opacity"
-          style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b, opacity: canPublish ? 1 : 0.5 }}
+          style={{ background: ACCENT_GRAD, color: "#fff", fontFamily: F.b, opacity: canPublish ? 1 : 0.5 }}
         >
           {t("cr.publish")}
         </motion.button>
@@ -1991,7 +2078,7 @@ export function ImportSheet({ open, onClose, onImported }: {
             <FileUp size={14} /> {t("im2.file")}
             <input type="file" accept=".txt,.csv,.m3u,.m3u8" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
           </label>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => parse(text)} disabled={!text.trim()} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: text.trim() ? "linear-gradient(135deg, #8b5cf6, #a78bfa)" : "color-mix(in srgb, var(--wash) 6%, transparent)", color: text.trim() ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => parse(text)} disabled={!text.trim()} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: text.trim() ? ACCENT_GRAD : "color-mix(in srgb, var(--wash) 6%, transparent)", color: text.trim() ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}>
             <ClipboardPaste size={14} /> {t("im2.scan")}
           </motion.button>
         </div>
@@ -2131,7 +2218,7 @@ export function SupportSheet({ open, onClose, uid }: { open: boolean; onClose: (
       <div className="px-6 pt-7 pb-5 flex flex-col" style={{ height: "min(78vh, 640px)" }}>
         <div className="flex items-center justify-between mb-1 flex-shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)" }}>
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: ACCENT_GRAD }}>
               <MessageCircle size={16} style={{ color: "#fff" }} />
             </div>
             <div className="min-w-0">
@@ -2153,7 +2240,7 @@ export function SupportSheet({ open, onClose, uid }: { open: boolean; onClose: (
                 {m.topicLabel && (
                   <div className="text-[9px] mb-1 text-right px-1" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{m.topicLabel}</div>
                 )}
-                <div className="px-4 py-2.5 rounded-[18px] text-sm" style={m.from === "me" ? { background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", borderBottomRightRadius: 6, fontFamily: F.b } : { ...GLASS, borderBottomLeftRadius: 6, fontFamily: F.b }}>
+                <div className="px-4 py-2.5 rounded-[18px] text-sm" style={m.from === "me" ? { background: ACCENT_GRAD, color: "#fff", borderBottomRightRadius: 6, fontFamily: F.b } : { ...GLASS, borderBottomLeftRadius: 6, fontFamily: F.b }}>
                   {m.text}
                 </div>
                 <div className="text-[9px] mt-1 px-1" style={{ textAlign: m.from === "me" ? "right" : "left", color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{fmtTime(m.time)}</div>
@@ -2176,7 +2263,7 @@ export function SupportSheet({ open, onClose, uid }: { open: boolean; onClose: (
         <div className="flex-shrink-0">
           <div className="flex gap-2 flex-wrap mb-3">
             {SUPPORT_TOPICS.map(id => (
-              <button key={id} onClick={() => setTopic(id)} className="px-3 py-1.5 rounded-full text-[11px] font-semibold" style={{ background: topic === id ? "linear-gradient(135deg, #8b5cf6, #a78bfa)" : "color-mix(in srgb, var(--wash) 6%, transparent)", color: topic === id ? "#fff" : "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>
+              <button key={id} onClick={() => setTopic(id)} className="px-3 py-1.5 rounded-full text-[11px] font-semibold" style={{ background: topic === id ? ACCENT_GRAD : "color-mix(in srgb, var(--wash) 6%, transparent)", color: topic === id ? "#fff" : "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>
                 {t(id)}
               </button>
             ))}
@@ -2191,7 +2278,7 @@ export function SupportSheet({ open, onClose, uid }: { open: boolean; onClose: (
               className="flex-1 px-4 py-3 rounded-2xl bg-transparent outline-none text-sm resize-none"
               style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b, maxHeight: 90 }}
             />
-            <motion.button whileTap={{ scale: 0.88 }} onClick={send} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: msg.trim() ? "linear-gradient(135deg, #8b5cf6, #a78bfa)" : "color-mix(in srgb, var(--wash) 8%, transparent)" }}>
+            <motion.button whileTap={{ scale: 0.88 }} onClick={send} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: msg.trim() ? ACCENT_GRAD : "color-mix(in srgb, var(--wash) 8%, transparent)" }}>
               <Send size={16} style={{ color: msg.trim() ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.button>
           </div>
@@ -2251,11 +2338,14 @@ export function ReportSheet({ open, onClose, uid, targetType, targetId }: {
         </div>
         <div className="text-xs mb-5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("report.sub")}</div>
 
-        <div className="flex flex-col gap-2 mb-4">
+        {/* Одна сгруппированная карточка с разделителями вместо стопки плашек;
+            красная семантика жалобы сохраняется — фирменный фиолетовый здесь
+            неуместен */}
+        <div className="myra-sheet-card mb-4">
           {REPORT_REASONS.map(r => {
             const active = reason === r.code;
             return (
-              <button key={r.code} onClick={() => setReason(r.code)} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-left" style={{ ...GLASS, border: `1px solid ${active ? "rgba(248,113,113,0.5)" : "transparent"}` }}>
+              <button key={r.code} onClick={() => setReason(r.code)} className="myra-sheet-row w-full text-left" data-clickable style={active ? { background: "rgba(248,113,113,0.08)" } : undefined}>
                 <span className="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${active ? "#f87171" : "color-mix(in srgb, var(--fg) 30%, transparent)"}` }}>
                   {active && <span className="w-2 h-2 rounded-full" style={{ background: "#f87171" }} />}
                 </span>

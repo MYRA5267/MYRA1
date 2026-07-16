@@ -145,6 +145,8 @@ const STR: Record<string, { ru: string; en: string }> = {
   "cp.doneSub":   { ru: "Безлимит офлайн, Hi-Res и аналитика уже открыты", en: "Unlimited offline, Hi-Res and analytics are now unlocked" },
   "cp.great":     { ru: "Отлично", en: "Great" },
   "cp.cancel":    { ru: "Подписка активна до конца оплаченного периода", en: "Active until the end of the paid period" },
+  // Общий суффикс цены для hero-карточек Pro/Plus (используется в обеих шторках)
+  "cp.perMonth":  { ru: "/мес", en: "/mo" },
 
   // Профиль / настройки
   "pr.wrapped":     { ru: "Эхо ", en: "Echo " },
@@ -238,6 +240,12 @@ const STR: Record<string, { ru: string; en: string }> = {
   "acc.deleteQ":   { ru: "Точно удалить аккаунт?", en: "Really delete your account?" },
   "acc.deleteSub": { ru: "Плейлисты, лайки и Созвуки будут стёрты навсегда", en: "Playlists, likes and Unisons will be erased forever" },
   "acc.deleteYes": { ru: "Да, удалить", en: "Yes, delete" },
+  // Заголовки сгруппированных секций редизайна AccountSheet (имя/хендл/почта,
+  // подписка+импорт+поддержка, правовые документы) — раньше это были три ряда
+  // одинаковых GLASS-плашек без единой иерархии
+  "acc.sectionProfile": { ru: "Личные данные", en: "Personal info" },
+  "acc.sectionMore":    { ru: "Ещё", en: "More" },
+  "acc.sectionDocs":    { ru: "Документы", en: "Documents" },
 
   // Соцслой: реальные подписки между аккаунтами (не путать с "ar." ниже —
   // те строки про демо-артистов каталога)
@@ -459,8 +467,11 @@ const STR: Record<string, { ru: string; en: string }> = {
   "al.shuffled": { ru: "Альбом перемешан", en: "Album shuffled" },
 
   // Плейлист (drag-n-drop)
-  "pl.dragHint":  { ru: "зажми и перетащи, чтобы изменить порядок", en: "hold & drag to reorder" },
-  "pl.reordered": { ru: "Порядок треков обновлён", en: "Track order updated" },
+  "pl.dragHint":     { ru: "зажми и перетащи, чтобы изменить порядок", en: "hold & drag to reorder" },
+  "pl.reordered":    { ru: "Порядок треков обновлён", en: "Track order updated" },
+  "pl.playAll":      { ru: "Слушать плейлист", en: "Play playlist" },
+  "pl.plShuffled":   { ru: "Плейлист перемешан", en: "Playlist shuffled" },
+  "pl.emptyTracks":  { ru: "В этом плейлисте пока нет треков", en: "No tracks in this playlist yet" },
 
   // Онбординг и вход
   // Раньше здесь было "Вся музыка в одном месте" — обещание лицензированного
