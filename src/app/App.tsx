@@ -1121,6 +1121,14 @@ function AppInner() {
     };
   }, [stats, queue]);
 
+  // Тоже строго до раннего return ниже — иначе на первом рендере (onboarded
+  // ещё false) этот хук не вызывается, а на следующем начинает вызываться,
+  // и React падает с "Rendered more hooks than during the previous render"
+  const recommendations = useMemo(
+    () => smartRecommendations(queue, likedIds, followed, currentTrack.id, lang, 8),
+    [queue, likedIds, followed, currentTrack.id, lang],
+  );
+
   if (!onboarded) {
     return themedRoot(<Suspense fallback={null}><OnboardingFlow onDone={finishOnboarding} /></Suspense>);
   }
@@ -1130,10 +1138,6 @@ function AppInner() {
   const lvl = levelInfo(xp);
   const statMinutesWeek = minutesOf(weekSeconds(stats));
   const statTopGenre = topGenre(stats);
-  const recommendations = useMemo(
-    () => smartRecommendations(queue, likedIds, followed, currentTrack.id, lang, 8),
-    [queue, likedIds, followed, currentTrack.id, lang],
-  );
 
   // Текущий план для строки в аккаунте: Pro — у артистов, Plus — у слушателей
   const planLabel = userRole === "artist"
