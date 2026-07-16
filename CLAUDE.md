@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Communication
+
+Always reply to the user in Russian, regardless of what language tool output, code, or commit messages are in. Do not switch to English mid-conversation.
+
 ## Project
 
 MYRA is a React music-streaming app with an entirely optional Supabase backend: it must always work as a fully local/offline demo with zero configuration, and gain real accounts, uploads, social features, donations, and payments only when Supabase (and a few other services) are configured. The same web build is repackaged for Android/iOS (Capacitor), desktop (Electron; Tauri CLI is also present), and deployed to GitHub Pages.
