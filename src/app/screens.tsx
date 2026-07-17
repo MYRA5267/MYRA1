@@ -5,7 +5,7 @@ import {
   Zap, Radio, Moon, Dumbbell, Car, Brain, LogOut, TrendingUp, Wallet,
   Blend as BlendIcon, Crown, Trash2, FileAudio, Sun, Sparkles,
   Trophy, Clock, Flame, Gift, UserPlus, Headphones, Wrench, Lock,
-  SlidersHorizontal, CircleUserRound, Cast, type LucideIcon,
+  SlidersHorizontal, CircleUserRound, Cast, ChevronDown, type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -1359,6 +1359,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           label={t("pr.achievements")}
           done={achDone}
           total={achTotal}
+          progressText={t("ach.progress", achDone, achTotal)}
           onClick={onOpenAchievements}
         />
 
@@ -1385,10 +1386,10 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         {/* Друзья и Созвук */}
         <div className="myra-card-quiet rounded-2xl overflow-hidden">
-          <AccordionTrigger icon={Users} accent={ACCENT_FRIENDS} label={t("pr.blendRow")} open={blendOpen} onClick={() => setBlendOpen(o => !o)} />
+          <AccordionTrigger icon={Users} accent={ACCENT_FRIENDS} label={t("pr.blendRow")} open={blendOpen} onClick={() => setBlendOpen(o => !o)} panelId="pr-blend-panel" />
           <AnimatePresence>
             {blendOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+              <motion.div id="pr-blend-panel" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
                 {FRIENDS.length === 0 ? (
                   <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 06%, transparent)" }}>
                     <div className="flex-1">
@@ -1451,10 +1452,10 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         {/* Аккордеон реальных настроек */}
         <div className="myra-card-quiet rounded-2xl overflow-hidden">
-          <AccordionTrigger icon={SlidersHorizontal} accent={ACCENT_SETTINGS} label={t("pr.settingsGroup")} open={settingsOpen} onClick={() => setSettingsOpen(o => !o)} />
+          <AccordionTrigger icon={SlidersHorizontal} accent={ACCENT_SETTINGS} label={t("pr.settingsGroup")} open={settingsOpen} onClick={() => setSettingsOpen(o => !o)} panelId="pr-settings-panel" />
           <AnimatePresence>
             {settingsOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+              <motion.div id="pr-settings-panel" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
                 <div className="flex flex-col gap-1.5 px-2 pb-2" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 06%, transparent)", paddingTop: 8 }}>
                   <SettingRow icon={<Zap size={15} />} label={t("pr.simpleFx")} sub={t("pr.simpleFxSub")}>
                     <Toggle on={simpleFx} onChange={() => { onToggleSimpleFx(); toast(simpleFx ? t("pr.simpleFxOff") : t("pr.simpleFxOn")); }} color={c2} />
@@ -1462,9 +1463,15 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
                   {/* Перелив (кроссфейд) переехал в плеер — к остальным настройкам воспроизведения.
                       Тема — цикл из трёх: неон открывается только с Plus/Pro, поэтому чип вместо тумблера */}
                   <SettingRow icon={theme === "dark" ? <Moon size={15} /> : theme === "light" ? <Sun size={15} /> : <Sparkles size={15} style={{ color: "#a5b4fc" }} />} label={t("pr.theme")}>
-                    <div className="text-xs px-2.5 py-1 rounded-full cursor-pointer" onClick={toggleTheme} style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>
+                    <button
+                      type="button"
+                      onClick={toggleTheme}
+                      aria-label={`${t("pr.theme")}: ${theme === "dark" ? t("pr.themeDark") : theme === "light" ? t("pr.themeLight") : t("pr.themeNeon")}`}
+                      className="text-xs px-2.5 py-1 rounded-full"
+                      style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}
+                    >
                       {theme === "dark" ? t("pr.themeDark") : theme === "light" ? t("pr.themeLight") : t("pr.themeNeon")}
-                    </div>
+                    </button>
                   </SettingRow>
                 </div>
               </motion.div>
@@ -1558,14 +1565,17 @@ function NavigationCard({ icon, accent, label, sub, onClick, trailing, ariaLabel
 
 /** Триггер аккордеона (Настройки/Друзья) — та же оболочка, что у NavigationCard,
     но со стрелкой-индикатором раскрытия вместо перехода на другой экран */
-function AccordionTrigger({ icon, accent, label, open, onClick }: {
-  icon: LucideIcon; accent: string; label: string; open: boolean; onClick: () => void;
+function AccordionTrigger({ icon, accent, label, open, onClick, panelId }: {
+  icon: LucideIcon; accent: string; label: string; open: boolean; onClick: () => void; panelId: string;
 }) {
   return (
-    <button onClick={onClick} aria-expanded={open} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
+    <button onClick={onClick} aria-expanded={open} aria-controls={panelId} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
       <IconBadge icon={icon} accent={accent} />
       <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{label}</div>
-      <motion.div animate={{ rotate: open ? 90 : 0 }}><ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} /></motion.div>
+      {/* ChevronDown, а не ChevronRight: раскрывается на этой же странице, а
+          не переходит на другой экран — стрелка не должна повторять
+          NavigationCard, иначе аккордеон в закрытом виде от него не отличить */}
+      <motion.div animate={{ rotate: open ? 180 : 0 }}><ChevronDown size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} /></motion.div>
     </button>
   );
 }
@@ -1577,7 +1587,7 @@ function StatusCard({ icon, accent, label, statusText, statusColor, valueChip, l
   valueChip: string; locked?: boolean; onClick: () => void;
 }) {
   return (
-    <motion.button whileTap={{ scale: 0.99 }} onClick={onClick} aria-label={label} className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left">
+    <motion.button whileTap={{ scale: 0.99 }} onClick={onClick} aria-label={`${label}: ${valueChip}`} className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left">
       <IconBadge icon={icon} accent={accent} />
       <div className="flex-1 min-w-0">
         <div className="text-sm" style={{ fontFamily: F.b }}>{label}</div>
@@ -1619,19 +1629,21 @@ function SegmentedSetting({ icon, accent, label, options, value, onChange }: {
 
 /** Карточка прогресса (Достижения) — вместо голого текста «Открыто X из Y»
     настоящая полоса прогресса, посчитанная из тех же done/total */
-function ProgressCard({ icon, accent, label, done, total, onClick }: {
-  icon: LucideIcon; accent: string; label: string; done: number; total: number; onClick: () => void;
+function ProgressCard({ icon, accent, label, done, total, progressText, onClick }: {
+  icon: LucideIcon; accent: string; label: string; done: number; total: number; progressText: string; onClick: () => void;
 }) {
   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
   return (
-    <motion.button whileTap={{ scale: 0.99 }} onClick={onClick} aria-label={label} className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left">
+    <motion.button whileTap={{ scale: 0.99 }} onClick={onClick} aria-label={`${label}: ${progressText}`} className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left">
       <IconBadge icon={icon} accent={accent} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <div className="text-sm" style={{ fontFamily: F.b }}>{label}</div>
           <div className="text-xs flex-shrink-0" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>{done}/{total}</div>
         </div>
-        <div className="myra-progress-track mt-2" style={{ "--icon-accent": accent } as React.CSSProperties} role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total}>
+        {/* Отдельный aria-label на треке: скринридер должен получить понятное
+            описание прогресса ("Открыто 7 из 20"), а не голое aria-valuenow */}
+        <div className="myra-progress-track mt-2" style={{ "--icon-accent": accent } as React.CSSProperties} role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total} aria-valuetext={progressText} aria-label={progressText}>
           <div className="myra-progress-fill" style={{ width: `${pct}%` }} />
         </div>
       </div>
@@ -1658,8 +1670,8 @@ function AccountSummaryCard({ c2, avatar, userName, handle, roleIcon: RoleIcon, 
           <RoleIcon size={12} style={{ color: "#fff" }} />
         </div>
       </motion.div>
-      <div className="myra-profile-name">{userName}</div>
-      <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
+      <div className="myra-profile-name break-words">{userName}</div>
+      <div className="text-xs mt-1.5 break-words" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
       {/* Бейджи — эксклюзивные для роли + Pro/Plus, «Меценат» и «Разработчик»;
           это и есть честный «статус подписки/аккаунта» — без выдуманных полей */}
       <div className="myra-profile-badges">
