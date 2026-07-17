@@ -874,8 +874,11 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
 
   return (
     <Page className="myra-experience-page myra-library-page">
-      <header className="myra-library-header px-5 pt-7 pb-5 flex items-start justify-between">
-        <div>
+      <header className="myra-library-header relative px-5 pt-7 pb-5 flex items-start justify-between" style={{ overflow: "hidden" }}>
+        {/* Очень слабый фирменный свет только в заголовке — списки ниже без
+            тяжёлых фоновых эффектов (см. план, раздел 6) */}
+        <DetailBackdrop variant="soft" accent={currentTrack.c2} active={playing} />
+        <div className="relative z-10">
           <span className="myra-page-eyebrow">MYRA COLLECTION</span>
           <h1>{t("nav.library")}</h1>
           <p>{t("lib.subtitle")}</p>
@@ -1264,6 +1267,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           теперь живут в собственной карточке со свечением под цвет текущего трека,
           а не голым текстом на фоне страницы (тот же язык, что у hero Главной) */}
       <div className="myra-content-section myra-profile-hero mx-5 mt-6 mb-6 px-5 pt-8 pb-7 text-center" style={{ "--profile-accent": c2 } as React.CSSProperties}>
+        <DetailBackdrop variant="soft" accent={c2} />
         <span className="myra-page-eyebrow">MYRA PROFILE</span>
         <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mt-1" onClick={onAvatarTap}>
           <img src={avatar} alt="avatar" className="w-24 h-24 rounded-full object-cover mx-auto" style={{ border: `2px solid ${c2}`, boxShadow: `0 0 40px ${c2}50` }} />
