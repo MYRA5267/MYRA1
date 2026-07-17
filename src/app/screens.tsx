@@ -663,7 +663,7 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
             className="flex-1 bg-transparent outline-none"
             style={{ color: "var(--fg)", fontFamily: F.b }}
           />
-          {query && <button onClick={() => setQuery("")} aria-label="Clear"><X size={16} /></button>}
+          {query && <button onClick={() => setQuery("")} aria-label={t("a11y.clear")}><X size={16} /></button>}
         </div>
       </header>
 
@@ -906,12 +906,12 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
       <div className="myra-library-search mx-5 mb-5">
         <Search size={16} />
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("lib.search")} />
-        {query && <button onClick={() => setQuery("")} aria-label="Clear"><X size={15} /></button>}
+        {query && <button onClick={() => setQuery("")} aria-label={t("a11y.clear")}><X size={15} /></button>}
       </div>
 
-      <div className="myra-library-tabs flex gap-1 mx-5 mb-6 p-1 rounded-full w-fit">
+      <div role="tablist" aria-label={t("nav.library")} className="myra-library-tabs flex gap-1 mx-5 mb-6 p-1 rounded-full w-fit">
         {TABS.map(tb => (
-          <button key={tb.id} onClick={() => setTab(tb.id)} className="relative px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap" style={{ fontFamily: F.b, color: tab === tb.id ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
+          <button key={tb.id} role="tab" aria-selected={tab === tb.id} onClick={() => setTab(tb.id)} className="relative px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap" style={{ fontFamily: F.b, color: tab === tb.id ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
             {tab === tb.id && <motion.div layoutId="libtab" className="absolute inset-0 rounded-full" style={{ background: `${currentTrack.c2}cc` }} transition={SPRING} />}
             <span className="relative z-10">{tb.label}</span>
           </button>
@@ -931,7 +931,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                     className="hidden"
                     onChange={e => { if (e.target.files?.length) { onUploadFiles(e.target.files); e.target.value = ""; } }}
                   />
-                  <motion.div whileTap={{ scale: 0.98 }} onClick={() => uploadRef.current?.click()} className="flex items-center gap-3 p-3.5 rounded-2xl cursor-pointer mb-2" style={GLASS}>
+                  <motion.button whileTap={{ scale: 0.98 }} onClick={() => uploadRef.current?.click()} className="w-full flex items-center gap-3 p-3.5 rounded-2xl text-left mb-2" style={GLASS}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
                       <Upload size={16} style={{ color: currentTrack.c2 }} />
                     </div>
@@ -939,7 +939,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                       <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("cr.uploadTrack")}</div>
                       <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("cr.uploadTrackSub")}</div>
                     </div>
-                  </motion.div>
+                  </motion.button>
                 </>
               )}
               {visibleLocal.map(tr => (
@@ -950,7 +950,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                   playing={playing}
                   onPlay={onPlay}
                   trailing={onDeleteLocal && (
-                    <motion.button whileTap={{ scale: 0.8 }} onClick={() => onDeleteLocal(tr.id)} className="myra-row-icon-button" aria-label="Delete">
+                    <motion.button whileTap={{ scale: 0.8 }} onClick={() => onDeleteLocal(tr.id)} className="myra-row-icon-button" aria-label={t("a11y.delete")}>
                       <Trash2 size={15} />
                     </motion.button>
                   )}
@@ -965,7 +965,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                   onPlay={onPlay}
                   onArtist={onOpenArtist}
                   trailing={(
-                    <motion.button whileTap={{ scale: 0.75 }} onClick={() => onLike(tr.id)} className="myra-row-icon-button" aria-label="Unlike">
+                    <motion.button whileTap={{ scale: 0.75 }} onClick={() => onLike(tr.id)} className="myra-row-icon-button" aria-label={t("a11y.unlike")}>
                       <Heart size={16} fill={tr.c2} stroke={tr.c2} />
                     </motion.button>
                   )}
@@ -1002,7 +1002,8 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                       <motion.button
                         whileTap={{ scale: 0.85 }}
                         onClick={e => { e.stopPropagation(); onDeletePlaylist?.(pl.id); }}
-                        className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label={t("a11y.deletePlaylist")}
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
                         style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}
                       >
                         <Trash2 size={14} style={{ color: "#f87171" }} />
