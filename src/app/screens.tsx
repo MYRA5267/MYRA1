@@ -700,9 +700,10 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
             <SectionHeading title={t("browse.trending")} sub={t("browse.chart")} />
             <div className="myra-chart-list">
             {CHARTS.map((c, i) => (
-              <div
+              <button
                 key={c.pos}
-                className="myra-chart-row flex items-center gap-3 cursor-pointer"
+                className="myra-chart-row flex items-center gap-3 w-full text-left"
+                aria-label={`${c.title} — ${c.artist}`}
                 onClick={() => onPlay({ ...TRACKS[(c.pos + 1) % TRACKS.length], id: c.pos + 100, title: c.title, artist: c.artist, album: "Charts", img: c.img })}
               >
                 <div className="w-7 text-center font-bold text-sm" style={{ color: c.pos <= 3 ? "#a78bfa" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{c.pos}</div>
@@ -716,7 +717,7 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
                 <div className="text-[11px] px-2 py-1 rounded-full font-semibold" style={{ fontFamily: F.m, color: c.delta > 0 ? "#34d399" : c.delta < 0 ? "#f87171" : "color-mix(in srgb, var(--fg) 30%, transparent)", background: c.delta > 0 ? "rgba(52,211,153,0.1)" : c.delta < 0 ? "rgba(248,113,113,0.1)" : "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
                   {c.delta > 0 ? `+${c.delta}` : c.delta < 0 ? c.delta : "—"}
                 </div>
-              </div>
+              </button>
             ))}
             </div>
           </div>
@@ -821,27 +822,48 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
         <div className="myra-content-section px-5 pb-6">
           <SectionHeading title={t("rt.leaderboardTitle")} />
           <div className="myra-rating-list flex flex-col gap-1.5">
-            {rows.map((u, i) => (
-              <motion.div
-                key={u.you ? "you" : u.name}
-                layout
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileTap={u.you ? undefined : { scale: 0.98 }}
-                transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
-                className={`myra-rating-row${u.you ? " is-you" : ""}`}
-                onClick={() => { if (!u.you) onOpenPeer(u); }}
-              >
-                <div className="myra-rating-row-rank">{i + 1}</div>
-                <img src={u.avatar} alt="" className="myra-rating-row-avatar" />
-                <div className="myra-rating-row-copy">
-                  <strong>{u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}</strong>
-                  <span>{valueFor(u)}</span>
-                </div>
-                {i < 3 && <Crown size={16} style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#fb923c", flexShrink: 0 }} />}
-                {!u.you && <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />}
-              </motion.div>
-            ))}
+            {rows.map((u, i) => {
+              // "Ты" — не кликабельная строка (некуда переходить), поэтому div;
+              // остальные строки реально открывают профиль соперника — button,
+              // а не div с onClick, чтобы работали клавиатура и screen reader
+              const rowContent = (
+                <>
+                  <div className="myra-rating-row-rank">{i + 1}</div>
+                  <img src={u.avatar} alt="" className="myra-rating-row-avatar" />
+                  <div className="myra-rating-row-copy">
+                    <strong>{u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}</strong>
+                    <span>{valueFor(u)}</span>
+                  </div>
+                  {i < 3 && <Crown size={16} style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#fb923c", flexShrink: 0 }} />}
+                  {!u.you && <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />}
+                </>
+              );
+              return u.you ? (
+                <motion.div
+                  key="you"
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
+                  className="myra-rating-row is-you"
+                >
+                  {rowContent}
+                </motion.div>
+              ) : (
+                <motion.button
+                  key={u.name}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
+                  className="myra-rating-row w-full text-left"
+                  onClick={() => onOpenPeer(u)}
+                >
+                  {rowContent}
+                </motion.button>
+              );
+            })}
           </div>
         </div>
 
@@ -1096,8 +1118,9 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
       <section className="myra-content-section px-5 mb-7">
         {/* Хиро-карточка прослушиваний — та же тёмная стеклянная поверхность
-            со свечением, что у Home/Release-карточек, вместо плоской GLASS-плашки */}
-        <div className="myra-creator-hero" style={{ "--creator-accent": c2 } as React.CSSProperties} onClick={openStatsGated}>
+            со свечением, что у Home/Release-карточек, вместо плоской GLASS-плашки.
+            button, а не div: карточка кликабельна (открывает статистику) */}
+        <button className="myra-creator-hero w-full text-left" style={{ "--creator-accent": c2 } as React.CSSProperties} onClick={openStatsGated}>
           <div className="myra-creator-hero-top">
             <div>
               <span className="myra-creator-hero-label">{t("cr.plays7")}</span>
@@ -1113,7 +1136,7 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           <div className="myra-creator-hero-days">
             {WEEKDAYS.map(d => <span key={d}>{d}</span>)}
           </div>
-        </div>
+        </button>
 
         {/* Строка статистики — тот же паттерн, что и .myra-library-overview в Полке:
             общая стеклянная плашка с разделителями между колонками вместо трёх
@@ -1142,10 +1165,17 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           className="hidden"
           onChange={e => { if (e.target.files?.length) { onStartRelease(e.target.files); e.target.value = ""; } }}
         />
+        {/* Остаётся div (не button) — должен принимать onDrop/onDragOver;
+            role="button"+tabIndex+onKeyDown добавляют доступность с клавиатуры
+            для клика-по-выбору-файла, который раньше работал только мышью/тачем */}
         <div
           className="myra-creator-dropzone"
+          role="button"
+          tabIndex={0}
+          aria-label={t("cr.dropFile")}
           style={{ ...GLASS, border: dragOver ? `1.5px dashed ${c2}` : "1.5px dashed color-mix(in srgb, var(--wash) 16%, transparent)", background: dragOver ? `${c2}14` : GLASS.background }}
           onClick={() => fileRef.current?.click()}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileRef.current?.click(); } }}
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={e => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.length) onStartRelease(e.dataTransfer.files); }}
