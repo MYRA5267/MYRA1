@@ -8,6 +8,8 @@
     "dev": "vite",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "electron:dev": "electron .",
     "electron:build": "electron-builder"
   },
@@ -66,10 +68,12 @@
     "autoprefixer": "^10.5.2",
     "electron": "^43.0.0",
     "electron-builder": "^26.15.3",
+    "jsdom": "^29.1.1",
     "postcss": "^8.5.16",
     "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^7.0.2",
-    "vite": "6.3.5"
+    "vite": "6.3.5",
+    "vitest": "^4.1.10"
   }
 }
