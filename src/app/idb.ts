@@ -9,6 +9,9 @@ export interface LocalTrackRecord {
   c1: string;
   c2: string;
   blob: Blob;
+  genre?: string;
+  lyrics?: string;
+  cover?: string | null;
 }
 
 const DB_NAME = "myra-local";

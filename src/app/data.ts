@@ -73,6 +73,23 @@ export interface Track {
   remoteId?: string;
 }
 
+export interface LyricsLine {
+  en: string[];
+  ru: string;
+}
+
+/** Превращает вставленный автором текст в строки плеера, сохраняя переносы. */
+export function parseLyrics(text?: string): LyricsLine[] | null {
+  const normalized = text?.trim();
+  if (!normalized) return null;
+  const lines = normalized
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => ({ en: line.split(/\s+/), ru: "" }));
+  return lines.length ? lines : null;
+}
+
 const mk = (id: number, title: string, artist: string, album: string, duration: string, genre: string, plays: string, liked: boolean, c1: string, c2: string): Track => ({
   id, title, artist, album, duration, genre, plays, liked, c1, c2,
   img: svgCover(c1, c2, id),
@@ -174,7 +191,7 @@ export const CHARTS = [
 
 // У каждого трека каталога — свой текст со своим переводом
 const L = (s: string, ru: string) => ({ en: s.split(" "), ru });
-export const LYRICS: Record<number, { en: string[]; ru: string }[]> = {
+export const LYRICS: Record<number, LyricsLine[]> = {
   1: [
     L("In the midnight hour, when silence speaks", "В полночный час, когда тишина говорит"),
     L("I hear the echo of forgotten weeks", "Я слышу эхо забытых недель"),
@@ -349,6 +366,8 @@ export const PODCASTS = [
 
 export const GENRE_TILES = [
   ["Synthwave", "#8b5cf6"], ["Lo-fi", "#34d399"], ["Hip-Hop", "#fb923c"], ["Ambient", "#38bdf8"],
+  ["Electronic", "#c084fc"], ["Dream Pop", "#f472b6"], ["Indie", "#f59e0b"], ["R&B", "#e879f9"],
+  ["Rock", "#ef6b61"], ["Jazz", "#f4b76a"], ["Classical", "#93c5fd"], ["House", "#22d3ee"],
 ] as const;
 
 export const albumTracks = (album: string) => TRACKS.filter(t => t.album === album);

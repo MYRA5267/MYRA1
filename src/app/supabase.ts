@@ -10,6 +10,11 @@ import { createClient, type SupabaseClient, type Session } from "@supabase/supab
 const env = (import.meta as any).env ?? {};
 const url = env.VITE_SUPABASE_URL;
 const anonKey = env.VITE_SUPABASE_ANON_KEY;
+export const distributionChannel = String(env.VITE_DISTRIBUTION_CHANNEL || "web");
+// Google Play-сборка не должна открывать ЮKassa для цифровых покупок. Пока
+// Google Play Billing/RuStore Pay не подключены нативно, первая версия честно
+// бесплатная и не показывает платёжные действия.
+export const paymentsEnabled = env.VITE_PAYMENTS_ENABLED === "true" && distributionChannel !== "google-play";
 
 // createClient() кидает синхронно на невалидный URL (например опечатка в
 // секрете CI) — без try/catch это падение случалось бы на этапе загрузки
@@ -136,10 +141,8 @@ export async function setSubscriptionStatus(status: SubStatus) {
 // Реальный платёж через ЮKassa — идёт через Edge Function create-payment,
 // которая держит YOOKASSA_SHOP_ID/YOOKASSA_SECRET_KEY на сервере (см.
 // supabase/functions/create-payment). Пока их там нет (мерчант-аккаунт ещё не
-// оформлен), функция отвечает 503 payments_not_configured — вызывающий код
-// (DonateWidget/CreatorPlusSheet/ListenerPlusSheet в overlays.tsx) трактует
-// ЛЮБУЮ ошибку отсюда (включая supabaseEnabled === false) как "откатись на
-// прежний симулированный флоу", а не как повод падать.
+// оформлен), функция отвечает 503 payments_not_configured. Публичный клиент
+// никогда не подменяет эту ошибку фальшивой успешной оплатой.
 export async function createPayment(
   kind: "donation" | "subscription",
   amount: number,

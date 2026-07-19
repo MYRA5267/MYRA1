@@ -93,7 +93,7 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     "--dim": "rgba(30,20,55,0.38)",
     "--aurora-fade": "56%",
   },
-  // Неоновая тема — эксклюзив MYRA Plus: глубокий сине-фиолетовый фон,
+  // Неоновая тема: глубокий сине-фиолетовый фон,
   // неоновые кромки стекла. Единственная тема, закрытая тарифом
   neon: {
     "--fg": "#eef2ff",
@@ -349,14 +349,16 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     };
   }, [failPlayback, syncBuffered, syncPlayback]);
 
-  // timeupdate у браузеров редкий (обычно около 4 Гц). Считываем currentTime
-  // до 12.5 раз/с, а сама DETAIL-лента интерполирует движение на 60/144 Гц.
+  // Android WebView already emits timeupdate often enough for a CSS-smoothed
+  // timeline. A permanent 12.5 Hz React loop forced the whole application tree
+  // to reconcile while music was playing and was the main source of jank on
+  // the phone. Desktop keeps the finer sampler; the APK stays event-driven.
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || "Capacitor" in window) return;
     let raf = 0;
     let last = 0;
     const tick = (now: number) => {
-      if (now - last >= 80) {
+      if (now - last >= 160) {
         const a = active();
         if (a) syncPlayback(a);
         last = now;
@@ -367,12 +369,18 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     return () => cancelAnimationFrame(raf);
   }, [playing, syncPlayback]);
 
-  const load = useCallback((url: string) => {
+  const load = useCallback((url: string, onSwitchFailed?: () => void) => {
     const pair = players.current;
     if (!pair) return;
     const sequence = ++loadSeqRef.current;
     const cur = pair[activeIdx.current];
-    const wantFade = fadeRef.current() && !cur.paused && cur.src;
+    // Android notification commands arrive while the WebView is hidden and
+    // do not carry a browser user-activation token. Starting the second audio
+    // element for a crossfade can therefore be rejected even though the first
+    // element is already allowed to play. Reuse that active element in the
+    // background; foreground taps keep the full two-player crossfade.
+    const backgroundWebView = document.hidden && "Capacitor" in window;
+    const wantFade = fadeRef.current() && !backgroundWebView && !cur.paused && cur.src;
 
     stopFade();
     setProgress(0);
@@ -387,7 +395,10 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
       cur.currentTime = 0;
       cur.volume = clampVol(volRef.current);
       cur.play().catch((cause) => {
-        if (sequence === loadSeqRef.current) failPlayback(cause);
+        if (sequence === loadSeqRef.current) {
+          failPlayback(cause);
+          onSwitchFailed?.();
+        }
       });
       return;
     }
@@ -441,6 +452,7 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
         setStatus("playing");
         console.warn("[MYRA audio] Не удалось переключить трек", cause);
       }
+      onSwitchFailed?.();
     });
   }, [failPlayback]);
 

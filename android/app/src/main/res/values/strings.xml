@@ -4,4 +4,14 @@
     <string name="title_activity_main">MYRA</string>
     <string name="package_name">app.myra.music</string>
     <string name="custom_url_scheme">app.myra.music</string>
+    <string name="media_channel_name">Плеер MYRA</string>
+    <string name="media_channel_description">Управление музыкой в шторке и на экране блокировки</string>
+    <string name="media_now_playing">Сейчас играет · MYRA</string>
+    <string name="media_flow">MYRA Flow</string>
+    <string name="media_previous">Предыдущий трек</string>
+    <string name="media_play">Воспроизвести</string>
+    <string name="media_pause">Пауза</string>
+    <string name="media_next">Следующий трек</string>
+    <string name="media_like">В любимое</string>
+    <string name="media_unlike">Убрать из любимого</string>
 </resources>

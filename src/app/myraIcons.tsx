@@ -90,7 +90,7 @@ export function MyraGlyph({ name, size = 20, className, style, strokeWidth = 1.7
       strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
-      className={className}
+      className={["myra-custom-icon", className].filter(Boolean).join(" ")}
       style={style}
     >
       {paths[name]}
@@ -184,7 +184,7 @@ const semanticIcon = (node: React.ReactNode): LucideIcon => {
   const Icon: LucideIcon = ({ size = 20, color, fill = "none", stroke = "currentColor", strokeWidth = 1.7, className, style, absoluteStrokeWidth: _absolute, ...rest }) => {
     const painted = typeof fill === "string" && fill !== "none" && fill !== "currentColor" ? fill : color;
     return (
-      <svg {...rest} viewBox="0 0 24 24" width={size} height={size} fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" className={className} style={{ color: painted, ...style }}>
+      <svg {...rest} viewBox="0 0 24 24" width={size} height={size} fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" className={["myra-custom-icon", className].filter(Boolean).join(" ")} style={{ color: painted, ...style }}>
         {node}
       </svg>
     );

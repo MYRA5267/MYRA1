@@ -29,8 +29,9 @@ export function useLocalTracks(params: {
       if (!recs.length) return;
       setMyTracks(recs.map(r => ({
         id: r.id, title: r.title, artist: r.artist, album: "Local", duration: r.duration,
-        genre: "Local", plays: "0", liked: false, c1: r.c1, c2: r.c2,
-        img: svgCover(r.c1, r.c2, r.id), url: URL.createObjectURL(r.blob), local: true,
+        genre: r.genre || "Local", plays: "0", liked: false, c1: r.c1, c2: r.c2,
+        img: r.cover || svgCover(r.c1, r.c2, r.id), url: URL.createObjectURL(r.blob), local: true,
+        lyrics: r.lyrics || undefined,
       })));
     });
   }, []);
@@ -70,7 +71,12 @@ export function useLocalTracks(params: {
   const publishRelease = useCallback(async (meta: { title: string; genre: string; lyrics: string; cover: string | null }) => {
     if (!pendingRelease) return;
     const { file, id, c1, c2, defaultImg } = pendingRelease;
-    try { await saveLocalTrack({ id, title: meta.title, artist: userName, duration: "", c1, c2, blob: file }); } catch { /* без сохранения */ }
+    try {
+      await saveLocalTrack({
+        id, title: meta.title, artist: userName, duration: "", c1, c2, blob: file,
+        genre: meta.genre, lyrics: meta.lyrics || undefined, cover: meta.cover,
+      });
+    } catch { /* без сохранения */ }
     const track: Track = {
       id, title: meta.title, artist: userName, album: "Local", duration: "", genre: meta.genre, plays: "0",
       liked: false, c1, c2, img: meta.cover ?? defaultImg, url: URL.createObjectURL(file), local: true,

@@ -11,7 +11,7 @@
 //    это безопасно именно потому, что у них хэш в имени: новый деплой = новые
 //    имена файлов, старые в кэше никогда не станут "неправильной" версией.
 
-const CACHE_NAME = "myra-static-v1";
+const CACHE_NAME = "myra-static-v2";
 const OFFLINE_URL = new URL("./offline.html", self.location.href).pathname;
 
 self.addEventListener("install", (event) => {

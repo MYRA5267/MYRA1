@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="media_channel_name">MYRA player</string>
+    <string name="media_channel_description">Music controls in notifications and on the lock screen</string>
+    <string name="media_now_playing">Now playing · MYRA</string>
+    <string name="media_flow">MYRA Flow</string>
+    <string name="media_previous">Previous track</string>
+    <string name="media_play">Play</string>
+    <string name="media_pause">Pause</string>
+    <string name="media_next">Next track</string>
+    <string name="media_like">Add to favourites</string>
+    <string name="media_unlike">Remove from favourites</string>
+</resources>

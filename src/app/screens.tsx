@@ -9,7 +9,7 @@ import {
 } from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
+import { TRACKS, ARTISTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, TiltCard, Aurora, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, useProgress, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
 import { DetailBackdrop, DetailWave } from "./detail";
 import { useLang, type Lang } from "./i18n";
@@ -17,8 +17,9 @@ import { lastNDays, isMonthEndWindow, type ActivityItem } from "./stats";
 import { MyraBrandLockup } from "./logo";
 import { MyraGlyph, type MyraGlyphName } from "./myraIcons";
 import type { UserRole } from "./auth";
-import { supabaseEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
+import { supabaseEnabled, paymentsEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
 import type { SmartPick } from "./smart";
+import { ProfileGiftShowcase, type CompanionController } from "./companion";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
 
@@ -184,7 +185,7 @@ const ACTIVITY_ICONS: Record<string, typeof Music2> = {
   "act.donateSent": Gift, "act.splitDonate": Gift, "act.splitReady": Gift, "act.withdrawDone": Wallet,
   "act.plCreated": Music2, "act.plDeleted": Music2,
   "cr.added": Upload, "dl.done": Download,
-  "ach.unlocked": Trophy, "act.plusActivated": Sparkles,
+  "ach.unlocked": Trophy,
 };
 
 /** Компактная запись счётчика: 2400 → "2.4K" */
@@ -334,7 +335,7 @@ function FriendFeedRow({ item, playingId, onToggle, onOpenProfile }: {
 // Поток частиц вместо баров: органичнее и дешевле для WebView-композитора
 function HeroWave({ playing, accent, buffered }: { playing: boolean; accent: string; buffered: number }) {
   const progress = useProgress();
-  return <DetailWave progress={progress} buffered={buffered} playing={playing} accent={accent} height={74} />;
+  return <DetailWave progress={progress} buffered={buffered} playing={playing} accent={accent} height={28} compact />;
 }
 
 export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack, playing, buffered, onNavigate, onOpenBlend, onOpenRooms, onPlayWave, onPlayRadio, onLikeTrack, onPauseMain, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid, recommendations }: {
@@ -359,6 +360,13 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
   };
   const waveActive = playing;
   const { playingId: previewPlayingId, toggle: togglePreview } = useTrackPreview(onPauseMain);
+  const pulsePeople = useMemo(() => {
+    const unique = new Map<string, FriendFeedItem>();
+    friendsFeed.forEach(item => {
+      if (item.owner && !unique.has(item.owner_id)) unique.set(item.owner_id, item);
+    });
+    return Array.from(unique.values()).slice(0, 6);
+  }, [friendsFeed]);
 
   // Лента «Релизы сообщества» — последние по-настоящему опубликованные треки
   // ДРУГИХ пользователей. Без Supabase этой секции просто нет (а не пустышка
@@ -456,8 +464,6 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
             <div className="myra-home-flow-copy">
               <div className="myra-flow-kicker text-[10px] uppercase tracking-[0.2em] mb-2">{t("home.flow")}</div>
               <h1>{t("home.headline")}</h1>
-              <p>{t("home.headlineSub")}</p>
-              <div className="myra-home-flow-label"><MyraGlyph name="spark" size={13} />{t("home.aiSub")}</div>
             </div>
             <div className="myra-home-flow-art" style={{ "--flow-color": currentTrack.c2 } as React.CSSProperties}>
               <img src={currentTrack.img} alt="" />
@@ -551,53 +557,55 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
         </div>
       )}
 
-      {/* Лента подписок — реальные аккаунты Supabase, полностью скрыта без бэкенда
-          (см. supabaseEnabled в src/app/supabase.ts), в отличие от "Друзья слушают"
-          ниже, которая всегда на месте (просто пуста без бэкенда/приглашённых) */}
-      {supabaseEnabled && (
-        <div className="px-5 mb-8">
-          <div className="myra-section-heading" style={{ alignItems: "center" }}>
+      {/* Пульс объединяет людей, их свежие релизы и совместные комнаты в одну
+          социальную поверхность. Здесь нет демонстрационных аккаунтов: только
+          реальные профили и треки из Supabase. */}
+      <section className="myra-pulse-shell mx-5 mb-8" style={{ "--pulse-accent": currentTrack.c2 } as React.CSSProperties}>
+        <header className="myra-pulse-header">
+          <div>
+            <span>MYRA SOCIAL</span>
             <h2>{t("soc.feedTitle")}</h2>
-            <button onClick={onOpenPeopleSearch} style={{ color: currentTrack.c2, fontFamily: F.b }}>
-              <MyraGlyph name="search" size={13} /> {t("soc.findPeople")}
-            </button>
+            <p>{t("soc.pulseSub")}</p>
           </div>
+          <button onClick={onOpenPeopleSearch} aria-label={t("soc.findPeople")}>
+            <MyraGlyph name="search" size={16} />
+          </button>
+        </header>
+
+        {pulsePeople.length > 0 && (
+          <div className="myra-pulse-people" aria-label={t("soc.liveNow")}>
+            {pulsePeople.map(item => (
+              <button
+                key={item.owner_id}
+                onClick={() => item.owner && onOpenRealProfile({ id: item.owner_id, username: item.owner.username, handle: item.owner.handle, avatar_url: item.owner.avatar_url, role: item.owner.role })}
+                aria-label={item.owner?.username ?? ""}
+              >
+                <span><img src={item.owner?.avatar_url || item.cover_url || AVATARS[0]} alt="" /></span>
+                <small>{item.owner?.username ?? "?"}</small>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="myra-pulse-feed">
           {friendsFeed.length === 0 ? (
-            <button onClick={onOpenPeopleSearch} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
-              <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
-                <UserPlus size={15} style={{ color: currentTrack.c2 }} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("soc.feedEmpty")}</div>
-                <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("soc.feedEmptySub")}</div>
-              </div>
+            <button onClick={onOpenPeopleSearch} className="myra-pulse-empty">
+              <span><UserPlus size={17} /></span>
+              <div><strong>{t("soc.feedEmpty")}</strong><small>{t("soc.feedEmptySub")}</small></div>
+              <MyraGlyph name="arrow" size={16} />
             </button>
           ) : (
-            <div className="flex flex-col gap-1">
-              {friendsFeed.map(item => (
-                <FriendFeedRow key={item.id} item={item} playingId={previewPlayingId} onToggle={togglePreview} onOpenProfile={onOpenRealProfile} />
-              ))}
-            </div>
+            friendsFeed.slice(0, 8).map(item => (
+              <FriendFeedRow key={item.id} item={item} playingId={previewPlayingId} onToggle={togglePreview} onOpenProfile={onOpenRealProfile} />
+            ))
           )}
         </div>
-      )}
-
-      {/* Совместные комнаты — настоящий MVP на Supabase Realtime (см. rooms.tsx):
-          вместо демо-ленты фейковых "друзей" (FRIENDS всегда пустой массив) —
-          рабочая кнопка входа в реальную синхронную комнату. Иконка Cast (не
-          Radio — тот уже занят «Течением» в быстрых действиях выше, а это
-          принципиально другая функция: совместное прослушивание, а не радио) */}
-      <div className="px-5 mb-8">
-        <button onClick={onOpenRooms} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
-          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
-            <MyraGlyph name="rooms" size={17} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("room.entry")}</div>
-            <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("room.entrySub")}</div>
-          </div>
+        <button onClick={onOpenRooms} className="myra-pulse-room">
+          <span><MyraGlyph name="rooms" size={17} /></span>
+          <div><strong>{t("room.entry")}</strong><small>{t("room.entrySub")}</small></div>
+          <MyraGlyph name="arrow" size={16} />
         </button>
-      </div>
+      </section>
 
       {/* Продолжить — срез (6, 10), а не (2, 8): раньше он пересекался с «Для
           тебя» (0, 6), и один и тот же трек мог оказаться в обеих секциях сразу.
@@ -697,41 +705,40 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
       ) : (
         <>
           <div className="myra-content-section px-5 mb-8">
-            <SectionHeading title={t("browse.trending")} sub={t("browse.chart")} />
-            <div className="myra-chart-list">
-            {CHARTS.map((c, i) => (
-              <button
-                key={c.pos}
-                className="myra-chart-row flex items-center gap-3 w-full text-left"
-                aria-label={`${c.title} — ${c.artist}`}
-                onClick={() => onPlay({ ...TRACKS[(c.pos + 1) % TRACKS.length], id: c.pos + 100, title: c.title, artist: c.artist, album: "Charts", img: c.img })}
-              >
-                <div className="w-7 text-center font-bold text-sm" style={{ color: c.pos <= 3 ? "#a78bfa" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{c.pos}</div>
-                <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
-                  <img src={c.img} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{c.title}</div>
-                  <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{c.artist}</div>
-                </div>
-                <div className="text-[11px] px-2 py-1 rounded-full font-semibold" style={{ fontFamily: F.m, color: c.delta > 0 ? "#34d399" : c.delta < 0 ? "#f87171" : "color-mix(in srgb, var(--fg) 30%, transparent)", background: c.delta > 0 ? "rgba(52,211,153,0.1)" : c.delta < 0 ? "rgba(248,113,113,0.1)" : "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
-                  {c.delta > 0 ? `+${c.delta}` : c.delta < 0 ? c.delta : "—"}
-                </div>
-              </button>
-            ))}
+            <SectionHeading title={t("browse.talents")} sub={t("browse.talentsSub")} />
+            <div className="myra-talent-strip">
+              {ARTISTS.slice(0, 6).map((artist, index) => (
+                <motion.button
+                  key={artist.name}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => onOpenArtist(artist.name)}
+                  className="myra-talent-card"
+                  style={{ "--talent-accent": artist.c2 } as React.CSSProperties}
+                >
+                  <span className="myra-talent-index">0{index + 1}</span>
+                  <img src={artist.img} alt="" loading="lazy" decoding="async" />
+                  <span className="myra-talent-copy"><strong>{artist.name}</strong><small>{artist.genre}</small></span>
+                  <MyraGlyph name="arrow" size={15} />
+                </motion.button>
+              ))}
             </div>
           </div>
 
           <div className="myra-content-section px-5 mb-6">
             <SectionHeading title={t("browse.genres")} />
-            <div className="myra-genre-grid grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="myra-genre-river">
               {GENRE_TILES.map(([g, c], i) => (
-                <TiltCard key={g} max={11} onClick={() => setQuery(g)} className="relative rounded-[18px] overflow-hidden cursor-pointer h-[68px]" style={{ boxShadow: `0 8px 26px ${c}22` }}>
-                  <img src={svgCover("var(--bg2)", c, i + 51)} alt={g} className="w-full h-full object-cover" style={{ filter: "brightness(0.55)" }} />
-                  <div className="absolute inset-0 flex items-center px-4" style={{ background: `linear-gradient(135deg, ${c}3e, transparent)` }}>
-                    <div className="font-bold text-sm" style={{ fontFamily: F.d, letterSpacing: "-0.01em" }}>{g}</div>
-                  </div>
-                </TiltCard>
+                <motion.button
+                  key={g}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setQuery(g)}
+                  className="myra-genre-tile"
+                  style={{ "--genre-accent": c, "--genre-shift": `${i * -0.7}s` } as React.CSSProperties}
+                >
+                  <span className="myra-genre-membrane" aria-hidden="true" />
+                  <strong>{g}</strong>
+                  <MyraGlyph name="arrow" size={14} />
+                </motion.button>
               ))}
             </div>
           </div>
@@ -1096,7 +1103,7 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
   // Детальная аналитика — реальная привилегия Pro (шторка Pro её обещает
   // третьим пунктом; раньше она была открыта всем, и обещание было пустым)
   const openStatsGated = () => {
-    if (creatorPlus) onOpenStats();
+    if (!paymentsEnabled || creatorPlus) onOpenStats();
     else { toast(t("cr.statsLocked")); onOpenCreatorPlus(); }
   };
 
@@ -1143,7 +1150,7 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
             отдельных карточек */}
         <div className="myra-creator-overview" style={{ "--creator-accent": c2 } as React.CSSProperties}>
           <button onClick={openStatsGated}><MyraGlyph name="profile" size={19} /><strong>0</strong><span>{t("cr.fans")}</span></button>
-          <button onClick={() => setWdOpen(true)}><MyraGlyph name="spark" size={19} /><strong>{balance.toLocaleString("ru-RU")}₽</strong><span>{t("cr.donations")}</span></button>
+          <button onClick={() => paymentsEnabled && setWdOpen(true)} aria-disabled={!paymentsEnabled}><MyraGlyph name="spark" size={19} /><strong>{paymentsEnabled ? `${balance.toLocaleString("ru-RU")}₽` : "—"}</strong><span>{t("cr.donations")}</span></button>
           <button onClick={openStatsGated}><MyraGlyph name="library" size={19} /><strong>{myTracks.length}</strong><span>{t("cr.releases")}</span></button>
         </div>
 
@@ -1229,7 +1236,7 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
       {/* MYRA Pro / Начни зарабатывать — премиальная карточка со свечением,
           той же породы, что и хиро-карточка выше, а не плоская плашка-приписка */}
-      <section className="myra-content-section px-5">
+      {paymentsEnabled && <section className="myra-content-section px-5">
         <TiltCard max={5} className="myra-creator-pro-card" onClick={onOpenCreatorPlus}>
           <Aurora c2="#8b5cf6" opacity={0.6} />
           <div className="relative z-10">
@@ -1243,32 +1250,29 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
             </motion.button>
           </div>
         </TiltCard>
-      </section>
+      </section>}
 
-      <WithdrawSheet open={wdOpen} onClose={() => setWdOpen(false)} balance={balance} c2={c2} onDone={onWithdraw} />
+      {paymentsEnabled && <WithdrawSheet open={wdOpen} onClose={() => setWdOpen(false)} balance={balance} c2={c2} onDone={onWithdraw} />}
     </Page>
   );
 });
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onOpenAchievements, achDone, achTotal, onLogout, simpleFx, onToggleSimpleFx, quality, onSetQuality, userRole, plusActive, donationCount, devMode, onToggleDevMode, onOpenDevPanel, onOpenPlus }: {
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onOpenAchievements, achDone, achTotal, onLogout, simpleFx, onToggleSimpleFx, quality, onSetQuality, userRole, donationCount, devMode, onToggleDevMode, onOpenDevPanel, companionController, onOpenGifts }: {
   c2: string; userName: string; handle: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
   onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onOpenSplit: () => void;
   onOpenAchievements: () => void; achDone: number; achTotal: number; onLogout: () => void;
   simpleFx: boolean; onToggleSimpleFx: () => void; quality: number; onSetQuality: (idx: number) => void;
-  userRole: UserRole; plusActive: boolean; donationCount: number;
-  devMode: boolean; onToggleDevMode: () => void; onOpenDevPanel: () => void; onOpenPlus: () => void;
+  userRole: UserRole; donationCount: number;
+  devMode: boolean; onToggleDevMode: () => void; onOpenDevPanel: () => void;
+  companionController: CompanionController; onOpenGifts: () => void;
 }) {
   const { t, lang, setLang } = useLang();
   const { theme, toggleTheme } = useTheme();
   const [blendOpen, setBlendOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [logoutQ, setLogoutQ] = useState(false);
-
-  // Тот же апгрейд, что и на стороне App.tsx: Pro у артиста, Plus у слушателя.
-  // Настоящий потолок для Free — FLAC, Hi-Res только с апгрейдом
-  const hasUpgrade = userRole === "artist" ? creatorPlus : plusActive;
 
   // Секретная активация режима разработчика: 7 быстрых тапов по аватару —
   // стандартный паттерн (как версия сборки в настройках Android)
@@ -1281,17 +1285,16 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
     if (tapCount.current >= 7) { tapCount.current = 0; onToggleDevMode(); }
   };
 
-  // Бейджи: у артиста и слушателя — свои, визуально разные; Pro/Plus и «Меценат»
+  // Бейджи: у артиста и слушателя — свои, визуально разные; Pro и «Меценат»
   // добавляются к базовому; «Разработчик» — только у создателей в dev-режиме
   const badges = useMemo(() => [
     userRole === "artist"
       ? { icon: Mic2, label: t("bd.artist"), c: "#a78bfa" }
       : { icon: Headphones, label: t("bd.listener"), c: "#34d399" },
     ...(userRole === "artist" && creatorPlus ? [{ icon: Crown, label: "MYRA Pro", c: "#c4b5fd" }] : []),
-    ...(userRole === "listener" && plusActive ? [{ icon: Sparkles, label: "MYRA Plus", c: "#22d3ee" }] : []),
     ...(donationCount > 0 ? [{ icon: Gift, label: t("bd.donor"), c: "#facc15" }] : []),
     ...(devMode ? [{ icon: Wrench, label: t("bd.dev"), c: "#f472b6" }] : []),
-  ], [userRole, creatorPlus, plusActive, donationCount, devMode, t]);
+  ], [userRole, creatorPlus, donationCount, devMode, t]);
 
   const QUALITIES = ["AAC 256", "FLAC", "Hi-Res 24-bit"];
 
@@ -1318,30 +1321,15 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
         avatar={avatar}
         userName={userName}
         handle={handle}
-        roleIcon={userRole === "artist" ? Mic2 : Headphones}
         badges={badges}
         onAvatarTap={onAvatarTap}
         onManage={onOpenAccount}
         manageLabel={t("pr.manageAccount")}
       />
 
-      {/* MYRA Plus — бесплатный уровень, виден только слушателям (Pro — у артистов в Студии) */}
-      {userRole === "listener" && (
-        <div className="px-5 mb-6">
-          <TiltCard max={6} onClick={onOpenPlus} className="myra-profile-plus-card rounded-[24px] overflow-hidden relative cursor-pointer" style={{ height: 104, background: "linear-gradient(135deg, rgba(6,38,27,0.9), rgba(6,78,59,0.55))", border: "1px solid rgba(52,211,153,0.3)" }}>
-            <Aurora c2="#d98968" opacity={0.58} />
-            <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "#6ee7b7", fontFamily: F.m }}>MYRA Plus</div>
-                <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: ON_DARK }}>
-                  {plusActive ? t("plus.activeCard") : t("plus.card")}
-                </div>
-              </div>
-              <ChevronRight size={20} style={{ color: onDark(50) }} />
-            </div>
-          </TiltCard>
-        </div>
-      )}
+      <div className="px-5 mb-6">
+        <ProfileGiftShowcase controller={companionController} onOpen={onOpenGifts} />
+      </div>
 
       {/* Статистика — тот же паттерн стат-плиток, что в Медиатеке (myra-library-overview) */}
       <section className="myra-profile-stats myra-content-section mx-5 mb-6" style={{ "--profile-accent": c2 } as React.CSSProperties}>
@@ -1421,42 +1409,35 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         <SectionLabel>{t("pr.sectionApp")}</SectionLabel>
 
-        <StatusCard
-          icon={Volume2}
-          accent={ACCENT_QUALITY}
-          label={t("pr.quality")}
-          statusText={quality === 0 ? t("pr.compressed") : t("pr.lossless")}
-          statusColor={quality === 0 ? "color-mix(in srgb, var(--fg) 40%, transparent)" : "#34d399"}
-          valueChip={QUALITIES[quality]}
-          locked={!hasUpgrade}
-          onClick={() => {
-            // Free: цикл AAC ↔ FLAC (Hi-Res — привилегия апгрейда). Ранний
-            // return здесь раньше вообще блокировал клик с дефолтного FLAC —
-            // Free-пользователь не мог даже вернуться на экономный AAC
-            const maxTier = hasUpgrade ? QUALITIES.length : 2;
-            const next = (quality + 1) % maxTier;
-            onSetQuality(next);
-            toast(!hasUpgrade && quality === 1 ? t("pr.qualityLocked") : t("pr.qualitySet", QUALITIES[next]));
-          }}
-        />
-
-        {/* Язык — реально переключает интерфейс */}
-        <SegmentedSetting
-          icon={Globe}
-          accent={ACCENT_LANG}
-          label={t("pr.lang")}
-          options={[{ value: "ru", label: "ru" }, { value: "en", label: "en" }]}
-          value={lang}
-          onChange={v => setLang(v as Lang)}
-        />
-
-        {/* Аккордеон реальных настроек */}
+        {/* Все параметры приложения собраны в одном месте: профиль больше не
+            превращается в длинный список отдельных технических карточек. */}
         <div className="myra-card-quiet rounded-2xl overflow-hidden">
           <AccordionTrigger icon={SlidersHorizontal} accent={ACCENT_SETTINGS} label={t("pr.settingsGroup")} open={settingsOpen} onClick={() => setSettingsOpen(o => !o)} panelId="pr-settings-panel" />
           <AnimatePresence>
             {settingsOpen && (
               <motion.div id="pr-settings-panel" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
                 <div className="flex flex-col gap-1.5 px-2 pb-2" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 06%, transparent)", paddingTop: 8 }}>
+                  <SettingRow icon={<Volume2 size={15} style={{ color: ACCENT_QUALITY }} />} label={t("pr.quality")} sub={quality === 0 ? t("pr.compressed") : t("pr.lossless")}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = (quality + 1) % QUALITIES.length;
+                        onSetQuality(next);
+                        toast(t("pr.qualitySet", QUALITIES[next]));
+                      }}
+                      className="myra-setting-value"
+                      style={{ color: ACCENT_QUALITY }}
+                    >
+                      {QUALITIES[quality]}
+                    </button>
+                  </SettingRow>
+                  <SettingRow icon={<Globe size={15} style={{ color: ACCENT_LANG }} />} label={t("pr.lang")}>
+                    <div className="myra-inline-segment" role="radiogroup" aria-label={t("pr.lang")}>
+                      {(["ru", "en"] as Lang[]).map(option => (
+                        <button key={option} type="button" role="radio" aria-checked={lang === option} data-active={lang === option || undefined} onClick={() => setLang(option)}>{option}</button>
+                      ))}
+                    </div>
+                  </SettingRow>
                   <SettingRow icon={<Zap size={15} />} label={t("pr.simpleFx")} sub={t("pr.simpleFxSub")}>
                     <Toggle on={simpleFx} onChange={() => { onToggleSimpleFx(); toast(simpleFx ? t("pr.simpleFxOff") : t("pr.simpleFxOn")); }} color={c2} />
                   </SettingRow>
@@ -1655,8 +1636,8 @@ function ProgressCard({ icon, accent, label, done, total, progressText, onClick 
 /** Сводная карточка аккаунта — заменяет собой и старую hero-плашку, и
     отдельную строку «Аккаунт»: аватар/имя/хендл/бейджи (роль, Pro/Plus,
     меценат, разработчик) + единственное действие «Управление аккаунтом» */
-function AccountSummaryCard({ c2, avatar, userName, handle, roleIcon: RoleIcon, badges, onAvatarTap, onManage, manageLabel }: {
-  c2: string; avatar: string; userName: string; handle: string; roleIcon: LucideIcon;
+function AccountSummaryCard({ c2, avatar, userName, handle, badges, onAvatarTap, onManage, manageLabel }: {
+  c2: string; avatar: string; userName: string; handle: string;
   badges: { icon: LucideIcon; label: string; c: string }[];
   onAvatarTap: () => void; onManage: () => void; manageLabel: string;
 }) {
@@ -1664,22 +1645,27 @@ function AccountSummaryCard({ c2, avatar, userName, handle, roleIcon: RoleIcon, 
     <div className="myra-content-section myra-profile-hero mx-5 mt-6 mb-6 px-5 pt-8 pb-7 text-center" style={{ "--profile-accent": c2 } as React.CSSProperties}>
       <DetailBackdrop variant="soft" accent={c2} />
       <span className="myra-page-eyebrow">MYRA PROFILE</span>
-      <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mt-1" onClick={onAvatarTap}>
-        <img src={avatar} alt="avatar" className="w-24 h-24 rounded-full object-cover mx-auto" style={{ border: `2px solid ${c2}`, boxShadow: `0 0 40px ${c2}50` }} />
-        <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}aa)` }}>
-          <RoleIcon size={12} style={{ color: "#fff" }} />
+      <motion.button initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="myra-profile-avatar-stage" onClick={onAvatarTap} aria-label={userName}>
+        <div className="myra-profile-badges" aria-label={badges.map(b => b.label).join(", ")}>
+          {badges.map((b, index) => {
+            const Icon = b.icon;
+            return (
+              <span key={b.label} className="myra-profile-badge-token" data-slot={index} title={b.label} style={{ "--badge-accent": b.c, "--badge-delay": `${index * -0.8}s` } as React.CSSProperties}>
+                <i><Icon size={15} /></i>
+              </span>
+            );
+          })}
         </div>
-      </motion.div>
+        <img src={avatar} alt="" className="myra-profile-avatar" style={{ borderColor: c2, boxShadow: `0 0 44px ${c2}45` }} />
+      </motion.button>
       <div className="myra-profile-name break-words">{userName}</div>
       <div className="text-xs mt-1.5 break-words" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
-      {/* Бейджи — эксклюзивные для роли + Pro/Plus, «Меценат» и «Разработчик»;
-          это и есть честный «статус подписки/аккаунта» — без выдуманных полей */}
-      <div className="myra-profile-badges">
+      <div className="myra-profile-badge-labels">
         {badges.map(b => {
           const Icon = b.icon;
           return (
-            <span key={b.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold" style={{ background: `${b.c}1c`, border: `1px solid ${b.c}44`, color: b.c, fontFamily: F.b }}>
-              <Icon size={12} /> {b.label}
+            <span key={b.label} style={{ "--badge-accent": b.c } as React.CSSProperties}>
+              <Icon size={11} /><b>{b.label}</b>
             </span>
           );
         })}

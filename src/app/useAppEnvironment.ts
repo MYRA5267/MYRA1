@@ -1,31 +1,21 @@
-import { useState, useEffect, useCallback, type RefObject } from "react";
-import { toast } from "sonner";
+import { useState, useEffect, useCallback } from "react";
 import { ls } from "./data";
 import { isWeakEnvironment, type ThemeName } from "./lib";
-import { useLang } from "./i18n";
 
 // Три независимых друг от друга кусочка "среды приложения" — тема, слабый-
 // девайс-режим, десктопный layout. Ни один не завязан на плеер/подписки/
 // соцслой, поэтому вынесены как есть, без изменения поведения.
 
-// Неон — эксклюзив апгрейда (Plus у слушателя, Pro у артиста): вызывающая
-// сторона передаёт актуальность апгрейда через ref (а не значение), чтобы
-// toggleTheme не пересоздавался на каждое изменение подписки — то же самое
-// поведение, что было в App.tsx до выноса
-export function useThemeCycle(neonAllowedRef: RefObject<boolean>) {
-  const { t } = useLang();
+// Все темы доступны бесплатно; здесь только честный циклический переключатель.
+export function useThemeCycle() {
   const [theme, setTheme] = useState<ThemeName>(() => ls.get<ThemeName>("theme", "dark"));
   const toggleTheme = useCallback(() => {
     setTheme(th => {
-      let next: ThemeName = th === "dark" ? "light" : th === "light" ? "neon" : "dark";
-      if (next === "neon" && !neonAllowedRef.current) {
-        toast(t("pr.themeLocked"));
-        next = "dark";
-      }
+      const next: ThemeName = th === "dark" ? "light" : th === "light" ? "neon" : "dark";
       ls.set("theme", next);
       return next;
     });
-  }, [t, neonAllowedRef]);
+  }, []);
   return { theme, setTheme, toggleTheme };
 }
 
