@@ -515,18 +515,28 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
 
 // ─── Плавающий остров (mobile) ────────────────────────────────────────────────
 
-import { MyraGlyph, MyraHomeIcon, MyraDiscoverIcon, MyraLibraryIcon, MyraStudioIcon, MyraProfileIcon } from "./myraIcons";
+import { MyraGlyph, MyraHomeIcon, MyraDiscoverIcon, MyraBetweenIcon, MyraLibraryIcon, MyraStudioIcon, MyraProfileIcon } from "./myraIcons";
 
-export const NAV = [
+const MOBILE_NAV = [
   { id: "home",    icon: MyraHomeIcon,     label: "nav.home" },
   { id: "browse",  icon: MyraDiscoverIcon, label: "nav.browse" },
+  { id: "between", icon: MyraBetweenIcon,  label: "nav.between" },
   { id: "library", icon: MyraLibraryIcon,  label: "nav.library" },
-  { id: "creator", icon: MyraStudioIcon,   label: "nav.creator" },
   { id: "profile", icon: MyraProfileIcon,  label: "nav.profile" },
 ];
 
-/** Студия видна только артистам (или тем, кто оформил MYRA Pro) */
-export const navItems = (showStudio: boolean) => showStudio ? NAV : NAV.filter(n => n.id !== "creator");
+export const NAV = [
+  ...MOBILE_NAV.slice(0, 4),
+  { id: "creator", icon: MyraStudioIcon, label: "nav.creator" },
+  MOBILE_NAV[4],
+];
+
+/** На мобильном всегда пять основных разделов; Студия артиста остаётся в
+ * профиле и в desktop-rail, чтобы шесть пунктов не ломали компактный dock. */
+export const navItems = (showStudio: boolean, surface: "desktop" | "mobile" = "desktop") => {
+  if (surface === "mobile") return MOBILE_NAV;
+  return showStudio ? NAV : NAV.filter(n => n.id !== "creator");
+};
 
 // memo обязателен: остров — единственный вечно видимый крупный компонент на
 // мобильных, и без memo он перерисовывался (~50 узлов поверх blur-стекла)
@@ -604,7 +614,7 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
       </motion.div>
 
       <nav className="myra-mobile-nav pointer-events-auto mx-auto flex items-center gap-1 p-1.5 rounded-full" aria-label={t("pl.playerNav")}>
-        {navItems(showStudio).map(n => {
+        {navItems(showStudio, "mobile").map(n => {
           const active = activeTab === n.id;
           const Icon = n.icon;
           return (

@@ -5,11 +5,13 @@
 // ровно как раньше: каждый хелпер сам проверяет supabaseEnabled и тихо
 // возвращает безопасный no-op, чтобы не городить проверки на каждом вызове.
 
-import { createClient, type SupabaseClient, type Session } from "@supabase/supabase-js";
+import { createClient, type AuthChangeEvent, type SupabaseClient, type Session } from "@supabase/supabase-js";
 
 const env = (import.meta as any).env ?? {};
 const url = env.VITE_SUPABASE_URL;
 const anonKey = env.VITE_SUPABASE_ANON_KEY;
+const supabaseExplicitlyDisabled = env.VITE_SUPABASE_DISABLED === "true";
+const passkeyConfigured = env.VITE_PASSKEYS_ENABLED === "true";
 export const distributionChannel = String(env.VITE_DISTRIBUTION_CHANNEL || "web");
 // Google Play-сборка не должна открывать ЮKassa для цифровых покупок. Пока
 // Google Play Billing/RuStore Pay не подключены нативно, первая версия честно
@@ -23,7 +25,11 @@ export const paymentsEnabled = env.VITE_PAYMENTS_ENABLED === "true" && distribut
 // не только для отсутствующей
 let client: SupabaseClient | null = null;
 try {
-  if (url && anonKey) client = createClient(url, anonKey);
+  if (!supabaseExplicitlyDisabled && url && anonKey) {
+    client = createClient(url, anonKey, {
+      auth: { experimental: { passkey: passkeyConfigured } },
+    });
+  }
 } catch (err) {
   console.warn("Supabase createClient:", err);
   client = null;
@@ -31,8 +37,25 @@ try {
 
 export const supabaseEnabled = client !== null;
 export const supabase: SupabaseClient | null = client;
+export const passkeysEnabled = supabaseEnabled && passkeyConfigured;
 
 export type UserRole = "artist" | "listener";
+export type MyraOAuthProvider = "google" | "github" | "discord" | "spotify";
+
+const configuredOAuth = String(env.VITE_OAUTH_PROVIDERS || "")
+  .split(",")
+  .map((provider: string) => provider.trim().toLowerCase())
+  .filter((provider: string): provider is MyraOAuthProvider => ["google", "github", "discord", "spotify"].includes(provider));
+export const oauthProviders = Array.from(new Set(configuredOAuth));
+
+function authRedirectUrl(mode: "oauth" | "password-recovery") {
+  const configured = String(env.VITE_AUTH_REDIRECT_URL || "").trim();
+  const target = new URL(configured || window.location.href, window.location.origin);
+  target.hash = "";
+  target.search = "";
+  target.searchParams.set(mode, "1");
+  return target.toString();
+}
 
 export async function signUpWithEmail(email: string, password: string, username: string, role?: UserRole) {
   if (!supabaseEnabled || !supabase) return { data: null, error: null };
@@ -42,6 +65,47 @@ export async function signUpWithEmail(email: string, password: string, username:
 export async function signInWithEmail(email: string, password: string) {
   if (!supabaseEnabled || !supabase) return { data: null, error: null };
   return supabase.auth.signInWithPassword({ email, password });
+}
+
+export async function signInWithOAuth(provider: MyraOAuthProvider) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: null };
+  if (!oauthProviders.includes(provider)) return { data: null, error: new Error("OAuth provider is not enabled") };
+  return supabase.auth.signInWithOAuth({ provider, options: { redirectTo: authRedirectUrl("oauth") } });
+}
+
+export async function requestPasswordReset(email: string) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: new Error("Supabase is not configured") };
+  return supabase.auth.resetPasswordForEmail(email, { redirectTo: authRedirectUrl("password-recovery") });
+}
+
+export async function updatePassword(password: string) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: new Error("Supabase is not configured") };
+  return supabase.auth.updateUser({ password });
+}
+
+export function canUsePasskeys() {
+  // WebAuthn здесь настроен на публичный RP ID сайта. В Capacitor WebView
+  // нужен отдельный нативный Credential Manager + Digital Asset Links;
+  // не показываем кнопку, которая внешне работает, но не сможет завершить вход.
+  return passkeysEnabled
+    && typeof window !== "undefined"
+    && !("Capacitor" in window)
+    && "PublicKeyCredential" in window;
+}
+
+export async function signInWithPasskey() {
+  if (!passkeysEnabled || !supabase) return { data: null, error: new Error("Passkeys are not enabled") };
+  return supabase.auth.signInWithPasskey();
+}
+
+export async function registerPasskey() {
+  if (!passkeysEnabled || !supabase) return { data: null, error: new Error("Passkeys are not enabled") };
+  return supabase.auth.registerPasskey();
+}
+
+export async function listPasskeys() {
+  if (!passkeysEnabled || !supabase) return { data: [], error: null };
+  return supabase.auth.passkey.list();
 }
 
 export async function signOutRemote() {
@@ -65,6 +129,11 @@ export async function getSession(): Promise<Session | null> {
 export function onAuthStateChange(callback: (session: Session | null) => void) {
   if (!supabaseEnabled || !supabase) return { data: { subscription: { unsubscribe() {} } } };
   return supabase.auth.onAuthStateChange((_event: string, session: Session | null) => callback(session));
+}
+
+export function onAuthEvent(callback: (event: AuthChangeEvent, session: Session | null) => void) {
+  if (!supabaseEnabled || !supabase) return { data: { subscription: { unsubscribe() {} } } };
+  return supabase.auth.onAuthStateChange(callback);
 }
 
 export interface ProfileFields {

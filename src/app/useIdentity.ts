@@ -55,6 +55,9 @@ export function useIdentity() {
   useEffect(() => {
     if (!supabaseEnabled) return;
     (async () => {
+      // Ссылка восстановления создаёт временную сессию. Не считаем её обычным
+      // входом, пока пользователь не задаст новый пароль в OnboardingFlow.
+      if (new URL(window.location.href).searchParams.get("password-recovery") === "1") return;
       const session = await getSession();
       const uid = session?.user?.id;
       if (!uid || ls.get("onboarded", false)) return;

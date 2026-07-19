@@ -29,9 +29,18 @@ export default defineConfig({
     // на машине разработчика может быть протухшим или отсутствовать.
     command: process.env.CI
       ? "pnpm preview --port 4173"
-      : "pnpm build && pnpm preview --port 4173",
+      : "npm run build && npm run preview -- --port 4173",
+    // E2E должен быть герметичным: локальный .env разработчика может содержать
+    // production Supabase, но offline-demo проверяет именно отключённый backend.
+    // Playwright передаёт эти значения дочернему Vite-процессу поверх .env.
+    env: {
+      ...process.env,
+      VITE_SUPABASE_DISABLED: "true",
+      VITE_SUPABASE_URL: "",
+      VITE_SUPABASE_ANON_KEY: "",
+    },
     url: "http://localhost:4173",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

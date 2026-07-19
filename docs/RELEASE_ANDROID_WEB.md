@@ -21,6 +21,9 @@
 ```text
 VITE_SUPABASE_URL=https://PROJECT_REF.supabase.co
 VITE_SUPABASE_ANON_KEY=публичный_anon_key
+VITE_AUTH_REDIRECT_URL=https://app.myramusic.ru/
+VITE_OAUTH_PROVIDERS=google
+VITE_PASSKEYS_ENABLED=false
 VITE_SENTRY_DSN=dsn_проекта_sentry
 VITE_PAYMENTS_ENABLED=false
 VITE_DISTRIBUTION_CHANNEL=web
@@ -31,16 +34,77 @@ VITE_DISTRIBUTION_CHANNEL=web
 ### База и права
 
 1. Supabase Dashboard → SQL Editor → выполнить `supabase/schema.sql` в новом production-проекте.
-2. Добавить аккаунт владельца в администраторы только из SQL Editor:
+2. Оба владельца сначала самостоятельно регистрируют обычные аккаунты и
+   подтверждают почту. Пароли друг другу и разработчику передавать не нужно.
+   Затем добавить оба аккаунта в администраторы только из SQL Editor:
 
 ```sql
 insert into public.admins (user_id)
-values ('4048efc9-dd74-4ff3-8709-dc7542058d20')
+select id
+from auth.users
+where lower(email) in (
+  lower('EMAIL_ПЕРВОГО_ВЛАДЕЛЬЦА'),
+  lower('EMAIL_ВТОРОГО_ВЛАДЕЛЬЦА')
+)
 on conflict (user_id) do nothing;
 ```
 
-3. Проверить, что бакет `tracks` создан, RLS включён на всех таблицах, а обычный пользователь не может читать чужую поддержку, назначать себя админом или менять платежи.
-4. Задеплоить функции `delete-account`, `support-chat`, `set-subscription`. Платёжные функции пока можно оставить задеплоенными без секретов: клиент их не показывает при `VITE_PAYMENTS_ENABLED=false`.
+После этого панель команды появится в профиле только у этих аккаунтов. Старый
+локальный флаг и жест из семи нажатий не дают доступ в production.
+
+3. В Supabase Auth → URL Configuration установить Site URL
+   `https://app.myramusic.ru` и добавить Redirect URLs:
+
+```text
+https://app.myramusic.ru/**
+http://localhost:5173/**
+http://localhost:4173/**
+```
+
+4. Для первого релиза настроить Google OAuth: создать OAuth-приложение у провайдера, вставить Client
+   ID/Secret в Supabase Auth → Providers и использовать callback Supabase:
+   `https://PROJECT_REF.supabase.co/auth/v1/callback`. До этого оставить
+   `VITE_OAUTH_PROVIDERS` пустым — неготовые кнопки в интерфейсе не появятся.
+
+   Email/пароль остаётся универсальным способом входа. Google — быстрый способ
+   входа для большинства пользователей. Discord и Spotify можно добавить позже
+   через тот же список (`google,discord,spotify`), если аналитика покажет спрос.
+   VK и Яндекс не входят в прямой список OAuth-провайдеров Supabase: для них
+   нужен отдельный проверенный брокер идентификации или серверная OIDC-интеграция.
+   Самодельный обмен токенами перед релизом не использовать.
+
+### Вход без почты для владельцев и постоянных пользователей
+
+В приложении предусмотрены Supabase Passkeys: после одной обычной авторизации
+пользователь может привязать отпечаток, Face ID или PIN устройства в разделе
+«Аккаунт → Безопасность и вход». После этого на первом экране работает вход
+ключом доступа без ввода почты и пароля. Это подходит для обоих владельцев,
+но не заменяет серверную проверку строки `public.admins`.
+
+Перед включением:
+
+1. Supabase Dashboard → Authentication → Passkeys: включить Passkeys.
+2. Установить RP Display Name `MYRA` и постоянный RP ID `myramusic.ru`.
+3. Разрешить origins `https://myramusic.ru` и `https://app.myramusic.ru`.
+4. Сначала развернуть эти домены, затем установить `VITE_PASSKEYS_ENABLED=true`
+   в production и пересобрать приложение.
+5. Оба владельца входят в свои уже созданные аккаунты и отдельно добавляют
+   ключ на каждом доверенном устройстве. Пароли и коды друг другу не передаются.
+
+Passkeys в Supabase пока помечены как экспериментальная возможность. Менять
+RP ID после выдачи ключей нельзя: старые ключи перестанут подходить. Поэтому до
+окончательной настройки домена флаг остаётся `false`.
+
+На первом этапе эта кнопка включается только в браузерной версии. Android APK
+после первой авторизации и так сохраняет защищённую Supabase-сессию и открывает
+аккаунт без повторного ввода почты. Для входа passkey после явного выхода из APK
+нужно отдельно связать Android Credential Manager с доменом через Digital Asset
+Links и SHA-256 отпечаток релизного сертификата; до этой настройки кнопка внутри
+Capacitor WebView намеренно скрыта, чтобы не создавать нерабочий сценарий.
+
+5. В Auth → Security and Protection включить Leaked Password Protection.
+6. Проверить, что бакет `tracks` создан, RLS включён на всех таблицах, а обычный пользователь не может читать чужую поддержку, назначать себя админом или менять платежи.
+7. Задеплоить функции `delete-account`, `support-chat`, `set-subscription`. Платёжные функции пока можно оставить задеплоенными без секретов: клиент их не показывает при `VITE_PAYMENTS_ENABLED=false`.
 
 ### Серверные секреты
 
