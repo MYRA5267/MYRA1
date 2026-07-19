@@ -10,6 +10,7 @@ import { createClient, type AuthChangeEvent, type SupabaseClient, type Session }
 const env = (import.meta as any).env ?? {};
 const url = env.VITE_SUPABASE_URL;
 const anonKey = env.VITE_SUPABASE_ANON_KEY;
+const supabaseExplicitlyDisabled = env.VITE_SUPABASE_DISABLED === "true";
 const passkeyConfigured = env.VITE_PASSKEYS_ENABLED === "true";
 export const distributionChannel = String(env.VITE_DISTRIBUTION_CHANNEL || "web");
 // Google Play-сборка не должна открывать ЮKassa для цифровых покупок. Пока
@@ -24,7 +25,7 @@ export const paymentsEnabled = env.VITE_PAYMENTS_ENABLED === "true" && distribut
 // не только для отсутствующей
 let client: SupabaseClient | null = null;
 try {
-  if (url && anonKey) {
+  if (!supabaseExplicitlyDisabled && url && anonKey) {
     client = createClient(url, anonKey, {
       auth: { experimental: { passkey: passkeyConfigured } },
     });
