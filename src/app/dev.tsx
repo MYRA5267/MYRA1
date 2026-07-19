@@ -7,19 +7,17 @@ import { F, GLASS, Sheet, copyText } from "./lib";
 import { useLang } from "./i18n";
 import { buildAchievements, type AchievementCounters } from "./achievements";
 import type { UserRole } from "./auth";
-import { isAdmin, fetchAllSupportThreads, fetchSupportThread, sendSupportMessage, markSupportThreadRead, fetchOpenReports, resolveReport, hideTrack, type SupportMessageRow, type SupportThreadPreview, type OpenReportRow } from "./supabase";
+import { isAdmin, supabaseEnabled, distributionChannel, fetchAllSupportThreads, fetchSupportThread, sendSupportMessage, markSupportThreadRead, fetchOpenReports, resolveReport, hideTrack, type SupportMessageRow, type SupportThreadPreview, type OpenReportRow } from "./supabase";
 
 // ─── Панель разработчика ──────────────────────────────────────────────────────
-// Только для создателей MYRA. Активируется семью быстрыми тапами по аватару в
-// профиле и позволяет проверять фичи до релиза: выдавать себе XP и уровни,
-// переключать роль, включать подписки, пополнять баланс и смотреть скрытые
-// достижения. Никакого бэкенда за этим нет — панель крутит те же локальные
-// состояния, что и обычные пользовательские действия.
+// Только для создателей MYRA: в production вход появляется после серверной
+// проверки public.admins. Панель объединяет безопасную диагностику, поддержку,
+// модерацию и локальные инструменты предпросмотра состояний.
 
 const XP_PRESETS = [500, 2500, 10000];
 const BALANCE_PRESETS = [1000, 10000];
 
-export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetRole, cpStatus, onSetCp, balance, onAddBalance, onGrantXp, onOpenAdminSupport, onOpenModeration }: {
+export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetRole, cpStatus, onSetCp, balance, onAddBalance, onGrantXp, onOpenAdminSupport, onOpenModeration, uid, adminAccess, simpleFx }: {
   open: boolean; onClose: () => void; level: number;
   counters: AchievementCounters;
   userRole: UserRole; onSetRole: (r: UserRole) => void;
@@ -28,6 +26,9 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
   onGrantXp: (xp: number) => void;
   onOpenAdminSupport: () => void;
   onOpenModeration: () => void;
+  uid: string | null;
+  adminAccess: boolean;
+  simpleFx: boolean;
 }) {
   const { t } = useLang();
   // achVersion — форс-пересчёт после сброса прогресса кнопкой ниже
@@ -35,7 +36,10 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
   const achievements = useMemo(() => buildAchievements(counters), [counters]);
   const unlocked = useMemo(() => new Set(ls.get<string[]>("achUnlocked", [])), [achievements, achVersion, open]);
   const runtime = useMemo(() => {
-    const nav = navigator as Navigator & { deviceMemory?: number };
+    const nav = navigator as Navigator & {
+      deviceMemory?: number;
+      connection?: { effectiveType?: string; downlink?: number; saveData?: boolean };
+    };
     return {
       build: "1.10.0",
       platform: /Android/i.test(navigator.userAgent) ? "Android WebView" : navigator.platform || "Web",
@@ -43,6 +47,12 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
       viewport: `${window.innerWidth}×${window.innerHeight}`,
       cores: nav.hardwareConcurrency ?? "—",
       memory: nav.deviceMemory ? `${nav.deviceMemory} GB` : "—",
+      connection: nav.connection?.effectiveType ?? (navigator.onLine ? "online" : "offline"),
+      downlink: nav.connection?.downlink ? `${nav.connection.downlink} Mbps` : "—",
+      saveData: nav.connection?.saveData === true,
+      secure: window.isSecureContext,
+      mediaSession: "mediaSession" in navigator,
+      pixelRatio: window.devicePixelRatio.toFixed(1),
     };
   }, [open]);
 
@@ -51,6 +61,10 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
       `MYRA ${runtime.build}`,
       `${runtime.platform} · ${runtime.viewport}`,
       `online=${runtime.online} cores=${runtime.cores} memory=${runtime.memory}`,
+      `connection=${runtime.connection} downlink=${runtime.downlink} saveData=${runtime.saveData}`,
+      `secure=${runtime.secure} mediaSession=${runtime.mediaSession} dpr=${runtime.pixelRatio}`,
+      `backend=${supabaseEnabled} channel=${distributionChannel} admin=${adminAccess} uid=${uid ?? "none"}`,
+      `simpleFx=${simpleFx}`,
       `level=${level} plays=${counters.totalPlays} liked=${counters.likedCount} releases=${counters.releaseCount}`,
     ].join("\n");
     await copyText(text);
@@ -58,6 +72,7 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
   };
 
   const toggleEruda = async () => {
+    if (!import.meta.env.DEV) return;
     const eruda = (await import("eruda")).default;
     if ((window as any).__erudaOn) { eruda.destroy(); (window as any).__erudaOn = false; toast(t("dev.consoleOff")); }
     else { eruda.init(); (window as any).__erudaOn = true; toast(t("dev.consoleOn")); }
@@ -94,14 +109,19 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
           <div><Zap size={14} /><span>Сборка</span><strong>{runtime.build}</strong></div>
           <div className={runtime.online ? "is-ok" : "is-warn"}><span className="myra-dev-status-dot" /><span>Сеть</span><strong>{runtime.online ? "онлайн" : "офлайн"}</strong></div>
           <div><Bug size={14} /><span>Экран</span><strong>{runtime.viewport}</strong></div>
+          <div className={supabaseEnabled ? "is-ok" : "is-warn"}><span className="myra-dev-status-dot" /><span>{t("dev.backend")}</span><strong>{supabaseEnabled ? t("dev.connected") : t("dev.offline")}</strong></div>
+          <div className={adminAccess ? "is-ok" : "is-warn"}><ShieldAlert size={14} /><span>{t("dev.access")}</span><strong>{adminAccess ? t("dev.admin") : t("dev.local")}</strong></div>
+          <div><Globe size={14} /><span>{t("dev.channel")}</span><strong>{distributionChannel}</strong></div>
+          <div><Zap size={14} /><span>{t("dev.effects")}</span><strong>{simpleFx ? t("dev.simple") : t("dev.full")}</strong></div>
         </div>
         <div className="myra-dev-tool-row">
           <button onClick={copyDiagnostics}><Copy size={13} />Копировать диагностику</button>
+          {uid && <button onClick={async () => { await copyText(uid); toast(t("dev.uidCopied")); }}><Copy size={13} />{t("dev.copyUid")}</button>}
           <button onClick={() => window.location.reload()}><RefreshCw size={13} />Перезапустить UI</button>
         </div>
 
-        {/* Инбокс поддержки — devMode только открывает эту кнопку, реальный
-            доступ к чужим переписке проверяет сам AdminSupportSheet (таблица admins) */}
+        {/* Доступ уже проверен перед показом панели; шторка поддержки повторяет
+            проверку самостоятельно как дополнительный рубеж. */}
         <motion.button whileTap={{ scale: 0.98 }} onClick={onOpenAdminSupport} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-2" style={{ ...GLASS, border: "1px solid rgba(34,211,238,0.3)" }}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(34,211,238,0.14)" }}>
             <Inbox size={15} style={{ color: "#22d3ee" }} />
@@ -110,9 +130,7 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
           <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
         </motion.button>
 
-        {/* Очередь модерации — тот же паттерн, что и инбокс поддержки выше:
-            devMode лишь показывает кнопку, реальный доступ к чужим жалобам
-            проверяет сам ModerationSheet (таблица admins) */}
+        {/* Очередь модерации повторно проверяет admins при каждом открытии. */}
         <motion.button whileTap={{ scale: 0.98 }} onClick={onOpenModeration} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-2" style={{ ...GLASS, border: "1px solid rgba(248,113,113,0.3)" }}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(248,113,113,0.14)" }}>
             <Flag size={15} style={{ color: "#f87171" }} />
@@ -124,13 +142,15 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
         {/* Консоль отладки прямо на устройстве (eruda): единственный способ
             увидеть реальные ошибки на телефоне без подключения к компьютеру.
             Пакет грузится лениво отдельным чанком только при первом включении */}
-        <motion.button whileTap={{ scale: 0.98 }} onClick={toggleEruda} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-2" style={{ ...GLASS, border: "1px solid rgba(250,204,21,0.3)" }}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(250,204,21,0.14)" }}>
-            <Bug size={15} style={{ color: "#facc15" }} />
-          </div>
-          <div className="flex-1 text-left text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.console")}</div>
-          <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
-        </motion.button>
+        {import.meta.env.DEV && (
+          <motion.button whileTap={{ scale: 0.98 }} onClick={toggleEruda} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-2" style={{ ...GLASS, border: "1px solid rgba(250,204,21,0.3)" }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(250,204,21,0.14)" }}>
+              <Bug size={15} style={{ color: "#facc15" }} />
+            </div>
+            <div className="flex-1 text-left text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.console")}</div>
+            <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+          </motion.button>
+        )}
 
         {/* XP и уровень */}
         {label(t("dev.xp"))}
@@ -216,12 +236,8 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
 }
 
 // ─── Инбокс поддержки для админов (двух создателей MYRA) ─────────────────────
-// Точка входа — кнопка выше, внутри DevPanelSheet: devMode лишь ПОКАЗЫВАЕТ её
-// (обнаружение), а реальное разрешение на чужую переписку тут же, при
-// открытии, проверяется отдельно через isAdmin(uid) (таблица admins — она и
-// есть источник правды на доступ к данным). Если пользователь не в admins, но
-// каким-то образом включил devMode, он увидит только "нет доступа" — ни
-// одного чужого сообщения не подгрузится.
+// Доступ к данным повторно проверяется через isAdmin(uid) при открытии, а RLS
+// таблиц остаётся окончательным источником правды даже при подмене клиента.
 
 const fmtThreadTime = (iso: string) => new Date(iso).toLocaleString([], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
@@ -435,11 +451,8 @@ export function AdminSupportSheet({ open, onClose, uid }: { open: boolean; onClo
 }
 
 // ─── Очередь модерации для админов (двух создателей MYRA) ────────────────────
-// Точка входа — кнопка в DevPanelSheet выше, тот же паттерн, что и у инбокса
-// поддержки: devMode лишь ПОКАЗЫВАЕТ кнопку, реальный доступ к чужим жалобам
-// проверяется отдельно через isAdmin(uid) при открытии (таблица admins — она
-// и есть источник правды, см. schema.sql секции 12-13). Не в admins — пусто,
-// без единой чужой жалобы, что бы ни включил девMode на клиенте.
+// Как и поддержка, модерация повторно проверяет isAdmin(uid), а RLS таблицы
+// reports остаётся окончательным источником правды при подмене клиента.
 
 const fmtReportTime = (iso: string) => new Date(iso).toLocaleString([], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowRight, Mail, Lock, User, Check, Moon, Sun, Mic2, Headphones } from "./myraIcons";
+import { ArrowRight, Mail, Lock, User, Check, Moon, Sun, Mic2, Headphones, KeyRound } from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
@@ -8,20 +8,32 @@ import { MyraBrandLockup } from "./logo";
 import { MyraGlyph } from "./myraIcons";
 import { DetailBackdrop, DetailWave } from "./detail";
 import { useLang } from "./i18n";
-import { supabaseEnabled, signUpWithEmail, signInWithEmail, getSession, upsertProfile, fetchProfile, resendConfirmation } from "./supabase";
+import {
+  supabaseEnabled, signUpWithEmail, signInWithEmail, signInWithOAuth,
+  requestPasswordReset, updatePassword, oauthProviders, onAuthEvent,
+  canUsePasskeys, signInWithPasskey,
+  getSession, upsertProfile, fetchProfile, resendConfirmation,
+  type MyraOAuthProvider,
+} from "./supabase";
 
-type Step = "slides" | "auth" | "taste" | "role" | "confirm";
+type Step = "slides" | "auth" | "forgot" | "recovery" | "taste" | "role" | "confirm";
 export type UserRole = "artist" | "listener";
 
-export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRole, email: string, handle?: string | null) => void }) {
+export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone }: {
+  onDone: (name: string, role: UserRole, email: string, handle?: string | null) => void;
+  forceRecovery?: boolean;
+  onRecoveryDone?: () => void;
+}) {
   const { t, lang, setLang } = useLang();
   const { theme, toggleTheme } = useTheme();
-  const [step, setStep] = useState<Step>("slides");
+  const [step, setStep] = useState<Step>(() => forceRecovery || new URL(window.location.href).searchParams.get("password-recovery") === "1" ? "recovery" : "slides");
   const [slide, setSlide] = useState(0);
   const [mode, setMode] = useState<"login" | "signup">("signup");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [role, setRole] = useState<UserRole | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -35,40 +47,137 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
   const finishName = name.trim() || (lang === "ru" ? "Алекс" : "Alex");
 
   const submitAuth = async () => {
+    if (busy) return;
     const emailOk = /.+@.+\..+/.test(email);
     if (mode === "signup" && !name.trim()) { toast(t("au.errName")); return; }
     if (!emailOk) { toast(t("au.errEmail")); return; }
-    if (pass.length < 6) { toast(t("au.errPass")); return; }
-    if (mode === "login") {
-      if (supabaseEnabled) {
-        const { error } = await signInWithEmail(email, pass);
-        if (error) { toast(t("au.loginFailed", error.message)); return; }
-        // Существующий аккаунт: имя, роль и хендл живут в серверном профиле,
-        // а не в localStorage этого устройства. Подтягиваем их прямо сейчас —
-        // эффект восстановления в App.tsx срабатывает только на старте
-        // приложения и после логина уже не выполнится, так что без этого
-        // пользователь навсегда остался бы с именем-заглушкой.
-        const uid = (await getSession())?.user?.id;
-        if (uid) {
-          const { data: profile } = await fetchProfile(uid);
-          if (profile?.username) {
-            const role: UserRole = profile.role === "artist" ? "artist" : "listener";
-            toast(t("au.welcomeBack", profile.username));
-            onDone(profile.username, role, email.trim(), profile.handle ?? null);
-            return;
+    if (pass.length < 8) { toast(t("au.errPass")); return; }
+    setBusy(true);
+    try {
+      if (mode === "login") {
+        if (supabaseEnabled) {
+          const { error } = await signInWithEmail(email, pass);
+          if (error) { toast(t("au.loginFailed", error.message)); return; }
+          // Существующий аккаунт: имя, роль и хендл живут в серверном профиле,
+          // а не в localStorage этого устройства. Подтягиваем их прямо сейчас.
+          const uid = (await getSession())?.user?.id;
+          if (uid) {
+            const { data: profile } = await fetchProfile(uid);
+            if (profile?.username) {
+              const role: UserRole = profile.role === "artist" ? "artist" : "listener";
+              toast(t("au.welcomeBack", profile.username));
+              onDone(profile.username, role, email.trim(), profile.handle ?? null);
+              return;
+            }
           }
         }
+        toast(t("au.welcomeBack", finishName));
+        onDone(finishName, ls.get<UserRole>("userRole", "listener"), email.trim());
+      } else {
+        if (supabaseEnabled) {
+          // Роль ещё не выбрана — её допишет upsertProfile в finishRole.
+          const { error } = await signUpWithEmail(email, pass, name.trim());
+          if (error) { toast(t("au.signupFailed", error.message)); return; }
+        }
+        toast(t("au.created"));
+        setStep("taste");
       }
-      toast(t("au.welcomeBack", finishName));
-      onDone(finishName, ls.get<UserRole>("userRole", "listener"), email.trim());
-    } else {
-      if (supabaseEnabled) {
-        // Роль ещё не выбрана — на этом шаге её нет, метаданные о ней допишет upsertProfile в finishRole
-        const { error } = await signUpWithEmail(email, pass, name.trim());
-        if (error) { toast(t("au.signupFailed", error.message)); return; }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (forceRecovery) setStep("recovery");
+  }, [forceRecovery]);
+
+  useEffect(() => {
+    const { data } = onAuthEvent(event => {
+      if (event === "PASSWORD_RECOVERY") setStep("recovery");
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  const sendPasswordReset = async () => {
+    const normalized = email.trim();
+    if (!/.+@.+\..+/.test(normalized)) { toast(t("au.errEmail")); return; }
+    setBusy(true);
+    try {
+      const { error } = await requestPasswordReset(normalized);
+      if (error) { toast(t("au.resetFailed", error.message)); return; }
+      toast.success(t("au.resetSent"));
+      setStep("auth");
+      setMode("login");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clearRecoveryParam = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("password-recovery");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  };
+
+  const saveNewPassword = async () => {
+    if (pass.length < 8) { toast(t("au.errNewPass")); return; }
+    if (pass !== confirmPass) { toast(t("au.errPassMatch")); return; }
+    setBusy(true);
+    try {
+      const { error } = await updatePassword(pass);
+      if (error) { toast(t("au.updatePassFailed", error.message)); return; }
+      const session = await getSession();
+      const uid = session?.user?.id;
+      const { data: profile } = uid ? await fetchProfile(uid) : { data: null };
+      clearRecoveryParam();
+      toast.success(t("au.passwordUpdated"));
+      onRecoveryDone?.();
+      if (profile) {
+        onDone(profile.username, profile.role === "artist" ? "artist" : "listener", profile.email ?? session?.user?.email ?? "", profile.handle ?? null);
+      } else {
+        setPass("");
+        setConfirmPass("");
+        setStep("auth");
+        setMode("login");
       }
-      toast(t("au.created"));
-      setStep("taste");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startOAuth = async (provider: MyraOAuthProvider) => {
+    setBusy(true);
+    try {
+      const { error } = await signInWithOAuth(provider);
+      if (error) toast(t("au.oauthFailed", error.message));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startPasskey = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { data, error } = await signInWithPasskey();
+      if (error || !data?.session?.user?.id) {
+        toast.error(t("au.passkeyFailed"));
+        return;
+      }
+      const { data: profile } = await fetchProfile(data.session.user.id);
+      if (!profile?.username) {
+        toast.error(t("au.passkeyProfileFailed"));
+        return;
+      }
+      toast.success(t("au.welcomeBack", profile.username));
+      onDone(
+        profile.username,
+        profile.role === "artist" ? "artist" : "listener",
+        profile.email ?? data.session.user.email ?? "",
+        profile.handle ?? null,
+      );
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -238,13 +347,74 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
                 </div>
               </div>
 
-              <motion.button whileTap={{ scale: 0.97 }} onClick={submitAuth} className="myra-primary-cta w-full py-4 rounded-full text-sm font-bold mb-5" style={{ fontFamily: F.b }}>
+              <motion.button whileTap={{ scale: 0.97 }} disabled={busy} onClick={submitAuth} className="myra-primary-cta w-full py-4 rounded-full text-sm font-bold mb-3 disabled:opacity-50" style={{ fontFamily: F.b }}>
                 {mode === "signup" ? t("au.doSignup") : t("au.doLogin")}
               </motion.button>
 
-              {/* Соц-кнопки убраны до реализации OAuth: они изображали вход
-                  (тост «Входим через Google…» + переход дальше), которого не
-                  было, а с Supabase заводили в тупик подтверждения пустой почты */}
+              {canUsePasskeys() && (
+                <button type="button" disabled={busy} onClick={startPasskey} className="myra-passkey-button">
+                  <KeyRound size={15} />
+                  <span>{t("au.passkey")}</span>
+                  <small>{t("au.passkeySub")}</small>
+                </button>
+              )}
+
+              {mode === "login" && (
+                <button onClick={() => setStep("forgot")} className="block mx-auto mb-5 text-xs font-semibold" style={{ color: "color-mix(in srgb, var(--fg) 52%, transparent)" }}>
+                  {t("au.forgot")}
+                </button>
+              )}
+
+              {oauthProviders.length > 0 && (
+                <div className="myra-oauth-block">
+                  <div><span>{t("au.or")}</span></div>
+                  <div className="myra-oauth-grid">
+                    {oauthProviders.map(provider => (
+                      <button key={provider} disabled={busy} onClick={() => startOAuth(provider)}>
+                        <i>{provider === "google" ? "G" : provider === "github" ? "GH" : provider === "spotify" ? "S" : "D"}</i>
+                        {t(`au.oauth.${provider}`)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {step === "forgot" && (
+            <motion.div key="forgot" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
+              <span className="myra-page-eyebrow">MYRA ACCOUNT</span>
+              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em" }} className="mt-3 mb-2">{t("au.resetTitle")}</h1>
+              <p className="text-sm mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", lineHeight: 1.55 }}>{t("au.resetSub")}</p>
+              <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-4" style={GLASS}>
+                <Mail size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
+                <input value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => { if (e.key === "Enter") sendPasswordReset(); }} placeholder={t("au.email")} type="email" className="flex-1 bg-transparent outline-none text-sm min-w-0" style={{ color: "var(--fg)" }} />
+              </div>
+              <motion.button whileTap={{ scale: 0.97 }} disabled={busy} onClick={sendPasswordReset} className="myra-primary-cta w-full py-4 rounded-full text-sm font-bold disabled:opacity-50" style={{ fontFamily: F.b }}>
+                {busy ? t("au.sending") : t("au.sendReset")}
+              </motion.button>
+              <button onClick={() => { setStep("auth"); setMode("login"); }} className="block mx-auto mt-5 text-xs font-semibold" style={{ color: "color-mix(in srgb, var(--fg) 52%, transparent)" }}>{t("au.backLogin")}</button>
+            </motion.div>
+          )}
+
+          {step === "recovery" && (
+            <motion.div key="recovery" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
+              <span className="myra-page-eyebrow">MYRA SECURITY</span>
+              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em" }} className="mt-3 mb-2">{t("au.newPassTitle")}</h1>
+              <p className="text-sm mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", lineHeight: 1.55 }}>{t("au.newPassSub")}</p>
+              <div className="flex flex-col gap-2.5 mb-4">
+                <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl" style={GLASS}>
+                  <Lock size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
+                  <input value={pass} onChange={e => setPass(e.target.value)} placeholder={t("au.newPass")} type="password" autoComplete="new-password" className="flex-1 bg-transparent outline-none text-sm min-w-0" style={{ color: "var(--fg)" }} />
+                </div>
+                <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl" style={GLASS}>
+                  <Check size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
+                  <input value={confirmPass} onChange={e => setConfirmPass(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveNewPassword(); }} placeholder={t("au.repeatPass")} type="password" autoComplete="new-password" className="flex-1 bg-transparent outline-none text-sm min-w-0" style={{ color: "var(--fg)" }} />
+                </div>
+              </div>
+              <motion.button whileTap={{ scale: 0.97 }} disabled={busy} onClick={saveNewPassword} className="myra-primary-cta w-full py-4 rounded-full text-sm font-bold disabled:opacity-50" style={{ fontFamily: F.b }}>
+                {busy ? t("au.saving") : t("au.savePassword")}
+              </motion.button>
             </motion.div>
           )}
 

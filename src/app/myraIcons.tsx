@@ -1,7 +1,7 @@
 import React from "react";
 
 export type MyraGlyphName =
-  | "home" | "discover" | "library" | "studio" | "profile"
+  | "home" | "discover" | "between" | "library" | "studio" | "profile"
   | "search" | "heart" | "chart" | "radio" | "blend"
   | "rooms" | "spark" | "bell" | "play" | "pause" | "arrow"
   | "plus" | "settings" | "download" | "globe";
@@ -25,6 +25,12 @@ const paths: Record<MyraGlyphName, React.ReactNode> = {
     <path d="M3.5 12c2.6-4.1 5.5-6.2 8.5-6.2s5.9 2.1 8.5 6.2c-2.6 4.1-5.5 6.2-8.5 6.2S6.1 16.1 3.5 12Z" />
     <path d="M8.3 13.2c1.2 1.8 4.3 2.6 6.3.3 1.7-2 .8-4.3-.8-5.1" />
     <circle cx="10.2" cy="10.2" r="1.15" fill="currentColor" stroke="none" />
+  </>,
+  between: <>
+    <path d="M4.1 8.4c2.1-3.1 5.4-3.7 7.9-1.1 2.5-2.6 5.8-2 7.9 1.1" />
+    <path d="M4.1 15.6c2.1 3.1 5.4 3.7 7.9 1.1 2.5 2.6 5.8 2 7.9-1.1" />
+    <path d="M7.2 12h9.6" opacity=".52" />
+    <circle cx="12" cy="12" r="1.45" fill="currentColor" stroke="none" />
   </>,
   library: <>
     <path d="M5.2 5.2c1.3-.7 2.6-.7 3.8 0v13.6c-1.2-.7-2.5-.7-3.8 0V5.2Z" />
@@ -105,6 +111,7 @@ export const createMyraIcon = (name: MyraGlyphName) =>
 
 export const MyraHomeIcon = createMyraIcon("home");
 export const MyraDiscoverIcon = createMyraIcon("discover");
+export const MyraBetweenIcon = createMyraIcon("between");
 export const MyraLibraryIcon = createMyraIcon("library");
 export const MyraStudioIcon = createMyraIcon("studio");
 export const MyraProfileIcon = createMyraIcon("profile");

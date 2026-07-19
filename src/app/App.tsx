@@ -18,7 +18,7 @@ import { useSubscription } from "./useSubscription";
 import { useIdentity } from "./useIdentity";
 import { usePlayerQueue } from "./usePlayerQueue";
 import { smartRecommendations } from "./smart";
-import { GiftGallerySheet, useCompanion } from "./companion";
+import { IdentityCollectionSheet, useCompanion } from "./companion";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
   topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds, grantXp,
@@ -40,8 +40,9 @@ import { enqueueSyncOp, flushSyncQueue, isNetworkError } from "./syncQueue";
 const OnboardingFlow = lazy(() => import("./auth").then(m => ({ default: m.OnboardingFlow })));
 import {
   supabaseEnabled, signOutRemote, recordDonation, fetchReceivedDonationsTotal, deleteAccountRemote,
+  isAdmin, onAuthEvent,
 } from "./supabase";
-import { HomeScreen, BrowseScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
+import { HomeScreen, BetweenScreen, BrowseScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
 import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, SplitSheet, AchievementsSheet, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
 const RoomSheet = lazy(() => import("./roomSheet").then(m => ({ default: m.RoomSheet })));
@@ -54,6 +55,7 @@ const GLOBAL_STYLE = `
   @keyframes eq1 { from{transform:scaleY(0.3)} to{transform:scaleY(1)} }
   @keyframes eq2 { from{transform:scaleY(1)} to{transform:scaleY(0.4)} }
   @keyframes eq3 { from{transform:scaleY(0.5)} to{transform:scaleY(0.9)} }
+  .myra-eq-bar{contain:paint;will-change:transform}
   @keyframes orbPulse { 0%,100%{transform:scale(1);opacity:0.85} 50%{transform:scale(1.04);opacity:1} }
   @keyframes orbSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
   @keyframes waveBounce { from{transform:scaleY(0.7)} to{transform:scaleY(1.18)} }
@@ -79,8 +81,8 @@ const GLOBAL_STYLE = `
   .fx-simple .fx-orb{display:none!important}
 `;
 
-type Tab = "home" | "browse" | "rating" | "library" | "creator" | "profile";
-const TAB_ORDER: Tab[] = ["home", "browse", "rating", "library", "creator", "profile"];
+type Tab = "home" | "browse" | "between" | "rating" | "library" | "creator" | "profile";
+const TAB_ORDER: Tab[] = ["home", "browse", "between", "rating", "library", "creator", "profile"];
 
 // Ленивый маунт шторки: чанк не грузится, пока шторку ни разу не открыли,
 // а после первого открытия остаётся смонтированной — размонтирование по
@@ -94,8 +96,8 @@ function useEverOpened(open: boolean) {
 function AppInner() {
   const { t, lang } = useLang();
   const companionController = useCompanion();
-  const [giftGalleryOpen, setGiftGalleryOpen] = useState(false);
-  const openGiftGallery = useCallback(() => setGiftGalleryOpen(true), []);
+  const [identityCollectionOpen, setIdentityCollectionOpen] = useState(false);
+  const openIdentityCollection = useCallback(() => setIdentityCollectionOpen(true), []);
 
   // Неон — эксклюзив апгрейда (Plus у слушателя, Pro у артиста): цикл тем
   // включает его только при активной подписке, иначе честный тост вместо темы
@@ -115,6 +117,15 @@ function AppInner() {
     avatarIdx, setAvatarIdx, customAvatar, setCustomAvatar,
     userRole, setRole, uid, finishOnboarding, clearIdentity,
   } = useIdentity();
+  const [passwordRecovery, setPasswordRecovery] = useState(
+    () => new URL(window.location.href).searchParams.get("password-recovery") === "1",
+  );
+  useEffect(() => {
+    const { data } = onAuthEvent(event => {
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
   // uidRef — только для sendDonation ниже (ref, чтобы не пересоздавать колбэк
   // при каждой смене uid); хуки useSocialLayer/useLocalTracks/useSubscription
   // держат собственные внутренние копии этого же паттерна
@@ -129,12 +140,34 @@ function AppInner() {
 
   // Студия — только артистам: MYRA Pro больше не открывает её слушателям
   const showStudio = userRole === "artist";
-  // Режим разработчика — для нас, создателей: включается 7 тапами по аватару в профиле
-  const [devMode, setDevModeState] = useState(() => ls.get("devMode", false));
+  // В релизе доступ к инструментам команды определяет только серверная таблица
+  // admins. Локальный флаг разрешён лишь в явной dev-сборке.
+  const [adminAccess, setAdminAccess] = useState(false);
+  const localDevAccess = import.meta.env.DEV && import.meta.env.VITE_DEV_TOOLS === "true";
+  const devMode = adminAccess || localDevAccess;
   const [devPanelOpen, setDevPanelOpen] = useState(false);
   const [adminSupportOpen, setAdminSupportOpen] = useState(false);
   const [moderationOpen, setModerationOpen] = useState(false);
   const [followed, setFollowed] = useState<Set<string>>(() => new Set(ls.get<string[]>("followed", [])));
+
+  useEffect(() => {
+    let active = true;
+    if (!uid) {
+      setAdminAccess(false);
+      return () => { active = false; };
+    }
+    isAdmin(uid)
+      .then(allowed => { if (active) setAdminAccess(allowed); })
+      .catch(() => { if (active) setAdminAccess(false); });
+    return () => { active = false; };
+  }, [uid]);
+
+  useEffect(() => {
+    if (devMode) return;
+    setDevPanelOpen(false);
+    setAdminSupportOpen(false);
+    setModerationOpen(false);
+  }, [devMode]);
 
   const [tab, setTabState] = useState<Tab>(() => ls.get<Tab>("tab", "home"));
   const previousTabRef = useRef(tab);
@@ -344,19 +377,18 @@ function AppInner() {
     toast.success(t("ach.unlocked", t(fresh[0].key)));
   }, [totalPlays, stats, likedIds, customPls, myTracks, donationCount, logActivity, t]);
 
-  // Режим разработчика: тумблер дергается секретным жестом из ProfileScreen
-  const toggleDevMode = useCallback(() => {
-    setDevModeState(d => {
-      const next = !d;
-      ls.set("devMode", next);
-      toast(next ? t("dev.on") : t("dev.off"));
-      if (!next) setDevPanelOpen(false);
-      return next;
-    });
-  }, [t]);
-  const openDevPanel = useCallback(() => setDevPanelOpen(true), []);
-  const openAdminSupport = useCallback(() => setAdminSupportOpen(true), []);
-  const openModeration = useCallback(() => setModerationOpen(true), []);
+  const openDevPanel = useCallback(() => {
+    if (!devMode) { toast.error(t("dev.denied")); return; }
+    setDevPanelOpen(true);
+  }, [devMode, t]);
+  const openAdminSupport = useCallback(() => {
+    if (!devMode) { toast.error(t("dev.denied")); return; }
+    setAdminSupportOpen(true);
+  }, [devMode, t]);
+  const openModeration = useCallback(() => {
+    if (!devMode) { toast.error(t("dev.denied")); return; }
+    setModerationOpen(true);
+  }, [devMode, t]);
   const handleGrantXp = useCallback((xp: number) => { setStats(prev => grantXp(prev, xp)); }, []);
   const addBalance = useCallback((amt: number) => {
     setBalance(b => { const nb = b + amt; ls.set("balance", nb); return nb; });
@@ -509,7 +541,7 @@ function AppInner() {
     setFollowed(new Set());
     clearPlaylists();
     clearSubscription();
-    setDevModeState(false);
+    setAdminAccess(false);
     setDevPanelOpen(false);
     setAdminSupportOpen(false);
     setModerationOpen(false);
@@ -613,8 +645,16 @@ function AppInner() {
     [queue, likedIds, followed, currentTrack.id, lang],
   );
 
-  if (!onboarded) {
-    return themedRoot(<Suspense fallback={null}><OnboardingFlow onDone={finishOnboarding} /></Suspense>);
+  if (!onboarded || passwordRecovery) {
+    return themedRoot(
+      <Suspense fallback={null}>
+        <OnboardingFlow
+          onDone={finishOnboarding}
+          forceRecovery={passwordRecovery}
+          onRecoveryDone={() => setPasswordRecovery(false)}
+        />
+      </Suspense>,
+    );
   }
 
   // Производные значения реальной статистики — общий источник для рейтинга/профиля/аккаунта
@@ -665,6 +705,20 @@ function AppInner() {
     ),
     browse: (
       <BrowseScreen onPlay={playTrack} onOpenArtist={openArtist} />
+    ),
+    between: (
+      <BetweenScreen
+        currentTrack={currentTrack}
+        playing={audio.playing}
+        friendsFeed={friendsFeed}
+        uid={uid}
+        onPlay={playTrack}
+        onPause={audio.pause}
+        onOpenPeopleSearch={openPeopleSearch}
+        onOpenRealProfile={setRealProfile}
+        onOpenRealArtist={openRealArtist}
+        onOpenRooms={openRooms}
+      />
     ),
     rating: (
       <RatingScreen
@@ -736,10 +790,10 @@ function AppInner() {
         userRole={userRole}
         donationCount={donationCount}
         devMode={devMode}
-        onToggleDevMode={toggleDevMode}
         onOpenDevPanel={openDevPanel}
+        onOpenStudio={() => setTab("creator")}
         companionController={companionController}
-        onOpenGifts={openGiftGallery}
+        onOpenIdentity={openIdentityCollection}
       />
     ),
   };
@@ -880,7 +934,7 @@ function AppInner() {
         )}
       </AnimatePresence>
 
-      <GiftGallerySheet open={giftGalleryOpen} onClose={() => setGiftGalleryOpen(false)} controller={companionController} />
+      <IdentityCollectionSheet open={identityCollectionOpen} onClose={() => setIdentityCollectionOpen(false)} controller={companionController} />
 
       <ArtistSheet
         name={artistName}
@@ -1000,6 +1054,9 @@ function AppInner() {
             onGrantXp={handleGrantXp}
             onOpenAdminSupport={openAdminSupport}
             onOpenModeration={openModeration}
+            uid={uid}
+            adminAccess={adminAccess}
+            simpleFx={simpleFx}
           />
         </Suspense>
       )}

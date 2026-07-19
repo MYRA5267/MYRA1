@@ -4731,6 +4731,45 @@
 .myra-pulse-room > svg { color: var(--pulse-accent); }
 .myra-pulse-room { margin-top: 9px; border-color: color-mix(in srgb, var(--pulse-accent) 24%, var(--myra-line)); background: color-mix(in srgb, var(--pulse-accent) 5%, transparent); }
 
+/* «Между» — самостоятельная социальная поверхность. Декор намеренно
+   ограничен одним композитным свечением, чтобы лента оставалась дешёвой для
+   Android WebView и не конкурировала с обложками. */
+.myra-between-page { --between-accent: var(--myra-copper); }
+.myra-between-hero {
+  position: relative;
+  min-height: 250px;
+  overflow: hidden;
+  padding: clamp(24px, 5vw, 44px);
+  border: 1px solid color-mix(in srgb, var(--between-accent) 22%, var(--myra-line));
+  border-radius: 30px 40px 31px 46px;
+  background:
+    radial-gradient(circle at 82% 20%, color-mix(in srgb, var(--between-accent) 18%, transparent), transparent 36%),
+    linear-gradient(145deg, rgba(255,241,233,.055), rgba(255,255,255,.012));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.065), 0 24px 60px rgba(0,0,0,.2);
+}
+.myra-between-hero > div:last-child { max-width: 620px; }
+.myra-between-hero span { color: var(--between-accent); font-family: "IBM Plex Mono", monospace; font-size: 9px; font-weight: 700; letter-spacing: .18em; }
+.myra-between-hero h1 { max-width: 620px; margin: 13px 0 12px; font-family: "Sora", sans-serif; font-size: clamp(30px, 6vw, 58px); font-weight: 780; line-height: .98; letter-spacing: -.055em; }
+.myra-between-hero p { max-width: 560px; color: color-mix(in srgb, var(--fg) 54%, transparent); font-size: clamp(12px, 2vw, 15px); line-height: 1.55; }
+.myra-between-hero-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 24px; }
+.myra-between-hero-actions button { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; padding: 0 16px; border: 1px solid color-mix(in srgb, var(--between-accent) 28%, var(--myra-line)); border-radius: 16px 22px 16px 21px; color: var(--fg); background: color-mix(in srgb, var(--between-accent) 8%, rgba(255,255,255,.018)); font-family: "Plus Jakarta Sans", sans-serif; font-size: 12px; font-weight: 700; }
+.myra-between-people { margin-inline: 0; }
+.myra-between-feed { padding-top: 12px; }
+.myra-between-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 13px; padding: 4px; border: 1px solid var(--myra-line); border-radius: 16px 22px 16px 21px; background: rgba(255,255,255,.018); }
+.myra-between-tabs button { min-height: 40px; border-radius: 12px 18px 12px 17px; color: color-mix(in srgb, var(--fg) 46%, transparent); font-size: 11px; font-weight: 700; transition: color .2s ease, background-color .2s ease, transform .2s ease; }
+.myra-between-tabs button[data-active] { color: var(--fg); background: color-mix(in srgb, var(--pulse-accent) 13%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pulse-accent) 24%, transparent); }
+.myra-between-empty { display: flex; min-height: 150px; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 24px; color: color-mix(in srgb, var(--fg) 42%, transparent); text-align: center; }
+.myra-between-empty strong { color: color-mix(in srgb, var(--fg) 75%, transparent); font-family: "Plus Jakarta Sans", sans-serif; font-size: 13px; }
+.myra-between-empty small { max-width: 320px; font-size: 10px; line-height: 1.45; }
+@media (min-width: 1024px) {
+  .myra-between-hero,
+  .myra-between-feed,
+  .myra-between-page > section:not(.myra-between-hero) { max-width: 980px; margin-right: auto; margin-left: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .myra-between-tabs button { transition: none; }
+}
+
 /* Живые коллекционные знаки вокруг аватара. Подписи остаются ниже. */
 .myra-profile-avatar-stage {
   position: relative;
@@ -4749,6 +4788,8 @@
   position: absolute;
   display: block;
   color: var(--badge-accent);
+  contain: paint;
+  will-change: transform;
   animation: myra-badge-orbit 4.8s ease-in-out infinite var(--badge-delay);
 }
 .myra-profile-badge-token[data-slot="0"] { top: 9px; left: 20px; }
@@ -4769,7 +4810,16 @@
   transform: rotate(-3deg);
 }
 .myra-profile-badge-token:nth-child(even) > i { transform: rotate(3deg); }
-@keyframes myra-badge-orbit { 0%, 100% { translate: 0 0; rotate: -1deg; } 50% { translate: 0 -5px; rotate: 2deg; } }
+/*
+ * Keep the living profile badges on the compositor. Individual translate /
+ * rotate properties force full WebView paints on some Honor/MagicOS builds,
+ * even after the avatar has scrolled off screen. A single 3D transform keeps
+ * the same motion without continuously repainting the whole profile.
+ */
+@keyframes myra-badge-orbit {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-1deg); }
+  50% { transform: translate3d(0, -5px, 0) rotate(2deg); }
+}
 .myra-profile-badge-labels { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 12px; }
 .myra-profile-badge-labels > span { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid color-mix(in srgb, var(--badge-accent) 25%, var(--myra-line)); border-radius: 999px; color: color-mix(in srgb, var(--fg) 67%, var(--badge-accent)); background: color-mix(in srgb, var(--badge-accent) 6%, transparent); }
 .myra-profile-badge-labels b { font-family: "Plus Jakarta Sans", sans-serif; font-size: 8px; font-weight: 700; }
@@ -4819,10 +4869,25 @@
 .myra-gift-gallery-sheet > header > button { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid var(--myra-line); border-radius: 14px 20px 14px 19px; background: rgba(255,255,255,.035); }
 .myra-gift-gallery-summary { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; padding: 12px 14px; border: 1px solid var(--myra-line); border-radius: 16px 24px 15px 22px; color: var(--myra-copper); background: rgba(217,137,104,.06); }
 .myra-gift-gallery-summary span { color: color-mix(in srgb, var(--fg) 44%, transparent); font-size: 10px; }
+.myra-identity-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 16px; padding: 4px; border: 1px solid var(--myra-line); border-radius: 16px 24px 15px 22px; background: rgba(255,255,255,.018); }
+.myra-identity-tabs button { min-height: 40px; border-radius: 12px 19px 12px 18px; color: color-mix(in srgb, var(--fg) 42%, transparent); font-size: 10px; font-weight: 750; transition: color .2s ease, background-color .2s ease, box-shadow .2s ease; }
+.myra-identity-tabs button[data-active] { color: var(--fg); background: rgba(217,137,104,.11); box-shadow: inset 0 0 0 1px rgba(217,137,104,.22); }
+.myra-identity-empty { display: flex; min-height: 260px; flex-direction: column; align-items: center; justify-content: center; padding: 28px 20px; border: 1px solid var(--myra-line); border-radius: 24px 34px 22px 31px; background: radial-gradient(circle at 50% 24%, rgba(217,137,104,.1), transparent 42%); text-align: center; }
+.myra-identity-empty > span { display: grid; width: 52px; height: 56px; place-items: center; margin-bottom: 15px; border: 1px solid rgba(217,137,104,.3); border-radius: 44% 56% 49% 51% / 38% 42% 58% 62%; color: var(--myra-copper); background: rgba(217,137,104,.08); box-shadow: inset 0 1px rgba(255,255,255,.1), 0 14px 32px rgba(0,0,0,.2); }
+.myra-identity-empty > strong { font-family: "Sora", sans-serif; font-size: 15px; letter-spacing: -.025em; }
+.myra-identity-empty > p { max-width: 430px; margin-top: 8px; color: color-mix(in srgb, var(--fg) 45%, transparent); font-size: 10px; line-height: 1.55; }
+.myra-identity-empty > div { display: flex; gap: 9px; margin-top: 22px; }
+.myra-identity-empty > div i { display: block; width: 34px; height: 38px; border: 1px solid rgba(217,137,104,.28); border-radius: 44% 56% 49% 51% / 38% 42% 58% 62%; background: linear-gradient(145deg, rgba(217,137,104,.18), rgba(255,255,255,.02)); transform: translateY(3px) rotate(-3deg); }
+.myra-identity-empty > div i:nth-child(2) { transform: translateY(-5px) rotate(2deg); }
+.myra-identity-empty > div i:nth-child(3) { transform: translateY(4px) rotate(5deg); }
+.myra-identity-empty > button { display: inline-flex; min-height: 42px; align-items: center; gap: 8px; margin-top: 20px; padding: 0 15px; border: 1px solid var(--myra-line); border-radius: 14px 21px 14px 19px; color: color-mix(in srgb, var(--fg) 40%, transparent); background: rgba(255,255,255,.025); font-size: 9px; font-weight: 700; }
 .myra-gift-gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 520px) {
   .myra-gift-gallery-grid { grid-template-columns: 1fr; }
   .myra-profile-gift-stack .myra-resonance-visual:nth-child(n+3) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .myra-identity-tabs button { transition: none; }
 }
 
 /* Единая контурная система без служебных микроточек. */
@@ -4830,6 +4895,19 @@
   flex: 0 0 auto;
   overflow: visible;
 }
+
+/* OAuth появляется только для реально включённых Supabase-провайдеров. */
+.myra-oauth-block > div:first-child { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; color: color-mix(in srgb, var(--fg) 32%, transparent); font-size: 9px; text-align: center; }
+.myra-oauth-block > div:first-child::before,
+.myra-oauth-block > div:first-child::after { height: 1px; flex: 1; content: ""; background: var(--myra-line); }
+.myra-oauth-block > div:first-child span { flex: 0 0 auto; }
+.myra-oauth-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.myra-oauth-grid button { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 9px; border: 1px solid var(--myra-line); border-radius: 15px 22px 14px 20px; color: color-mix(in srgb, var(--fg) 72%, transparent); background: rgba(255,255,255,.025); font-size: 10px; font-weight: 700; }
+.myra-oauth-grid button i { display: grid; min-width: 24px; height: 24px; padding-inline: 4px; place-items: center; border: 1px solid color-mix(in srgb, var(--myra-copper) 28%, var(--myra-line)); border-radius: 9px 12px 8px 11px; color: var(--myra-copper); font-family: "IBM Plex Mono", monospace; font-size: 8px; font-style: normal; }
+.myra-passkey-button { display: grid; width: 100%; min-height: 50px; grid-template-columns: auto auto 1fr; align-items: center; gap: 9px; margin-bottom: 12px; padding: 0 16px; border: 1px solid color-mix(in srgb, #c4b5fd 28%, var(--myra-line)); border-radius: 17px 24px 16px 22px; color: var(--fg); background: color-mix(in srgb, #8b5cf6 8%, rgba(255,255,255,.018)); text-align: left; }
+.myra-passkey-button > svg { color: #c4b5fd; }
+.myra-passkey-button > span { font-size: 11px; font-weight: 750; }
+.myra-passkey-button > small { justify-self: end; color: color-mix(in srgb, var(--fg) 38%, transparent); font-size: 9px; }
 
 /* Developer cockpit and safe access diagnostics. */
 .myra-dev-health-grid {
