@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, Zap, Sparkles, Wallet, Mic2, Headphones, Lock, RotateCcw, Wrench, Inbox, ChevronRight, ChevronLeft, Send, Loader2, ShieldAlert, Bug, Flag, EyeOff, Eye, CheckCheck, XCircle, ExternalLink } from "./myraIcons";
+import { X, Zap, Sparkles, Wallet, Mic2, Headphones, Lock, RotateCcw, Wrench, Inbox, ChevronRight, ChevronLeft, Send, Loader2, ShieldAlert, Bug, Flag, EyeOff, Eye, CheckCheck, XCircle, ExternalLink, Copy, RefreshCw, Globe } from "./myraIcons";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { ls, REPORT_REASONS } from "./data";
-import { F, GLASS, Sheet } from "./lib";
+import { F, GLASS, Sheet, copyText } from "./lib";
 import { useLang } from "./i18n";
 import { buildAchievements, type AchievementCounters } from "./achievements";
 import type { UserRole } from "./auth";
@@ -19,12 +19,11 @@ import { isAdmin, fetchAllSupportThreads, fetchSupportThread, sendSupportMessage
 const XP_PRESETS = [500, 2500, 10000];
 const BALANCE_PRESETS = [1000, 10000];
 
-export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetRole, cpStatus, onSetCp, plusActive, onSetPlus, balance, onAddBalance, onGrantXp, onOpenAdminSupport, onOpenModeration }: {
+export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetRole, cpStatus, onSetCp, balance, onAddBalance, onGrantXp, onOpenAdminSupport, onOpenModeration }: {
   open: boolean; onClose: () => void; level: number;
   counters: AchievementCounters;
   userRole: UserRole; onSetRole: (r: UserRole) => void;
   cpStatus: "none" | "active" | "grace"; onSetCp: (s: "none" | "active" | "grace") => void;
-  plusActive: boolean; onSetPlus: (v: boolean) => void;
   balance: number; onAddBalance: (amt: number) => void;
   onGrantXp: (xp: number) => void;
   onOpenAdminSupport: () => void;
@@ -35,6 +34,28 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
   const [achVersion, setAchVersion] = useState(0);
   const achievements = useMemo(() => buildAchievements(counters), [counters]);
   const unlocked = useMemo(() => new Set(ls.get<string[]>("achUnlocked", [])), [achievements, achVersion, open]);
+  const runtime = useMemo(() => {
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    return {
+      build: "1.10.0",
+      platform: /Android/i.test(navigator.userAgent) ? "Android WebView" : navigator.platform || "Web",
+      online: navigator.onLine,
+      viewport: `${window.innerWidth}×${window.innerHeight}`,
+      cores: nav.hardwareConcurrency ?? "—",
+      memory: nav.deviceMemory ? `${nav.deviceMemory} GB` : "—",
+    };
+  }, [open]);
+
+  const copyDiagnostics = async () => {
+    const text = [
+      `MYRA ${runtime.build}`,
+      `${runtime.platform} · ${runtime.viewport}`,
+      `online=${runtime.online} cores=${runtime.cores} memory=${runtime.memory}`,
+      `level=${level} plays=${counters.totalPlays} liked=${counters.likedCount} releases=${counters.releaseCount}`,
+    ].join("\n");
+    await copyText(text);
+    toast("Диагностика скопирована");
+  };
 
   const toggleEruda = async () => {
     const eruda = (await import("eruda")).default;
@@ -67,6 +88,17 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
           </button>
         </div>
         <div className="text-xs mb-4" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("dev.sub")}</div>
+
+        <div className="myra-dev-health-grid">
+          <div><Globe size={14} /><span>Среда</span><strong>{runtime.platform}</strong></div>
+          <div><Zap size={14} /><span>Сборка</span><strong>{runtime.build}</strong></div>
+          <div className={runtime.online ? "is-ok" : "is-warn"}><span className="myra-dev-status-dot" /><span>Сеть</span><strong>{runtime.online ? "онлайн" : "офлайн"}</strong></div>
+          <div><Bug size={14} /><span>Экран</span><strong>{runtime.viewport}</strong></div>
+        </div>
+        <div className="myra-dev-tool-row">
+          <button onClick={copyDiagnostics}><Copy size={13} />Копировать диагностику</button>
+          <button onClick={() => window.location.reload()}><RefreshCw size={13} />Перезапустить UI</button>
+        </div>
 
         {/* Инбокс поддержки — devMode только открывает эту кнопку, реальный
             доступ к чужим переписке проверяет сам AdminSupportSheet (таблица admins) */}
@@ -123,11 +155,10 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
           </button>
         </div>
 
-        {/* Подписки */}
-        {label(t("dev.plans"))}
+        {/* Инструменты студии */}
+        {label("Студия")}
         <div className="flex gap-2 flex-wrap">
           {chip("MYRA Pro", cpStatus === "active", () => onSetCp(cpStatus === "active" ? "none" : "active"), "#a78bfa")}
-          {chip("MYRA Plus", plusActive, () => onSetPlus(!plusActive), "#22d3ee")}
         </div>
 
         {/* Баланс */}
@@ -193,6 +224,60 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
 // одного чужого сообщения не подгрузится.
 
 const fmtThreadTime = (iso: string) => new Date(iso).toLocaleString([], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+function AdminAccessPreview({ uid, kind, onRetry }: { uid: string | null; kind: "support" | "moderation"; onRetry: () => void }) {
+  const support = kind === "support";
+  const copyUid = async () => {
+    if (!uid) return;
+    await copyText(uid);
+    toast("UID скопирован");
+  };
+
+  return (
+    <div className="myra-admin-access-preview">
+      <div className="myra-admin-access-head">
+        <ShieldAlert size={20} />
+        <div>
+          <strong>{uid ? "Нужно серверное право администратора" : "Сначала войдите в аккаунт"}</strong>
+          <p>{uid
+            ? "Интерфейс исправен, но Supabase не вернул строку этого пользователя из public.admins. Чужие обращения остаются защищены."
+            : "Без авторизации приложение не может безопасно открыть обращения пользователей и очередь жалоб."}</p>
+        </div>
+      </div>
+
+      {uid && (
+        <button className="myra-admin-uid" onClick={copyUid}>
+          <Copy size={13} />
+          <span>{uid}</span>
+          <b>копировать</b>
+        </button>
+      )}
+
+      <div className="myra-admin-preview-label">ЛОКАЛЬНАЯ ПРОВЕРКА ИНТЕРФЕЙСА</div>
+      {support ? (
+        <div className="myra-admin-preview-card">
+          <Inbox size={16} />
+          <div><strong>Тестовое обращение</strong><span>Не загружается обложка релиза</span></div>
+          <i>2</i>
+        </div>
+      ) : (
+        <div className="myra-admin-preview-card is-danger">
+          <Flag size={16} />
+          <div><strong>Тестовая жалоба</strong><span>Проверка карточки модерации</span></div>
+          <i>!</i>
+        </div>
+      )}
+      <p className="myra-admin-preview-note">Это безопасное локальное превью: оно ничего не отправляет и не подменяет серверные права.</p>
+
+      <div className="myra-admin-access-actions">
+        <button onClick={onRetry}><RefreshCw size={13} />Проверить доступ снова</button>
+        <button onClick={() => toast(uid ? "Добавьте этот UID в таблицу public.admins в Supabase" : "Авторизуйтесь в профиле MYRA")}>
+          <CheckCheck size={13} />Что сделать
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function AdminThreadView({ userId, username, onBack }: { userId: string; username: string | null; onBack: () => void }) {
   const { t } = useLang();
@@ -274,16 +359,25 @@ export function AdminSupportSheet({ open, onClose, uid }: { open: boolean; onClo
 
   const loadThreads = useCallback(() => {
     setThreadsLoading(true);
-    fetchAllSupportThreads().then(list => { setThreads(list); setThreadsLoading(false); });
+    fetchAllSupportThreads()
+      .then(setThreads)
+      .catch(() => { setThreads([]); toast("Не удалось загрузить обращения"); })
+      .finally(() => setThreadsLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
+  const verifyAccess = useCallback(() => {
     setActiveThread(null);
     if (!uid) { setAllowed(false); return; }
     setAllowed(null);
-    isAdmin(uid).then(ok => { setAllowed(ok); if (ok) loadThreads(); });
-  }, [open, uid, loadThreads]);
+    isAdmin(uid)
+      .then(ok => { setAllowed(ok); if (ok) loadThreads(); })
+      .catch(() => setAllowed(false));
+  }, [uid, loadThreads]);
+
+  useEffect(() => {
+    if (!open) return;
+    verifyAccess();
+  }, [open, verifyAccess]);
 
   return (
     <Sheet open={open} onClose={onClose} z={71}>
@@ -305,11 +399,7 @@ export function AdminSupportSheet({ open, onClose, uid }: { open: boolean; onClo
         )}
 
         {allowed === false && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 px-4">
-            <ShieldAlert size={22} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
-            <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.supportDenied")}</div>
-            <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("dev.supportDeniedSub")}</div>
-          </div>
+          <AdminAccessPreview uid={uid} kind="support" onRetry={verifyAccess} />
         )}
 
         {allowed && !activeThread && (
@@ -371,16 +461,25 @@ export function ModerationSheet({ open, onClose, uid }: { open: boolean; onClose
 
   const load = useCallback(() => {
     setLoading(true);
-    fetchOpenReports().then(list => { setReports(list); setLoading(false); });
+    fetchOpenReports()
+      .then(setReports)
+      .catch(() => { setReports([]); toast("Не удалось загрузить очередь жалоб"); })
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
+  const verifyAccess = useCallback(() => {
     if (!uid) { setAllowed(false); return; }
     setAllowed(null);
     setHiddenOverride({});
-    isAdmin(uid).then(ok => { setAllowed(ok); if (ok) load(); });
-  }, [open, uid, load]);
+    isAdmin(uid)
+      .then(ok => { setAllowed(ok); if (ok) load(); })
+      .catch(() => setAllowed(false));
+  }, [uid, load]);
+
+  useEffect(() => {
+    if (!open) return;
+    verifyAccess();
+  }, [open, verifyAccess]);
 
   const resolve = async (id: string, status: "resolved" | "dismissed") => {
     setBusyId(id);
@@ -420,11 +519,7 @@ export function ModerationSheet({ open, onClose, uid }: { open: boolean; onClose
         )}
 
         {allowed === false && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 px-4">
-            <ShieldAlert size={22} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
-            <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.supportDenied")}</div>
-            <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("dev.supportDeniedSub")}</div>
-          </div>
+          <AdminAccessPreview uid={uid} kind="moderation" onRetry={verifyAccess} />
         )}
 
         {allowed && (

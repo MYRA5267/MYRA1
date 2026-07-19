@@ -161,7 +161,7 @@ describe("usePlayerQueue: shuffle", () => {
 
     act(() => { apiRef.current!.handleNext(); });
     expect(currentTrackRef.current!.id).toBe(expected1.id);
-    expect(fakeAudioApi.load).toHaveBeenLastCalledWith(resolveUrl(expected1));
+    expect(fakeAudioApi.load).toHaveBeenLastCalledWith(resolveUrl(expected1), expect.any(Function));
 
     // Переход 2 ловит потерю фильтра pool: при prev=expected1 тот же индекс
     // floor(R*len) по НЕсфильтрованной очереди попал бы ровно на prev (guard),
@@ -176,7 +176,7 @@ describe("usePlayerQueue: shuffle", () => {
 
     act(() => { apiRef.current!.handleNext(); });
     expect(currentTrackRef.current!.id).toBe(expected2.id);
-    expect(fakeAudioApi.load).toHaveBeenLastCalledWith(resolveUrl(expected2));
+    expect(fakeAudioApi.load).toHaveBeenLastCalledWith(resolveUrl(expected2), expect.any(Function));
   });
 
   it("при включённом shuffle handleNext даёт реальный трек из очереди и никогда не повторяет предыдущий", () => {
@@ -209,7 +209,7 @@ describe("usePlayerQueue: audio.load / registerPlay при переходах", 
     act(() => { apiRef.current!.handleNext(); });
 
     const expected = TRACKS[1];
-    expect(fakeAudioApi.load).toHaveBeenCalledWith(resolveUrl(expected));
+    expect(fakeAudioApi.load).toHaveBeenCalledWith(resolveUrl(expected), expect.any(Function));
     expect(registerPlayMock).toHaveBeenCalledWith(expect.objectContaining({ id: expected.id }));
   });
 
@@ -219,8 +219,22 @@ describe("usePlayerQueue: audio.load / registerPlay при переходах", 
     act(() => { apiRef.current!.handlePrev(); });
 
     const expected = TRACKS[TRACKS.length - 1];
-    expect(fakeAudioApi.load).toHaveBeenCalledWith(resolveUrl(expected));
+    expect(fakeAudioApi.load).toHaveBeenCalledWith(resolveUrl(expected), expect.any(Function));
     expect(registerPlayMock).toHaveBeenCalledWith(expect.objectContaining({ id: expected.id }));
+  });
+
+  it("откатывает карточку к предыдущему треку, если новый аудиопоток не запустился", () => {
+    const previous = TRACKS[0];
+    mount(previous);
+
+    act(() => { apiRef.current!.handleNext(); });
+    expect(currentTrackRef.current!.id).toBe(TRACKS[1].id);
+
+    const onSwitchFailed = (fakeAudioApi.load as Mock).mock.calls[0][1] as () => void;
+    expect(onSwitchFailed).toEqual(expect.any(Function));
+
+    act(() => { onSwitchFailed(); });
+    expect(currentTrackRef.current!.id).toBe(previous.id);
   });
 });
 
@@ -260,6 +274,6 @@ describe("usePlayerQueue: автопереход при 'ended'", () => {
     act(() => { onEndedBox.current(); }); // симулируем "трек доигран"
 
     expect(currentTrackRef.current!.id).toBe(expected.id);
-    expect(fakeAudioApi.load).toHaveBeenCalledWith(resolveUrl(expected));
+    expect(fakeAudioApi.load).toHaveBeenCalledWith(resolveUrl(expected), expect.any(Function));
   });
 });

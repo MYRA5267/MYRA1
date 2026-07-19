@@ -14,7 +14,7 @@ import { DetailBackdrop } from "./detail";
 import { useLang } from "./i18n";
 import { monthDays, splitAmountByShares, minutesOf, currentMonthKey, type ArtistShare } from "./stats";
 import { buildAchievements, ACHIEVEMENTS, type AchievementCounters } from "./achievements";
-import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, submitReport, createPayment, type SupportMessageRow, type ArtistProfileData, type PublicProfile, type ReportTargetType } from "./supabase";
+import { supabaseEnabled, paymentsEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, submitReport, createPayment, type SupportMessageRow, type ArtistProfileData, type PublicProfile, type ReportTargetType } from "./supabase";
 
 // Фирменный фиолетовый градиент приложения — единый для CTA, чипов и пузырей
 // чата (тот же, что был разбросан по шторкам инлайном)
@@ -138,26 +138,17 @@ function DonateWidget({ open, artistLabel, c2, toUserId, onDonate }: {
                       // донат запишется позже, на сервере, вебхуком после
                       // подтверждения оплаты, а не оптимистично на клиенте
                       try {
-                        const { data } = await createPayment("donation", finalAmount, { toArtist: artistLabel, toUserId });
+                        const { data, error } = await createPayment("donation", finalAmount, { toArtist: artistLabel, toUserId });
                         if (data?.confirmation_url) {
                           window.location.href = data.confirmation_url;
                           return;
                         }
+                        if (error) throw error;
                       } catch (err) {
                         console.warn("createPayment:", err);
                       }
-
-                      // ЮKassa не настроена (нормальное состояние сейчас, пока нет
-                      // мерчант-аккаунта) или вернула ошибку — прежний симулированный
-                      // флоу, без единого изменения в его поведении
-                      setTimeout(() => {
-                        setProcessing(false);
-                        setStage("sent");
-                        toast.success(t("don.sent", finalAmount, artistLabel));
-                        onDonate(finalAmount);
-                        // Донат можно повторить: форма возвращается сама, без ручного закрытия
-                        setTimeout(() => setStage("pick"), 1600);
-                      }, 1300);
+                      setProcessing(false);
+                      toast.error(t("pay.unavailable"));
                     }}
                     className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
                     style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}
@@ -256,18 +247,18 @@ export const ArtistSheet = React.memo(function ArtistSheet({ name, onClose, onPl
           >
             {isFollowed ? t("ar.following") : t("ar.follow")}
           </motion.button>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setDonateOpen(o => !o)} className="flex-1 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `${artist.c2}22`, border: `1px solid ${artist.c2}44`, color: artist.c2, fontFamily: F.b }}>
+          {paymentsEnabled && <motion.button whileTap={{ scale: 0.96 }} onClick={() => setDonateOpen(o => !o)} className="flex-1 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `${artist.c2}22`, border: `1px solid ${artist.c2}44`, color: artist.c2, fontFamily: F.b }}>
             <Gift size={14} /> {t("ar.support")}
-          </motion.button>
+          </motion.button>}
         </div>
 
-        <DonateWidget
+        {paymentsEnabled && <DonateWidget
           key={artist.name}
           open={donateOpen}
           artistLabel={artist.name}
           c2={artist.c2}
           onDonate={amt => onDonate?.(artist.name, amt)}
-        />
+        />}
 
         {/* Популярное */}
         <h3 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 16, letterSpacing: "-0.02em" }}>{t("ar.popular")}</h3>
@@ -383,19 +374,19 @@ export const RealArtistSheet = React.memo(function RealArtistSheet({ artistId, o
           >
             <Play size={18} fill="white" stroke="none" className="ml-0.5" />
           </motion.button>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setDonateOpen(o => !o)} className="flex-1 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `${REAL_ARTIST_C2}22`, border: `1px solid ${REAL_ARTIST_C2}44`, color: REAL_ARTIST_C2, fontFamily: F.b }}>
+          {paymentsEnabled && <motion.button whileTap={{ scale: 0.96 }} onClick={() => setDonateOpen(o => !o)} className="flex-1 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `${REAL_ARTIST_C2}22`, border: `1px solid ${REAL_ARTIST_C2}44`, color: REAL_ARTIST_C2, fontFamily: F.b }}>
             <Gift size={14} /> {t("ar.support")}
-          </motion.button>
+          </motion.button>}
         </div>
 
-        <DonateWidget
+        {paymentsEnabled && <DonateWidget
           key={artistId}
           open={donateOpen}
           artistLabel={name}
           c2={REAL_ARTIST_C2}
           toUserId={artistId}
           onDonate={amt => onDonate?.(artistId, name, amt)}
-        />
+        />}
 
         <h3 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 16, letterSpacing: "-0.02em" }}>{t("ar.popular")}</h3>
         {loading ? (
@@ -1153,18 +1144,17 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
     // подписки (status='active') в этом случае ставит вебхук после
     // подтверждённой оплаты, а не onActivate() здесь оптимистично
     try {
-      const { data } = await createPayment("subscription", 499, { planId: "pro" });
+      const { data, error } = await createPayment("subscription", 499, { planId: "pro" });
       if (data?.confirmation_url) {
         window.location.href = data.confirmation_url;
         return;
       }
+      if (error) throw error;
     } catch (err) {
       console.warn("createPayment:", err);
     }
-
-    // ЮKassa не настроена (нормальное состояние сейчас) или вернула ошибку —
-    // прежний симулированный флоу, без единого изменения в его поведении
-    setTimeout(() => { setState("done"); onActivate(); toast.success(t("cp.done")); }, 1600);
+    setState("offer");
+    toast.error(t("pay.unavailable"));
   };
 
   const BENEFITS = [
@@ -1266,124 +1256,6 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
         danger
         onConfirm={() => { setCancelQ(false); onCancelSub(); toast(t("cp.cancelled")); onClose(); }}
       />
-    </Sheet>
-  );
-}
-
-// ─── MYRA Plus — бесплатный уровень для слушателей ────────────────────────────
-// Pro оставлен артистам; слушателям — свой план, и он принципиально бесплатный:
-// этим и выделяемся. Активация мгновенная, без симуляции оплаты.
-
-export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactivate }: {
-  open: boolean; onClose: () => void; active: boolean; onActivate: () => void; onDeactivate: () => void;
-}) {
-  const { t } = useLang();
-
-  // Тариф: студенческий вдвое дешевле; подтверждение студенчества появится
-  // вместе с реальными платежами — пока это честно написано прямо в UI
-  const [student, setStudent] = useState(false);
-  const price = student ? 99 : 199;
-
-  const BENEFITS = [
-    { Icon: Sparkles, title: t("plus.b1"), sub: t("plus.b1Sub") },
-    { Icon: Zap, title: t("plus.b2"), sub: t("plus.b2Sub") },
-    { Icon: ArrowDownToLine, title: t("plus.b3"), sub: t("plus.b3Sub") },
-    { Icon: Star, title: t("plus.b4"), sub: t("plus.b4Sub") },
-  ];
-
-  return (
-    <Sheet open={open} onClose={onClose} z={65}>
-      <div className="relative px-6 pt-8 pb-8">
-        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
-          <X size={16} />
-        </button>
-
-        {active ? (
-          // Тот же премиальный hero-контейнер, что и у предложения — активный
-          // статус тоже настоящая карточка со свечением, а не голый текст
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="myra-plus-done" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
-            <Aurora c2="#34d399" opacity={0.5} />
-            <div className="relative z-10">
-              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ ...SPRING, delay: 0.15 }} className="w-20 h-20 rounded-full mx-auto mb-5 flex items-center justify-center" style={{ background: "rgba(52,211,153,0.13)", border: "1.5px solid rgba(52,211,153,0.4)" }}>
-                <Check size={34} style={{ color: "#34d399" }} />
-              </motion.div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em", color: "#f7f5ff" }}>{t("plus.done")}</div>
-              <div className="text-sm mt-2 mb-2" style={{ color: "rgba(239,236,250,0.58)", fontFamily: F.b }}>{t("plus.doneSub")}</div>
-              <div className="text-xs mb-7" style={{ color: "#34d399", fontFamily: F.m }}>{t("plus.price")}</div>
-              <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="px-10 py-3 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b }}>
-                {t("cp.great")}
-              </motion.button>
-              <button onClick={() => { onDeactivate(); toast(t("plus.deactivated")); }} className="block mx-auto mt-4 text-xs transition-colors hover:text-red-300" style={{ color: "rgba(248,113,113,0.75)", fontFamily: F.b }}>
-                {t("plus.deactivate")}
-              </button>
-            </div>
-          </motion.div>
-        ) : (
-          <>
-            {/* Hero — цена в заголовке реагирует на студенческий тумблер ниже
-                (раньше здесь была захардкожена строка "199₽/мес" даже когда
-                студенческая скидка была включена — теперь показывает то же
-                число, что и кнопка активации) */}
-            <div className="myra-plus-hero mb-6" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
-              <Aurora c2="#34d399" opacity={0.45} />
-              <div className="relative z-10">
-                <span className="myra-plus-chip"><Star size={12} /> MYRA Plus</span>
-                <div className="myra-plus-hero-title">{price}₽{t("cp.perMonth")}</div>
-                <div className="myra-plus-hero-sub">{t("plus.sub")}</div>
-              </div>
-            </div>
-
-            <div className="myra-plus-benefits mb-6">
-              {BENEFITS.map((b, i) => (
-                <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="myra-plus-benefit-row" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
-                  <div className="myra-plus-benefit-icon"><b.Icon size={15} /></div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
-                    <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Студенческий тариф */}
-            <div className="myra-plus-toggle-row mb-6" style={{ "--plus-accent": "#34d399" } as React.CSSProperties}>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("plus.student")} · {t("plus.priceStudent")}</div>
-                <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("plus.studentSub")}</div>
-              </div>
-              <Toggle on={student} onChange={() => setStudent(s => !s)} color="#34d399" />
-            </div>
-
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={async () => {
-                // Сначала пробуем настоящий платёж через ЮKassa (см.
-                // create-payment/index.ts) — если настроена, уводим на её
-                // hosted-страницу; активацию подписки в этом случае ставит
-                // вебхук после подтверждённой оплаты, а не onActivate() тут
-                try {
-                  const { data } = await createPayment("subscription", price, { planId: student ? "plus-student" : "plus" });
-                  if (data?.confirmation_url) {
-                    window.location.href = data.confirmation_url;
-                    return;
-                  }
-                } catch (err) {
-                  console.warn("createPayment:", err);
-                }
-                // ЮKassa не настроена (нормальное состояние сейчас) или вернула
-                // ошибку — прежняя мгновенная активация, без изменений
-                onActivate();
-                toast.success(t("plus.done"));
-              }}
-              className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
-              style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b, boxShadow: "0 12px 40px rgba(52,211,153,0.35)" }}
-            >
-              {t("plus.activate", price)}
-            </motion.button>
-            <div className="text-[10px] text-center mt-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("plus.simNote")}</div>
-          </>
-        )}
-      </div>
     </Sheet>
   );
 }
@@ -1711,8 +1583,9 @@ export function SplitSheet({ open, onClose, shares, monthKey, donatedTotal, dona
               )}
             </div>
 
-            {/* Донат по сплиту */}
-            <div className="rounded-[20px] p-5" style={GLASS}>
+            {/* Денежное действие включается только после подключения реального
+                провайдера; статистика распределения остаётся доступной всегда. */}
+            {paymentsEnabled && <div className="rounded-[20px] p-5" style={GLASS}>
               <div className="font-bold mb-1" style={{ fontFamily: F.d, fontSize: 16, letterSpacing: "-0.01em" }}>{t("sp.donateTitle")}</div>
               <div className="text-xs mb-4" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("sp.donateSub")}</div>
               <div className="flex gap-2 mb-4 flex-wrap">
@@ -1747,7 +1620,7 @@ export function SplitSheet({ open, onClose, shares, monthKey, donatedTotal, dona
               >
                 {t("don.next")} <ArrowRight size={13} />
               </motion.button>
-            </div>
+            </div>}
 
             {/* Месячный ритуал — строго opt-in, по умолчанию выключен */}
             <div className="flex items-center gap-3 rounded-[20px] p-4 mt-4" style={GLASS}>

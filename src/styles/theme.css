@@ -1748,11 +1748,10 @@
   .myra-account-row { transition-duration: 1ms !important; transform: none !important; }
 }
 
-/* ─── MYRA Pro / MYRA Plus — шторки подписки (CreatorPlusSheet, ListenerPlusSheet):
+/* ─── MYRA Pro — инструменты студии (CreatorPlusSheet):
    тёмная hero-карточка со свечением (тот же язык, что у Studio/Rating/Onboarding)
    вместо стопки плоских GLASS-блоков, tracked-out чип вместо голой подписи и общие
-   строки бенефитов с hover, как в Полке/Рейтинге. Один набор классов на оба тарифа
-   через --plus-accent (у Pro — фиолетовый, у Plus — зелёный) ─── */
+   строки бенефитов с hover, как в Полке/Рейтинге. ─── */
 .myra-plus-chip {
   display: inline-flex;
   align-items: center;
@@ -2482,6 +2481,989 @@
   .myra-detail-photo { animation: none !important; }
 }
 
+/* ─── Живые спутники MYRA ────────────────────────────────────────────────
+   Только transform/opacity в непрерывных анимациях: WebView не пересчитывает
+   layout на каждом кадре, а упрощённая графика может погасить движение целиком. */
+@keyframes myra-companion-float {
+  0%, 100% { transform: translate3d(0, 1px, 0) scale(1); }
+  50% { transform: translate3d(0, -7px, 0) scale(1.025); }
+}
+
+@keyframes myra-companion-listen {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  35% { transform: translate3d(0, -5px, 0) scale(1.035) rotate(-0.7deg); }
+  70% { transform: translate3d(0, -2px, 0) scale(1.015) rotate(0.7deg); }
+}
+
+@keyframes myra-companion-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes myra-companion-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.76); opacity: 0.28; }
+  50% { transform: translate(-50%, -50%) scale(1.14); opacity: 0.68; }
+}
+
+@keyframes myra-companion-flight {
+  0% { transform: translate3d(0, 0, 0) scale(1) rotate(0); }
+  24% { transform: translate3d(12px, -18px, 0) scale(1.04) rotate(2deg); }
+  54% { transform: translate3d(-7px, -31px, 0) scale(1.065) rotate(-2deg); }
+  78% { transform: translate3d(4px, -12px, 0) scale(1.025) rotate(0.7deg); }
+  100% { transform: translate3d(0, 0, 0) scale(1) rotate(0); }
+}
+
+@keyframes myra-companion-arrive {
+  0% { transform: translate3d(0, 96px, 0) scale(0.46) rotate(-8deg); opacity: 0; }
+  48% { transform: translate3d(10px, -16px, 0) scale(1.08) rotate(2deg); opacity: 1; }
+  72% { transform: translate3d(-4px, 5px, 0) scale(0.98) rotate(-0.8deg); }
+  100% { transform: translate3d(0, 0, 0) scale(1) rotate(0); opacity: 1; }
+}
+
+.myra-companion-portrait {
+  --portrait-size: 140px;
+  position: relative;
+  width: var(--portrait-size);
+  height: var(--portrait-size);
+  flex: 0 0 var(--portrait-size);
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+}
+
+.myra-companion-portrait--small { --portrait-size: 72px; }
+.myra-companion-portrait--medium { --portrait-size: 142px; }
+.myra-companion-portrait--large { --portrait-size: 230px; }
+
+.myra-companion-portrait::before {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--companion-accent) 34%, transparent), transparent 68%);
+  filter: blur(18px);
+  opacity: 0.9;
+}
+
+.myra-companion-portrait img {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+  animation: myra-companion-float 5.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+.myra-companion-portrait.is-playing img {
+  animation: myra-companion-listen 1.9s cubic-bezier(.45,.05,.55,.95) infinite;
+}
+
+.myra-companion-portrait.is-track-reacting img {
+  animation: myra-companion-flight 1.02s cubic-bezier(.22,.8,.24,1) both;
+}
+
+.myra-companion-portrait.is-arriving img {
+  animation: myra-companion-arrive 1.2s cubic-bezier(.18,.86,.26,1) both;
+}
+
+.myra-companion-orbit {
+  position: absolute;
+  z-index: 1;
+  inset: 12%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--companion-accent) 30%, transparent);
+  border-left-color: transparent;
+  border-bottom-color: color-mix(in srgb, var(--companion-accent-2) 22%, transparent);
+  animation: myra-companion-orbit 14s linear infinite;
+}
+
+.myra-companion-pulse {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 50%;
+  width: 56%;
+  height: 56%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--companion-accent) 26%, transparent);
+  animation: myra-companion-pulse 2.8s ease-in-out infinite;
+}
+
+.myra-companion-invite,
+.myra-companion-home-card,
+.myra-companion-profile-card {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.1);
+  background:
+    radial-gradient(circle at 83% 22%, color-mix(in srgb, var(--companion-accent, #f4a77f) 20%, transparent), transparent 38%),
+    linear-gradient(135deg, rgba(13,8,21,0.98), rgba(5,4,10,0.98));
+  box-shadow: 0 18px 55px rgba(0,0,0,0.28), inset 0 1px rgba(255,255,255,0.04);
+}
+
+.myra-companion-invite::after,
+.myra-companion-home-card::after,
+.myra-companion-profile-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(112deg, transparent 25%, rgba(255,255,255,0.055) 48%, transparent 70%);
+}
+
+.myra-companion-invite,
+.myra-companion-home-card {
+  min-height: 154px;
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  padding: 13px 16px 13px 21px;
+}
+
+.myra-companion-invite-copy,
+.myra-companion-home-copy {
+  min-width: 0;
+  position: relative;
+  z-index: 3;
+  flex: 1;
+}
+
+.myra-companion-invite-copy > span,
+.myra-companion-home-copy > span {
+  display: block;
+  margin-bottom: 7px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: color-mix(in srgb, var(--companion-accent, #f4a77f) 88%, white);
+}
+
+.myra-companion-invite-copy > strong,
+.myra-companion-home-copy > strong {
+  display: block;
+  font-family: 'Sora', sans-serif;
+  font-size: clamp(21px, 4.5vw, 27px);
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.myra-companion-invite-copy > p,
+.myra-companion-home-copy > p {
+  max-width: 270px;
+  margin: 7px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.53);
+}
+
+.myra-companion-invite-copy > i {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 11px;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.myra-companion-home-card .myra-companion-portrait,
+.myra-companion-invite .myra-companion-portrait {
+  margin: -7px -6px -7px 4px;
+  z-index: 2;
+}
+
+.myra-companion-chevron {
+  position: relative;
+  z-index: 3;
+  color: rgba(255,255,255,0.42);
+}
+
+.myra-companion-mini-progress {
+  width: min(190px, 92%);
+  height: 3px;
+  overflow: hidden;
+  margin-top: 12px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.1);
+}
+
+.myra-companion-mini-progress i,
+.myra-companion-bond-track i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--companion-accent), var(--companion-accent-2));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--companion-accent) 70%, transparent);
+  transition: transform 500ms cubic-bezier(.22,1,.36,1);
+}
+
+.myra-companion-home-copy small {
+  display: block;
+  margin-top: 6px;
+  font-size: 9px;
+  color: rgba(255,255,255,0.42);
+}
+
+.myra-companion-profile-card {
+  min-height: 94px;
+  border-radius: 22px;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 16px 10px 8px;
+}
+
+.myra-companion-profile-card > div:nth-child(2) {
+  position: relative;
+  z-index: 3;
+  min-width: 0;
+}
+
+.myra-companion-profile-card span {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--companion-accent) 82%, white);
+}
+
+.myra-companion-profile-card strong {
+  display: block;
+  margin-top: 3px;
+  font-family: 'Sora', sans-serif;
+  font-size: 19px;
+  line-height: 1.1;
+}
+
+.myra-companion-profile-card p {
+  overflow: hidden;
+  margin: 5px 0 0;
+  font-size: 10px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.45);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.myra-companion-profile-card > svg {
+  position: relative;
+  z-index: 3;
+  color: rgba(255,255,255,0.4);
+}
+
+.myra-companion-sheet {
+  --companion-accent: #f4a77f;
+  --companion-accent-2: #c98cff;
+  --fg: #f8f5fb;
+  --wash: #ffffff;
+  min-height: min(760px, 88vh);
+  padding: 18px 18px calc(28px + env(safe-area-inset-bottom));
+  color: #f8f5fb;
+  background:
+    radial-gradient(circle at 50% -8%, rgba(185,125,255,0.12), transparent 34%),
+    linear-gradient(165deg, #0a0810, #040306 68%);
+}
+
+.myra-companion-sheet-head {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 3px 2px 18px;
+}
+
+.myra-companion-sheet-head span {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: color-mix(in srgb, var(--fg) 39%, transparent);
+}
+
+.myra-companion-sheet-head strong {
+  display: block;
+  max-width: 620px;
+  margin-top: 6px;
+  font-family: 'Sora', sans-serif;
+  font-size: clamp(22px, 5vw, 34px);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+
+.myra-companion-sheet-head small {
+  display: block;
+  margin-top: 6px;
+  font-size: 9px;
+  color: color-mix(in srgb, var(--fg) 34%, transparent);
+}
+
+.myra-companion-sheet-head button {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 39px;
+  border-radius: 50%;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--wash) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wash) 10%, transparent);
+}
+
+.myra-companion-chooser-intro {
+  max-width: 620px;
+  margin: 0 2px 18px;
+  color: color-mix(in srgb, var(--fg) 48%, transparent);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.myra-companion-choice-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.myra-companion-choice {
+  --companion-accent: #f4a77f;
+  --companion-accent-2: #c98cff;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  grid-template-rows: auto auto auto 1fr;
+  align-items: center;
+  min-height: 154px;
+  padding: 11px 17px 12px 7px;
+  border-radius: 24px;
+  text-align: left;
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--companion-accent) 22%, rgba(255,255,255,0.08));
+  background:
+    radial-gradient(circle at 14% 45%, color-mix(in srgb, var(--companion-accent) 20%, transparent), transparent 34%),
+    linear-gradient(145deg, rgba(16,10,24,0.98), rgba(4,3,8,0.98));
+}
+
+.myra-companion-choice .myra-companion-portrait {
+  --portrait-size: 132px;
+  grid-column: 1;
+  grid-row: 1 / 5;
+}
+
+.myra-companion-choice > span {
+  align-self: end;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--companion-accent) 78%, white);
+}
+
+.myra-companion-choice > strong {
+  margin-top: 2px;
+  font-family: 'Sora', sans-serif;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.myra-companion-choice > p {
+  align-self: start;
+  margin: 5px 0 0;
+  font-size: 10px;
+  line-height: 1.4;
+  color: rgba(255,255,255,0.47);
+}
+
+.myra-companion-choice > i {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: end;
+  margin-top: 8px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.myra-companion-choice.is-pending {
+  border-color: color-mix(in srgb, var(--companion-accent) 70%, white 8%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--companion-accent) 20%, transparent), 0 18px 50px color-mix(in srgb, var(--companion-accent) 12%, transparent);
+}
+
+.myra-companion-confirm {
+  position: sticky;
+  z-index: 18;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px 12px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 10px 12px 12px 8px;
+  border-radius: 23px;
+  color: #fff;
+  background: rgba(13,9,18,0.96);
+  border: 1px solid color-mix(in srgb, var(--companion-accent, #f4a77f) 30%, rgba(255,255,255,0.12));
+  box-shadow: 0 -14px 50px rgba(0,0,0,0.5);
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+}
+
+.myra-companion-confirm > div:nth-child(2) { min-width: 0; }
+
+.myra-companion-confirm > div:nth-child(2) strong {
+  display: block;
+  font-family: 'Sora', sans-serif;
+  font-size: 16px;
+}
+
+.myra-companion-confirm > div:nth-child(2) p {
+  margin: 4px 0 0;
+  font-size: 9px;
+  line-height: 1.4;
+  color: rgba(255,255,255,0.5);
+}
+
+.myra-companion-confirm-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 7px;
+}
+
+.myra-companion-confirm-actions button {
+  min-height: 40px;
+  border-radius: 14px;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.62);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.myra-companion-confirm-actions button:last-child {
+  color: #120a10;
+  background: linear-gradient(135deg, var(--companion-accent), color-mix(in srgb, var(--companion-accent-2) 68%, white));
+  border-color: transparent;
+}
+
+.myra-companion-stage {
+  position: relative;
+  overflow: hidden;
+  height: 316px;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% 43%, color-mix(in srgb, var(--companion-accent) 18%, transparent), transparent 38%),
+    linear-gradient(160deg, #0e0916, #030205 74%);
+  border: 1px solid color-mix(in srgb, var(--companion-accent) 18%, rgba(255,255,255,0.08));
+  box-shadow: inset 0 1px rgba(255,255,255,0.04);
+}
+
+.myra-companion-stage .myra-companion-portrait { --portrait-size: 285px; }
+
+.myra-companion-stage.is-touched .myra-companion-portrait img {
+  animation: myra-companion-flight 1.08s cubic-bezier(.18,.86,.26,1) both;
+}
+
+.myra-companion-stage-glow {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--companion-accent) 17%, transparent);
+  box-shadow: 0 0 80px color-mix(in srgb, var(--companion-accent) 11%, transparent), inset 0 0 60px color-mix(in srgb, var(--companion-accent-2) 8%, transparent);
+}
+
+.myra-companion-stage-status {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: 17px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 28px);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 8px 12px;
+  border-radius: 99px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.7);
+  background: rgba(6,4,10,0.72);
+  border: 1px solid rgba(255,255,255,0.09);
+}
+
+.myra-companion-stage-status i {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  border-radius: 50%;
+  background: var(--companion-accent);
+  box-shadow: 0 0 10px var(--companion-accent);
+}
+
+.myra-companion-bond-card {
+  margin-top: 12px;
+  padding: 19px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--wash) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wash) 8%, transparent);
+}
+
+.myra-companion-bond-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.myra-companion-bond-top span {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--fg) 38%, transparent);
+}
+
+.myra-companion-bond-top strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.myra-companion-bond-top b {
+  font-size: 10px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--fg) 50%, transparent);
+}
+
+.myra-companion-bond-track {
+  height: 5px;
+  overflow: hidden;
+  margin-top: 13px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--wash) 8%, transparent);
+}
+
+.myra-companion-bond-card > p {
+  margin: 11px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--fg) 43%, transparent);
+}
+
+.myra-companion-memory {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.myra-companion-memory > div {
+  min-width: 0;
+  padding: 10px 8px;
+  border-radius: 13px;
+  text-align: center;
+  background: color-mix(in srgb, var(--wash) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wash) 6%, transparent);
+}
+
+.myra-companion-memory strong {
+  display: block;
+  font-family: 'Sora', sans-serif;
+  font-size: 15px;
+}
+
+.myra-companion-memory span {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: 8px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: color-mix(in srgb, var(--fg) 35%, transparent);
+}
+
+.myra-companion-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.myra-companion-actions button {
+  min-height: 43px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  border-radius: 15px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--wash) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wash) 8%, transparent);
+}
+
+.myra-companion-actions button:last-child {
+  color: #100a12;
+  background: linear-gradient(135deg, var(--companion-accent), color-mix(in srgb, var(--companion-accent-2) 70%, white));
+  border-color: transparent;
+}
+
+.myra-companion-action-wave {
+  width: 18px;
+  height: 8px;
+  border-radius: 50%;
+  border-top: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: skewX(-18deg);
+}
+
+.myra-companion-ritual {
+  margin-top: 12px;
+  padding: 19px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--companion-accent) 10%, transparent), transparent 35%),
+    color-mix(in srgb, var(--wash) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wash) 8%, transparent);
+}
+
+.myra-companion-ritual-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.myra-companion-ritual-heading span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.myra-companion-ritual-heading p {
+  margin: 5px 0 0;
+  font-size: 10px;
+  color: color-mix(in srgb, var(--fg) 39%, transparent);
+}
+
+.myra-companion-ritual-heading > b {
+  font-size: 10px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--fg) 42%, transparent);
+}
+
+.myra-companion-ritual-tasks {
+  display: grid;
+  gap: 6px;
+  margin-top: 15px;
+}
+
+.myra-companion-ritual-tasks > div {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 43px;
+  padding: 6px 10px 6px 7px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.myra-companion-ritual-tasks > div > i {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: rgba(255,255,255,0.48);
+  background: rgba(255,255,255,0.05);
+}
+
+.myra-companion-ritual-tasks > div > span {
+  font-size: 9px;
+  color: rgba(255,255,255,0.6);
+}
+
+.myra-companion-ritual-tasks > div > b {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.3);
+}
+
+.myra-companion-ritual-tasks > div.is-done {
+  border-color: color-mix(in srgb, var(--companion-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--companion-accent) 5%, transparent);
+}
+
+.myra-companion-ritual-tasks > div.is-done > i {
+  color: #120a10;
+  background: var(--companion-accent);
+}
+
+.myra-companion-ritual > button {
+  width: 100%;
+  min-height: 43px;
+  margin-top: 12px;
+  border-radius: 15px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #120a10;
+  background: linear-gradient(135deg, var(--companion-accent), color-mix(in srgb, var(--companion-accent-2) 68%, white));
+}
+
+.myra-companion-ritual > button:disabled {
+  color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.045);
+}
+
+.myra-resonance-section {
+  margin-top: 12px;
+  padding: 19px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--wash) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wash) 8%, transparent);
+}
+
+.myra-resonance-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.myra-resonance-heading span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.myra-resonance-heading p {
+  margin: 5px 0 0;
+  font-size: 10px;
+  color: color-mix(in srgb, var(--fg) 39%, transparent);
+}
+
+.myra-resonance-heading b {
+  font-size: 10px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--fg) 42%, transparent);
+}
+
+.myra-resonance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.myra-resonance-grid > button {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 51px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  min-height: 69px;
+  padding: 8px;
+  border-radius: 17px;
+  text-align: left;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--wash) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wash) 7%, transparent);
+}
+
+.myra-resonance-grid > button.is-showcased {
+  border-color: color-mix(in srgb, var(--gift-accent, #f4a77f) 45%, transparent);
+  background: color-mix(in srgb, var(--gift-accent, #f4a77f) 8%, transparent);
+}
+
+.myra-resonance-grid > button:disabled { opacity: 0.5; }
+
+.myra-resonance-grid > button > strong {
+  align-self: end;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 10px;
+}
+
+.myra-resonance-grid > button > span {
+  align-self: start;
+  overflow: hidden;
+  margin-top: 3px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 8px;
+  color: color-mix(in srgb, var(--fg) 37%, transparent);
+}
+
+.myra-resonance-visual {
+  --gift-accent: #f4a77f;
+  position: relative;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  width: 51px;
+  height: 51px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 15px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--gift-accent) 24%, transparent), rgba(0,0,0,0.2));
+  border: 1px solid color-mix(in srgb, var(--gift-accent) 22%, transparent);
+}
+
+.myra-resonance-visual > svg {
+  position: absolute;
+  z-index: 3;
+  color: rgba(255,255,255,0.65);
+}
+
+.myra-resonance-visual i,
+.myra-companion-showcase i {
+  position: relative;
+  display: block;
+  width: 23px;
+  height: 23px;
+  color: var(--gift-accent);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--gift-accent) 74%, transparent));
+}
+
+.myra-gift--wave i {
+  border-top: 3px solid currentColor;
+  border-bottom: 3px solid currentColor;
+  border-radius: 50%;
+  transform: skewX(-18deg) rotate(-9deg);
+}
+
+.myra-gift--drop i {
+  border-radius: 70% 30% 62% 38% / 70% 35% 65% 30%;
+  background: linear-gradient(145deg, white, currentColor 42%, transparent 130%);
+  transform: rotate(38deg);
+}
+
+.myra-gift--prism i {
+  width: 21px;
+  height: 24px;
+  clip-path: polygon(50% 0, 100% 31%, 82% 100%, 18% 100%, 0 31%);
+  background: linear-gradient(135deg, white, currentColor 44%, #5ee7ff);
+}
+
+.myra-gift--star i {
+  clip-path: polygon(50% 0, 61% 37%, 100% 50%, 61% 63%, 50% 100%, 39% 63%, 0 50%, 39% 37%);
+  background: linear-gradient(135deg, #fff, currentColor 55%);
+}
+
+.myra-gift--heart i {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, #fff, currentColor 42%);
+  transform: rotate(-45deg);
+  border-radius: 4px 10px 4px 10px;
+}
+
+.myra-gift--crown i {
+  width: 25px;
+  height: 21px;
+  clip-path: polygon(0 18%, 26% 48%, 50% 0, 74% 48%, 100% 18%, 87% 100%, 13% 100%);
+  background: linear-gradient(145deg, white, currentColor 52%);
+}
+
+.myra-companion-showcase {
+  --gift-accent: #f4a77f;
+  position: absolute;
+  z-index: 7;
+  right: 7%;
+  bottom: 9%;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(7,4,11,0.78);
+  border: 1px solid color-mix(in srgb, var(--gift-accent) 42%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--gift-accent) 20%, transparent);
+}
+
+.myra-companion-showcase i { width: 14px; height: 14px; }
+
+.myra-companion-change {
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px;
+  font-size: 10px;
+  color: color-mix(in srgb, var(--fg) 42%, transparent);
+}
+
+@media (min-width: 760px) {
+  .myra-companion-sheet { padding: 24px 28px 32px; }
+  .myra-companion-choice-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .myra-companion-choice {
+    display: flex;
+    min-height: 410px;
+    padding: 10px 18px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .myra-companion-choice .myra-companion-portrait {
+    --portrait-size: min(210px, 18vw);
+    align-self: center;
+    margin-bottom: 2px;
+  }
+  .myra-companion-choice > span { margin-top: auto; }
+  .myra-companion-choice > i { margin-top: 16px; }
+  .myra-companion-stage { height: 350px; }
+  .myra-companion-stage .myra-companion-portrait { --portrait-size: 325px; }
+}
+
+@media (max-width: 390px) {
+  .myra-companion-invite-copy > p { max-width: 205px; }
+  .myra-companion-invite,
+  .myra-companion-home-card { padding-left: 17px; }
+  .myra-companion-home-card .myra-companion-portrait,
+  .myra-companion-invite .myra-companion-portrait { --portrait-size: 122px; }
+  .myra-resonance-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-companion-portrait img,
+  .myra-companion-orbit,
+  .myra-companion-pulse { animation: none !important; }
+}
+
+.fx-simple .myra-companion-portrait img,
+.fx-simple .myra-companion-orbit,
+.fx-simple .myra-companion-pulse {
+  animation: none !important;
+}
+
+.fx-simple .myra-companion-portrait::before {
+  filter: none;
+  opacity: 0.45;
+}
+
 /* ─── MYRA Fluid Metal — brand system 2026 ─────────────────────────────── */
 .myra-app-shell,
 .myra-onboarding {
@@ -2549,20 +3531,26 @@
   to { transform: rotate(-4deg) translate3d(5%, 8%, 0) scale(1.08); }
 }
 
+.myra-screen-transition::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8%;
+  z-index: 80;
+  width: 34%;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,241,233,.55), rgba(217,137,104,.55), transparent);
+  transform: translate3d(-140%,0,0);
+  animation: myra-tab-glint .62s cubic-bezier(.2,.72,.2,1) both;
+}
+@keyframes myra-tab-glint { to { transform: translate3d(310%,0,0); opacity: 0; } }
+
 /* Logo lockup */
 .myra-brand-lockup { display: flex; align-items: center; gap: 11px; min-width: 0; }
-.myra-brand-lockup-icon { flex: 0 0 auto; filter: drop-shadow(0 8px 18px rgba(217, 137, 104, 0.2)); }
-.myra-brand-lockup-copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.myra-brand-lockup-icon { flex: 0 0 auto; border-radius: 13px; object-fit: cover; filter: drop-shadow(0 8px 18px rgba(217, 137, 104, 0.2)); }
+.myra-brand-lockup-copy { display: flex; min-width: 0; align-items: center; }
 .myra-brand-lockup-copy > svg { width: 91px; }
-.myra-brand-lockup-copy > span {
-  overflow: hidden;
-  color: color-mix(in srgb, var(--fg) 36%, transparent);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 6.5px;
-  font-weight: 600;
-  letter-spacing: 0.17em;
-  white-space: nowrap;
-}
 
 /* Desktop frame and navigation */
 .myra-desktop-rail {
@@ -3376,4 +4364,535 @@
   .myra-detail-wave *,
   .myra-detail-wave::before { animation: none !important; }
   .myra-detail-wave { --wave-transition: 1ms linear; }
+}
+
+/* Mobile polish 2026-07: стабильный WebView-рендер без чёрной подложки. */
+.myra-detail-wave-back {
+  fill: none;
+  stroke: color-mix(in srgb, var(--myra-wave-accent) 20%, transparent);
+  filter: none;
+}
+.myra-detail-wave-surface {
+  opacity: 0.76;
+  stroke: rgba(255, 232, 219, 0.18);
+  stroke-width: 1;
+}
+.myra-player-timeline {
+  margin-top: clamp(18px, 3vh, 28px);
+  padding: 6px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.myra-player-title.is-long {
+  max-width: 14ch;
+  font-size: clamp(28px, 5vw, 42px);
+  line-height: 0.98;
+}
+.myra-home-flow {
+  min-height: 320px;
+}
+.myra-home-flow-main {
+  min-height: 252px;
+}
+
+@media (max-width: 760px) {
+  .myra-experience-page { scroll-behavior: auto; }
+  .fx-heavy,
+  .fx-aurora,
+  .myra-brand-atmosphere { display: none !important; }
+
+  .myra-home-flow {
+    min-height: 318px;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .myra-home-flow-main {
+    min-height: 258px;
+    padding: 24px !important;
+  }
+  .myra-home-flow-copy { padding-right: 76px; }
+  .myra-home-flow-copy h1 {
+    max-width: 8.5ch;
+    font-size: clamp(30px, 8.6vw, 39px);
+    line-height: 0.96;
+  }
+  .myra-home-flow-art {
+    right: 20px;
+    bottom: 29px;
+    width: 104px;
+    opacity: 0.54;
+    box-shadow: 0 16px 44px color-mix(in srgb, var(--flow-color) 28%, transparent);
+  }
+  .myra-home-flow-art::before,
+  .myra-home-flow-art::after { display: none; }
+
+  .myra-detail-photo,
+  .myra-detail-ribbon,
+  .myra-detail-ribbon-b,
+  .myra-detail-wave-media-base,
+  .myra-detail-wave-buffer-layer,
+  .myra-detail-wave-media-progress,
+  .myra-detail-wave-highlight,
+  .myra-detail-wave-top-rim,
+  .myra-detail-wave-back {
+    filter: none !important;
+  }
+  .myra-detail-photo {
+    animation: none !important;
+    opacity: 0.26 !important;
+  }
+  .myra-detail-wave-media-base { opacity: 0.28; }
+  .myra-detail-wave-buffer-layer { opacity: 0.64; }
+  .myra-detail-wave-media-progress { opacity: 0.9; }
+  .myra-detail-wave.is-playing .myra-detail-wave-energy::before,
+  .myra-detail-wave.is-playing .myra-detail-wave-energy > i,
+  .myra-detail-wave.is-playing .myra-detail-wave-buffer-line {
+    animation: none !important;
+  }
+
+  .myra-mini-player,
+  .myra-mobile-nav {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .myra-mobile-dock {
+    gap: 5px !important;
+    padding-inline: 10px !important;
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    filter: none;
+  }
+  .myra-mini-player > .relative {
+    gap: 8px !important;
+    padding: 7px 10px !important;
+  }
+  .myra-mini-player .w-11 {
+    width: 38px !important;
+    height: 38px !important;
+  }
+  .myra-mini-player [class*="py-1.5"] { padding-block: 4px !important; }
+  .myra-mobile-nav {
+    gap: 0 !important;
+    padding: 4px !important;
+  }
+  .myra-mobile-nav-item {
+    min-height: 38px;
+    padding: 7px 10px !important;
+  }
+  .myra-player-title.is-long {
+    max-width: 13ch;
+    font-size: clamp(27px, 7.4vw, 34px);
+    line-height: 0.98;
+  }
+  .myra-player-timeline { margin-top: 18px; }
+}
+
+.fx-simple .myra-detail-wave-surface { opacity: 0.86; }
+.fx-simple .myra-detail-wave-media-base { opacity: 0.18; }
+
+/* DETAIL Wave 3.0 — slim, readable and cheap enough for a 60/120/144 Hz UI. */
+.myra-detail-wave {
+  --wave-transition: 240ms cubic-bezier(.2,.72,.2,1);
+  min-height: 18px;
+  overflow: visible;
+  contain: layout paint;
+}
+.myra-detail-wave::before { display: none !important; }
+.myra-detail-wave svg {
+  overflow: visible;
+  transform: none !important;
+  animation: none !important;
+  will-change: auto;
+}
+.myra-detail-wave-ghost {
+  fill: color-mix(in srgb, var(--fg) 5%, transparent);
+  stroke: color-mix(in srgb, var(--fg) 12%, transparent);
+  stroke-width: 1.1;
+}
+.myra-detail-wave-buffer-layer {
+  opacity: .7;
+  filter: none !important;
+}
+.myra-detail-wave-media-progress {
+  opacity: .94;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,.24)) !important;
+}
+.myra-detail-wave-highlight,
+.myra-detail-wave-top-rim {
+  fill: none;
+  stroke-linecap: round;
+  filter: none !important;
+}
+.myra-detail-wave-highlight {
+  stroke: rgba(255,248,242,.88);
+  stroke-width: 1.35;
+}
+.myra-detail-wave-top-rim {
+  stroke: color-mix(in srgb, var(--myra-wave-accent) 38%, rgba(255,255,255,.16));
+  stroke-width: .85;
+  opacity: .72;
+}
+.myra-detail-wave-playhead,
+.myra-detail-wave-buffer-head {
+  top: 53%;
+  width: 2px;
+  height: 42%;
+  transition: left var(--wave-transition), opacity 160ms ease;
+}
+.myra-detail-wave-playhead {
+  box-shadow: 0 0 7px rgba(255,244,236,.75), 0 0 14px color-mix(in srgb, var(--myra-wave-accent) 46%, transparent);
+}
+.myra-detail-wave-playhead::before {
+  width: 10px;
+  height: 10px;
+  background: color-mix(in srgb, var(--myra-wave-accent) 26%, rgba(16,8,14,.82));
+}
+.myra-detail-wave-playhead::after { width: 3px; height: 3px; }
+.myra-detail-wave-playhead > i { inset: -5px; }
+.myra-detail-wave.is-playing .myra-detail-wave-playhead > i {
+  animation: myra-detail-wave-ring 2.2s ease-out infinite;
+}
+.myra-detail-wave-buffer-head { height: 28%; opacity: .58; }
+.android-runtime .myra-detail-wave-playhead > i,
+.android-runtime .myra-detail-wave-buffer-head { animation: none !important; }
+
+/* Balanced native rendering: preserve depth, but avoid stacked WebView blur layers. */
+.android-runtime .myra-content-section,
+.android-runtime .myra-card-quiet,
+.android-runtime .myra-mini-player,
+.android-runtime .myra-mobile-nav,
+.android-runtime .myra-sheet {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.android-runtime .fx-aurora div { filter: blur(34px) !important; }
+.app-hidden .myra-detail-wave *,
+.app-hidden .myra-companion-portrait * { animation-play-state: paused !important; }
+
+/* Search / Shelf mobile geometry: margins are part of the available width. */
+.myra-library-search {
+  width: auto;
+  max-width: min(520px, calc(100% - 2.5rem));
+  min-width: 0;
+}
+.myra-library-search input { width: 0; min-width: 0; }
+
+/* Discovery replaces the fake global chart with an ownable talent shelf. */
+.myra-talent-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.myra-talent-card {
+  --talent-accent: var(--myra-copper);
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 10px 11px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--talent-accent) 22%, var(--myra-line));
+  border-radius: 18px 27px 17px 24px;
+  color: var(--fg);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--talent-accent) 10%, rgba(255,255,255,.025)), rgba(255,255,255,.018));
+  text-align: left;
+}
+.myra-talent-card:nth-child(even) { border-radius: 27px 18px 24px 17px; }
+.myra-talent-card > img {
+  grid-column: 1;
+  width: 42px;
+  height: 42px;
+  border: 1px solid color-mix(in srgb, var(--talent-accent) 48%, rgba(255,255,255,.22));
+  border-radius: 15px 21px 14px 19px;
+  object-fit: cover;
+}
+.myra-talent-index {
+  position: absolute;
+  top: 5px;
+  right: 9px;
+  color: color-mix(in srgb, var(--talent-accent) 56%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+  letter-spacing: .12em;
+}
+.myra-talent-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.myra-talent-copy strong { overflow: hidden; font-family: "Sora", sans-serif; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.myra-talent-copy small { overflow: hidden; color: color-mix(in srgb, var(--fg) 42%, transparent); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.myra-talent-card > svg { color: var(--talent-accent); }
+
+@media (max-width: 520px) {
+  .myra-library-search { max-width: calc(100% - 2.5rem); }
+  .myra-library-tabs { width: calc(100% - 2.5rem) !important; max-width: calc(100% - 2.5rem); }
+  .myra-talent-strip { grid-template-columns: 1fr; }
+}
+
+/* Компактная река жанров: две строки по горизонтали вместо длинной стены. */
+.myra-genre-river {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(142px, 1fr);
+  grid-template-rows: repeat(2, 54px);
+  gap: 9px;
+  margin-inline: -20px;
+  padding: 2px 20px 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.myra-genre-river::-webkit-scrollbar { display: none; }
+.myra-genre-tile {
+  --genre-accent: var(--myra-copper);
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 15px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--genre-accent) 25%, var(--myra-line));
+  border-radius: 19px 26px 18px 24px;
+  color: color-mix(in srgb, var(--fg) 88%, var(--genre-accent));
+  background: linear-gradient(120deg, color-mix(in srgb, var(--genre-accent) 12%, rgba(16,10,15,.84)), rgba(255,255,255,.018));
+  scroll-snap-align: start;
+  isolation: isolate;
+}
+.myra-genre-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(105deg, transparent 14%, color-mix(in srgb, var(--genre-accent) 16%, transparent) 46%, transparent 76%);
+  background-size: 230% 100%;
+  animation: myra-genre-sheen 9s ease-in-out infinite var(--genre-shift);
+}
+.myra-genre-tile strong { position: relative; z-index: 2; overflow: hidden; font-family: "Sora", sans-serif; font-size: 12px; font-weight: 720; letter-spacing: -.02em; text-overflow: ellipsis; white-space: nowrap; }
+.myra-genre-tile > svg { position: relative; z-index: 2; flex: 0 0 auto; color: var(--genre-accent); }
+.myra-genre-membrane {
+  position: absolute;
+  right: -16px;
+  bottom: -17px;
+  width: 104px;
+  height: 39px;
+  border: 1px solid color-mix(in srgb, var(--genre-accent) 32%, transparent);
+  border-radius: 52% 48% 43% 57% / 58% 42% 58% 42%;
+  background: color-mix(in srgb, var(--genre-accent) 9%, transparent);
+  transform: rotate(-7deg);
+}
+@keyframes myra-genre-sheen { 0%, 28% { background-position: 130% 0; } 72%, 100% { background-position: -90% 0; } }
+@media (min-width: 900px) {
+  .myra-genre-river { grid-auto-columns: minmax(160px, 1fr); }
+}
+
+/* Пульс — единая социальная поверхность, не набор разрозненных плашек. */
+.myra-pulse-shell {
+  --pulse-accent: var(--myra-copper);
+  position: relative;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid var(--myra-line);
+  border-radius: 26px 36px 25px 34px;
+  background:
+    radial-gradient(circle at 88% -10%, color-mix(in srgb, var(--pulse-accent) 17%, transparent), transparent 38%),
+    linear-gradient(145deg, rgba(255,241,233,.045), rgba(255,255,255,.012));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 18px 44px rgba(0,0,0,.16);
+}
+.myra-pulse-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.myra-pulse-header span { color: var(--pulse-accent); font-family: "IBM Plex Mono", monospace; font-size: 7px; font-weight: 650; letter-spacing: .18em; }
+.myra-pulse-header h2 { margin-top: 4px; font-family: "Sora", sans-serif; font-size: 21px; font-weight: 760; letter-spacing: -.045em; }
+.myra-pulse-header p { margin-top: 4px; color: color-mix(in srgb, var(--fg) 43%, transparent); font-size: 10px; line-height: 1.45; }
+.myra-pulse-header > button { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--pulse-accent) 25%, var(--myra-line)); border-radius: 14px 20px 14px 19px; color: var(--pulse-accent); background: color-mix(in srgb, var(--pulse-accent) 7%, transparent); }
+.myra-pulse-people { display: flex; gap: 11px; margin: 2px -4px 14px; padding: 3px 4px 5px; overflow-x: auto; scrollbar-width: none; }
+.myra-pulse-people::-webkit-scrollbar { display: none; }
+.myra-pulse-people > button { display: flex; width: 48px; flex: 0 0 auto; flex-direction: column; align-items: center; gap: 5px; }
+.myra-pulse-people > button > span { position: relative; display: block; width: 42px; height: 42px; padding: 2px; border: 1px solid color-mix(in srgb, var(--pulse-accent) 55%, transparent); border-radius: 46% 54% 49% 51% / 44% 46% 54% 56%; }
+.myra-pulse-people > button > span::after { content: ""; position: absolute; right: -1px; bottom: 1px; width: 8px; height: 8px; border: 2px solid var(--bg); border-radius: 50%; background: #34d399; }
+.myra-pulse-people img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.myra-pulse-people small { width: 100%; overflow: hidden; color: color-mix(in srgb, var(--fg) 58%, transparent); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.myra-pulse-feed { display: flex; flex-direction: column; gap: 2px; }
+.myra-pulse-feed > div { border-radius: 17px 23px 17px 22px !important; }
+.myra-pulse-empty,
+.myra-pulse-room { display: grid; width: 100%; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid var(--myra-line); border-radius: 18px 25px 18px 24px; color: var(--fg); background: rgba(255,255,255,.018); text-align: left; }
+.myra-pulse-empty > span,
+.myra-pulse-room > span { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 14px 19px 13px 18px; color: var(--pulse-accent); background: color-mix(in srgb, var(--pulse-accent) 11%, transparent); }
+.myra-pulse-empty > div,
+.myra-pulse-room > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.myra-pulse-empty strong,
+.myra-pulse-room strong { overflow: hidden; font-family: "Plus Jakarta Sans", sans-serif; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.myra-pulse-empty small,
+.myra-pulse-room small { color: color-mix(in srgb, var(--fg) 43%, transparent); font-size: 9px; line-height: 1.35; }
+.myra-pulse-empty > svg,
+.myra-pulse-room > svg { color: var(--pulse-accent); }
+.myra-pulse-room { margin-top: 9px; border-color: color-mix(in srgb, var(--pulse-accent) 24%, var(--myra-line)); background: color-mix(in srgb, var(--pulse-accent) 5%, transparent); }
+
+/* Живые коллекционные знаки вокруг аватара. Подписи остаются ниже. */
+.myra-profile-avatar-stage {
+  position: relative;
+  display: grid;
+  width: 190px;
+  height: 138px;
+  margin: 4px auto -4px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+}
+.myra-profile-avatar { position: relative; z-index: 2; width: 96px; height: 96px; border: 2px solid; border-radius: 50%; object-fit: cover; }
+.myra-profile-badges { position: absolute; inset: 0; z-index: 3; display: block; margin: 0; padding: 0; pointer-events: none; }
+.myra-profile-badge-token {
+  --badge-accent: var(--myra-copper);
+  position: absolute;
+  display: block;
+  color: var(--badge-accent);
+  animation: myra-badge-orbit 4.8s ease-in-out infinite var(--badge-delay);
+}
+.myra-profile-badge-token[data-slot="0"] { top: 9px; left: 20px; }
+.myra-profile-badge-token[data-slot="1"] { top: 2px; right: 23px; }
+.myra-profile-badge-token[data-slot="2"] { bottom: 7px; left: 17px; }
+.myra-profile-badge-token[data-slot="3"] { right: 18px; bottom: 5px; }
+.myra-profile-badge-token > i {
+  display: grid;
+  width: 36px;
+  height: 39px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--badge-accent) 52%, rgba(255,255,255,.16));
+  border-radius: 44% 56% 49% 51% / 38% 42% 58% 62%;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255,255,255,.24), transparent 22%),
+    linear-gradient(145deg, color-mix(in srgb, var(--badge-accent) 28%, rgba(20,10,18,.86)), rgba(8,5,10,.92));
+  box-shadow: inset 0 1px rgba(255,255,255,.19), 0 8px 20px color-mix(in srgb, var(--badge-accent) 19%, transparent);
+  transform: rotate(-3deg);
+}
+.myra-profile-badge-token:nth-child(even) > i { transform: rotate(3deg); }
+@keyframes myra-badge-orbit { 0%, 100% { translate: 0 0; rotate: -1deg; } 50% { translate: 0 -5px; rotate: 2deg; } }
+.myra-profile-badge-labels { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 12px; }
+.myra-profile-badge-labels > span { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid color-mix(in srgb, var(--badge-accent) 25%, var(--myra-line)); border-radius: 999px; color: color-mix(in srgb, var(--fg) 67%, var(--badge-accent)); background: color-mix(in srgb, var(--badge-accent) 6%, transparent); }
+.myra-profile-badge-labels b { font-family: "Plus Jakarta Sans", sans-serif; font-size: 8px; font-weight: 700; }
+
+.myra-setting-value { max-width: 116px; overflow: hidden; padding: 6px 9px; border: 1px solid currentColor; border-radius: 999px; font-family: "IBM Plex Mono", monospace; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; opacity: .82; }
+.myra-inline-segment { display: inline-flex; padding: 2px; border: 1px solid var(--myra-line); border-radius: 999px; background: rgba(255,255,255,.025); }
+.myra-inline-segment button { min-width: 34px; min-height: 30px; border-radius: 999px; color: color-mix(in srgb, var(--fg) 42%, transparent); font-family: "IBM Plex Mono", monospace; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.myra-inline-segment button[data-active] { color: var(--fg); background: color-mix(in srgb, var(--myra-copper) 22%, rgba(255,255,255,.08)); box-shadow: inset 0 1px rgba(255,255,255,.1); }
+
+/* Gifts now have their own profile showcase and collection sheet. */
+.myra-profile-gift-showcase {
+  position: relative;
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto 18px;
+  align-items: center;
+  gap: 12px;
+  padding: 17px 16px 17px 18px;
+  overflow: hidden;
+  border: 1px solid var(--myra-line-strong);
+  border-radius: 24px 36px 22px 32px;
+  color: var(--fg);
+  background:
+    radial-gradient(circle at 82% 18%, rgba(217,137,104,.16), transparent 34%),
+    linear-gradient(130deg, rgba(255,241,233,.055), rgba(255,255,255,.018));
+  text-align: left;
+}
+.myra-profile-gift-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.myra-profile-gift-copy > span { color: var(--myra-copper); font-family: "IBM Plex Mono", monospace; font-size: 7px; letter-spacing: .19em; }
+.myra-profile-gift-copy > strong { font-family: "Sora", sans-serif; font-size: 15px; letter-spacing: -.025em; }
+.myra-profile-gift-copy > p { color: color-mix(in srgb, var(--fg) 42%, transparent); font-size: 10px; }
+.myra-profile-gift-stack { display: flex; align-items: center; padding-left: 18px; }
+.myra-profile-gift-stack .myra-resonance-visual {
+  width: 42px;
+  height: 42px;
+  margin-left: -18px;
+  border-width: 1px;
+  box-shadow: 0 8px 22px rgba(0,0,0,.32);
+}
+.myra-profile-gift-stack > span { display: grid; width: 42px; height: 42px; place-items: center; border: 1px dashed var(--myra-line-strong); border-radius: 16px 22px 15px 20px; color: var(--myra-copper); }
+.myra-profile-gift-showcase > svg { color: var(--myra-copper); }
+.myra-gift-gallery-sheet { max-height: min(84vh, 760px); overflow-y: auto; padding: 26px 22px 34px; scrollbar-width: none; }
+.myra-gift-gallery-sheet > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+.myra-gift-gallery-sheet > header span { color: var(--myra-copper); font-family: "IBM Plex Mono", monospace; font-size: 8px; letter-spacing: .2em; }
+.myra-gift-gallery-sheet > header h2 { margin-top: 5px; font-family: "Sora", sans-serif; font-size: 24px; font-weight: 780; letter-spacing: -.05em; }
+.myra-gift-gallery-sheet > header p { max-width: 38rem; margin-top: 7px; color: color-mix(in srgb, var(--fg) 46%, transparent); font-size: 11px; line-height: 1.5; }
+.myra-gift-gallery-sheet > header > button { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid var(--myra-line); border-radius: 14px 20px 14px 19px; background: rgba(255,255,255,.035); }
+.myra-gift-gallery-summary { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; padding: 12px 14px; border: 1px solid var(--myra-line); border-radius: 16px 24px 15px 22px; color: var(--myra-copper); background: rgba(217,137,104,.06); }
+.myra-gift-gallery-summary span { color: color-mix(in srgb, var(--fg) 44%, transparent); font-size: 10px; }
+.myra-gift-gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 520px) {
+  .myra-gift-gallery-grid { grid-template-columns: 1fr; }
+  .myra-profile-gift-stack .myra-resonance-visual:nth-child(n+3) { display: none; }
+}
+
+/* Единая контурная система без служебных микроточек. */
+.myra-custom-icon {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+/* Developer cockpit and safe access diagnostics. */
+.myra-dev-health-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.myra-dev-health-grid > div {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 7px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--myra-line);
+  border-radius: 15px 22px 14px 20px;
+  background: color-mix(in srgb, var(--wash) 4%, transparent);
+}
+.myra-dev-health-grid svg,
+.myra-dev-status-dot { grid-row: 1 / span 2; color: var(--myra-copper); }
+.myra-dev-health-grid span { color: color-mix(in srgb, var(--fg) 39%, transparent); font-size: 8px; letter-spacing: .09em; text-transform: uppercase; }
+.myra-dev-health-grid strong { overflow: hidden; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.myra-dev-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #34d399; box-shadow: 0 0 9px rgba(52,211,153,.55); }
+.myra-dev-health-grid .is-warn .myra-dev-status-dot { background: #fbbf24; box-shadow: 0 0 9px rgba(251,191,36,.48); }
+.myra-dev-tool-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+.myra-dev-tool-row button,
+.myra-admin-access-actions button {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 11px;
+  border: 1px solid var(--myra-line);
+  border-radius: 14px 20px 14px 19px;
+  color: color-mix(in srgb, var(--fg) 68%, transparent);
+  background: rgba(255,255,255,.025);
+  font-size: 9px;
+  font-weight: 700;
+}
+.myra-admin-access-preview { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 11px; overflow-y: auto; padding: 2px 1px 4px; scrollbar-width: none; }
+.myra-admin-access-head { display: flex; gap: 12px; padding: 15px; border: 1px solid rgba(251,191,36,.24); border-radius: 20px 29px 18px 26px; background: rgba(251,191,36,.055); }
+.myra-admin-access-head > svg { flex: 0 0 auto; color: #fbbf24; }
+.myra-admin-access-head strong { display: block; margin-bottom: 5px; font-family: "Sora", sans-serif; font-size: 12px; }
+.myra-admin-access-head p { color: color-mix(in srgb, var(--fg) 48%, transparent); font-size: 10px; line-height: 1.5; }
+.myra-admin-uid { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--myra-line); border-radius: 14px 20px 14px 19px; color: var(--myra-copper); background: rgba(255,255,255,.025); }
+.myra-admin-uid span { min-width: 0; flex: 1; overflow: hidden; font-family: "IBM Plex Mono", monospace; font-size: 8px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.myra-admin-uid b { color: color-mix(in srgb, var(--fg) 44%, transparent); font-size: 8px; }
+.myra-admin-preview-label { margin-top: 6px; color: color-mix(in srgb, var(--fg) 34%, transparent); font-family: "IBM Plex Mono", monospace; font-size: 7px; letter-spacing: .17em; }
+.myra-admin-preview-card { display: grid; grid-template-columns: 36px minmax(0, 1fr) 22px; align-items: center; gap: 10px; padding: 12px; border: 1px solid rgba(34,211,238,.23); border-radius: 17px 25px 16px 23px; background: rgba(34,211,238,.055); }
+.myra-admin-preview-card > svg { color: #22d3ee; }
+.myra-admin-preview-card > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.myra-admin-preview-card strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.myra-admin-preview-card span { overflow: hidden; color: color-mix(in srgb, var(--fg) 43%, transparent); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.myra-admin-preview-card i { display: grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; color: #08262c; background: #22d3ee; font-size: 9px; font-style: normal; font-weight: 800; }
+.myra-admin-preview-card.is-danger { border-color: rgba(248,113,113,.25); background: rgba(248,113,113,.055); }
+.myra-admin-preview-card.is-danger > svg { color: #f87171; }
+.myra-admin-preview-card.is-danger i { color: #351113; background: #f87171; }
+.myra-admin-preview-note { color: color-mix(in srgb, var(--fg) 35%, transparent); font-size: 9px; line-height: 1.45; }
+.myra-admin-access-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }
+
+@media (max-width: 380px) {
+  .myra-dev-tool-row,
+  .myra-admin-access-actions { grid-template-columns: 1fr; }
 }

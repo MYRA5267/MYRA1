@@ -9,6 +9,7 @@ import { DetailWave } from "./detail";
 import { useThemeCycle, useSimpleFx, useIsDesktop } from "./useAppEnvironment";
 import { useSleepTimer } from "./useSleepTimer";
 import { useMediaSession } from "./useMediaSession";
+import { isNativeAndroid } from "./nativeMedia";
 import { useDownloads } from "./useDownloads";
 import { usePlaylists } from "./usePlaylists";
 import { useLocalTracks } from "./useLocalTracks";
@@ -17,6 +18,7 @@ import { useSubscription } from "./useSubscription";
 import { useIdentity } from "./useIdentity";
 import { usePlayerQueue } from "./usePlayerQueue";
 import { smartRecommendations } from "./smart";
+import { GiftGallerySheet, useCompanion } from "./companion";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
   topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds, grantXp,
@@ -41,7 +43,7 @@ import {
 } from "./supabase";
 import { HomeScreen, BrowseScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
-import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, SplitSheet, AchievementsSheet, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
+import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, SplitSheet, AchievementsSheet, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
 const RoomSheet = lazy(() => import("./roomSheet").then(m => ({ default: m.RoomSheet })));
 
 // Вынесено на уровень модуля — статичная строка, незачем пересобирать на каждый рендер
@@ -78,6 +80,7 @@ const GLOBAL_STYLE = `
 `;
 
 type Tab = "home" | "browse" | "rating" | "library" | "creator" | "profile";
+const TAB_ORDER: Tab[] = ["home", "browse", "rating", "library", "creator", "profile"];
 
 // Ленивый маунт шторки: чанк не грузится, пока шторку ни разу не открыли,
 // а после первого открытия остаётся смонтированной — размонтирование по
@@ -90,11 +93,13 @@ function useEverOpened(open: boolean) {
 
 function AppInner() {
   const { t, lang } = useLang();
+  const companionController = useCompanion();
+  const [giftGalleryOpen, setGiftGalleryOpen] = useState(false);
+  const openGiftGallery = useCallback(() => setGiftGalleryOpen(true), []);
 
   // Неон — эксклюзив апгрейда (Plus у слушателя, Pro у артиста): цикл тем
   // включает его только при активной подписке, иначе честный тост вместо темы
-  const neonAllowedRef = useRef(false);
-  const { theme, setTheme, toggleTheme } = useThemeCycle(neonAllowedRef);
+  const { theme, toggleTheme } = useThemeCycle();
   const { simpleFx, toggleSimpleFx } = useSimpleFx();
   const isDesktop = useIsDesktop();
 
@@ -129,10 +134,12 @@ function AppInner() {
   const [devPanelOpen, setDevPanelOpen] = useState(false);
   const [adminSupportOpen, setAdminSupportOpen] = useState(false);
   const [moderationOpen, setModerationOpen] = useState(false);
-  const [plusOpen, setPlusOpen] = useState(false);
   const [followed, setFollowed] = useState<Set<string>>(() => new Set(ls.get<string[]>("followed", [])));
 
   const [tab, setTabState] = useState<Tab>(() => ls.get<Tab>("tab", "home"));
+  const previousTabRef = useRef(tab);
+  const tabDirection = TAB_ORDER.indexOf(tab) >= TAB_ORDER.indexOf(previousTabRef.current) ? 1 : -1;
+  useEffect(() => { previousTabRef.current = tab; }, [tab]);
   const setTab = useCallback((id: Tab) => {
     setTabState(id);
     ls.set("tab", id);
@@ -151,6 +158,14 @@ function AppInner() {
   const [wrappedOpen, setWrappedOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const openAccount = useCallback(() => setAccountOpen(true), []);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!onboarded || url.searchParams.get("delete-account") !== "1") return;
+    setTab("profile");
+    setAccountOpen(true);
+    url.searchParams.delete("delete-account");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [onboarded, setTab]);
   const openCreatorPlus = useCallback(() => setCreatorPlusOpen(true), []);
   const openWrapped = useCallback(() => setWrappedOpen(true), []);
   const openStats = useCallback(() => setStatsOpen(true), []);
@@ -174,13 +189,13 @@ function AppInner() {
   }, []);
 
   const {
-    cpStatus, creatorPlus, plusActive, hasUpgrade, hasAnyUpgrade,
-    setPlusActive, activateCreatorPlus, cancelCreatorPlusSub, resumeCreatorPlus,
-    activatePlus, deactivatePlus, clearSubscription,
+    cpStatus, creatorPlus,
+    activateCreatorPlus, cancelCreatorPlusSub, resumeCreatorPlus, clearSubscription,
     setCp,
   } = useSubscription({ userRole, uid, onboarded, logActivity });
 
-  const { downloads, resolveUrl, downloadTrack, clearDownloads } = useDownloads({ hasUpgrade, logActivity });
+  // На этапе бесплатного запуска все пользовательские функции доступны.
+  const { downloads, resolveUrl, downloadTrack, clearDownloads } = useDownloads({ hasUpgrade: true, logActivity });
   const {
     customPls, playlistId, setPlaylistId, allPlaylists, customPlIds, plOrder,
     createPlaylist, deletePlaylist, handleCreatePlaylist, reorderPlaylist, clearPlaylists,
@@ -342,7 +357,6 @@ function AppInner() {
   const openDevPanel = useCallback(() => setDevPanelOpen(true), []);
   const openAdminSupport = useCallback(() => setAdminSupportOpen(true), []);
   const openModeration = useCallback(() => setModerationOpen(true), []);
-  const openPlus = useCallback(() => setPlusOpen(true), []);
   const handleGrantXp = useCallback((xp: number) => { setStats(prev => grantXp(prev, xp)); }, []);
   const addBalance = useCallback((amt: number) => {
     setBalance(b => { const nb = b + amt; ls.set("balance", nb); return nb; });
@@ -358,7 +372,8 @@ function AppInner() {
     setTotalPlays(bumpTotalPlays());
     setStats(prev => markTrackPlayed(prev, tr.id));
     if (tr.local) setMyPlays(logMyTrackPlay(tr.id));
-  }, []);
+    companionController.recordPlay(tr);
+  }, [companionController.recordPlay]);
 
   const {
     audio, queue, shuffle, setShuffle, repeat, setRepeat,
@@ -377,11 +392,7 @@ function AppInner() {
   const [qualityIdx, setQualityIdxState] = useState(() => ls.get("qualityIdx", 1));
   const setQualityIdx = useCallback((idx: number) => { setQualityIdxState(idx); ls.set("qualityIdx", idx); }, []);
   useEffect(() => { audio.setQuality(qualityIdx); }, [qualityIdx, audio]);
-  // Если апгрейд закончился (отмена/grace), а качество уже стояло на Hi-Res —
-  // тихо откатываем на FLAC, а не оставляем недоступный уровень висеть в настройках
-  useEffect(() => {
-    if (!hasUpgrade && qualityIdx > 1) setQualityIdx(1);
-  }, [hasUpgrade, qualityIdx, setQualityIdx]);
+  // На этапе бесплатного запуска AAC, FLAC и Hi-Res доступны всем.
 
   // Реальное время прослушивания — копится, пока реально играет музыка.
   // artist обязан быть в зависимостях наравне с genre: иначе при переходе на
@@ -405,14 +416,20 @@ function AppInner() {
     fetchReceivedDonationsTotal(uid).then(setRealDonationsTotal);
   }, [uid, tab]);
 
-  // Апгрейд любого типа открывает неоновую тему; при его потере тема честно
-  // откатывается — иначе отключивший Plus навсегда остался бы с эксклюзивом
-  neonAllowedRef.current = hasAnyUpgrade;
-  useEffect(() => {
-    if (theme === "neon" && !hasAnyUpgrade) { setTheme("dark"); ls.set("theme", "dark"); }
-  }, [theme, hasAnyUpgrade]);
 
   const avatar = customAvatar ?? AVATARS[avatarIdx] ?? AVATARS[0];
+
+  const toggleLike = useCallback((id: number) => {
+    setLikedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); toast(t("like.rm")); }
+      else { next.add(id); companionController.recordLike(); toast(t("like.add")); }
+      ls.set("liked", [...next]);
+      return next;
+    });
+  }, [t, companionController.recordLike]);
+  const currentIdRef = useRef(currentTrack.id); currentIdRef.current = currentTrack.id;
+  const likeCurrent = useCallback(() => toggleLike(currentIdRef.current), [toggleLike]);
 
   // dev-хук для интеграционных проверок
   if ((import.meta as any).env?.DEV || location.hostname === "127.0.0.1" || location.hostname === "localhost") {
@@ -425,10 +442,13 @@ function AppInner() {
     playing: audio.playing,
     duration: audio.duration,
     progress: audio.progress,
+    liked: likedIds.has(currentTrack.id),
     toggle: togglePlay,
     next: handleNext,
     prev: handlePrev,
     seek: audio.seek,
+    like: likeCurrent,
+    flow: startWave,
   });
 
   const openRooms = useCallback(() => setRoomOpen(true), []);
@@ -439,16 +459,6 @@ function AppInner() {
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
-
-  const toggleLike = useCallback((id: number) => {
-    setLikedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); toast(t("like.rm")); }
-      else { next.add(id); toast(t("like.add")); }
-      ls.set("liked", [...next]);
-      return next;
-    });
-  }, [t]);
 
   const toggleFollow = useCallback((name: string) => {
     setFollowed(prev => {
@@ -464,9 +474,6 @@ function AppInner() {
   // Стабильные колбэки для BottomIsland: инлайновые пересоздавались каждый
   // рендер и полностью обесценивали его React.memo
   const openPlayer = useCallback(() => setPlayerOpen(true), []);
-  const currentIdRef = useRef(currentTrack.id); currentIdRef.current = currentTrack.id;
-  const likeCurrent = useCallback(() => toggleLike(currentIdRef.current), [toggleLike]);
-
   const openArtist = useCallback((name: string) => {
     setAlbumName(null);
     setArtistName(name);
@@ -506,7 +513,7 @@ function AppInner() {
     setDevPanelOpen(false);
     setAdminSupportOpen(false);
     setModerationOpen(false);
-    setPlusOpen(false);
+    setCreatorPlusOpen(false);
     setStats(touchDailyStreak(loadStats()));
     setActivity([]);
     setMyPlays({ byTrack: {}, byDay: {} });
@@ -541,7 +548,7 @@ function AppInner() {
   // Тема оборачивает и онбординг, и приложение; Toaster общий
   const themedRoot = (children: React.ReactNode) => (
     <ThemeCtx.Provider value={{ theme, toggleTheme }}>
-      <div data-theme={theme} className={`h-screen w-full${simpleFx ? " fx-simple" : ""}`} style={{ ...(THEMES[theme] as React.CSSProperties), background: "var(--bg)", color: "var(--fg)", fontFamily: F.b, transition: "background 0.4s ease, color 0.4s ease" }}>
+      <div data-theme={theme} className={`h-screen w-full${simpleFx ? " fx-simple" : ""}${isNativeAndroid ? " android-runtime" : ""}`} style={{ ...(THEMES[theme] as React.CSSProperties), background: "var(--bg)", color: "var(--fg)", fontFamily: F.b, transition: "background 0.4s ease, color 0.4s ease" }}>
         <style>{GLOBAL_STYLE}</style>
         <ProgressCtx.Provider value={audio.progress}>{children}</ProgressCtx.Provider>
         <Toaster
@@ -616,11 +623,13 @@ function AppInner() {
   const statMinutesWeek = minutesOf(weekSeconds(stats));
   const statTopGenre = topGenre(stats);
 
-  // Текущий план для строки в аккаунте: Pro — у артистов, Plus — у слушателей
+  // Для слушателя приложение полностью бесплатное; Pro остаётся только
+  // инструментом монетизации студии артиста.
   const planLabel = userRole === "artist"
     ? (cpStatus === "active" ? t("plan.proActive") : cpStatus === "grace" ? t("plan.proGrace") : t("plan.free"))
-    : (plusActive ? t("plan.plus") : t("plan.free"));
-  const openPlan = userRole === "artist" ? openCreatorPlus : openPlus;
+    : t("plan.freeAll");
+  const openFreePlan = useCallback(() => toast.success(t("plan.freeAllToast")), [t]);
+  const openPlan = userRole === "artist" ? openCreatorPlus : openFreePlan;
 
   // Счётчики для скрытых достижений — их полный список видит только дев-панель
   const achCounters: AchievementCounters = {
@@ -725,20 +734,20 @@ function AppInner() {
         quality={qualityIdx}
         onSetQuality={setQualityIdx}
         userRole={userRole}
-        plusActive={plusActive}
         donationCount={donationCount}
         devMode={devMode}
         onToggleDevMode={toggleDevMode}
         onOpenDevPanel={openDevPanel}
-        onOpenPlus={openPlus}
+        companionController={companionController}
+        onOpenGifts={openGiftGallery}
       />
     ),
   };
 
   return themedRoot(
-    <div className="myra-app-shell flex h-full w-full overflow-hidden relative">
+      <div className="myra-app-shell flex h-full w-full overflow-hidden relative">
       <DynamicBg track={currentTrack} />
-      <div className="myra-brand-atmosphere" aria-hidden="true"><i /><i /><i /></div>
+      <div className="myra-brand-atmosphere" aria-hidden="true"><i /><i /></div>
 
       {/* Desktop sidebar */}
       {isDesktop && (
@@ -771,7 +780,7 @@ function AppInner() {
               {audio.playing && <div className="absolute top-2.5 right-2.5"><EQ color={currentTrack.c2} size={10} /></div>}
             </div>
             <div className="p-3">
-              <DetailWave progress={audio.progress} buffered={audio.buffered} accent={currentTrack.c2} onSeek={audio.seek} height={34} compact playing={audio.playing} />
+              <DetailWave progress={audio.progress} buffered={audio.buffered} accent={currentTrack.c2} onSeek={audio.seek} height={24} compact playing={audio.playing} />
               <div className="flex items-center justify-between mt-2.5">
                 <motion.button whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); handlePrev(); }}><SkipBack size={14} style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }} /></motion.button>
                 <motion.button whileTap={{ scale: 0.85 }} onClick={e => { e.stopPropagation(); togglePlay(); }} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${currentTrack.c2}, ${currentTrack.c2}aa)` }}>
@@ -789,14 +798,20 @@ function AppInner() {
         <div className="flex-1 overflow-hidden relative">
           {/* Кроссфейд без mode="wait" и без filter: экраны перетекают без провала,
               а fixed-диалоги внутри вкладок позиционируются от вьюпорта */}
-          <AnimatePresence initial={false}>
+          <AnimatePresence initial={false} custom={tabDirection}>
             <motion.div
               key={tab}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, transition: { duration: 0.18 } }}
+              custom={tabDirection}
+              variants={{
+                enter: (direction: number) => ({ opacity: 0, x: direction * 18, scale: 0.994 }),
+                active: { opacity: 1, x: 0, scale: 1 },
+                leave: (direction: number) => ({ opacity: 0, x: direction * -12, scale: 0.997 }),
+              }}
+              initial="enter"
+              animate="active"
+              exit="leave"
               transition={{ duration: 0.26, ease: [0.32, 0.72, 0, 1] }}
-              className="absolute inset-0"
+              className="myra-screen-transition absolute inset-0"
             >
               {screens[tab]}
             </motion.div>
@@ -864,6 +879,8 @@ function AppInner() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <GiftGallerySheet open={giftGalleryOpen} onClose={() => setGiftGalleryOpen(false)} controller={companionController} />
 
       <ArtistSheet
         name={artistName}
@@ -967,14 +984,6 @@ function AppInner() {
         onResume={resumeCreatorPlus}
       />
 
-      <ListenerPlusSheet
-        open={plusOpen}
-        onClose={() => setPlusOpen(false)}
-        active={plusActive}
-        onActivate={activatePlus}
-        onDeactivate={deactivatePlus}
-      />
-
       {devEver && (
         <Suspense fallback={null}>
           <DevPanelSheet
@@ -986,8 +995,6 @@ function AppInner() {
             onSetRole={setRole}
             cpStatus={cpStatus}
             onSetCp={setCp}
-            plusActive={plusActive}
-            onSetPlus={setPlusActive}
             balance={balance}
             onAddBalance={addBalance}
             onGrantXp={handleGrantXp}

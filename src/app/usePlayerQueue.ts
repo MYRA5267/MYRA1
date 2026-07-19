@@ -42,10 +42,14 @@ export function usePlayerQueue(params: {
     }
     // play() должен происходить прямо в обработчике клика, иначе браузер
     // теряет user activation и может заблокировать звук.
+    const previous = currentTrackRef.current;
     loadedRef.current = true;
     currentTrackRef.current = tr;
     setCurrentTrack(tr);
-    audio.load(resolveUrl(tr));
+    audio.load(resolveUrl(tr), () => {
+      currentTrackRef.current = previous;
+      setCurrentTrack(previous);
+    });
     pushHistory(tr.id);
     registerPlay(tr);
   }, [audio, resolveUrl, registerPlay, setCurrentTrack]);
@@ -89,7 +93,10 @@ export function usePlayerQueue(params: {
     loadedRef.current = true;
     currentTrackRef.current = next;
     setCurrentTrack(next);
-    audio.load(resolveUrl(next));
+    audio.load(resolveUrl(next), () => {
+      currentTrackRef.current = prev;
+      setCurrentTrack(prev);
+    });
     pushHistory(next.id);
     registerPlay(next);
   }, [audio, resolveUrl, registerPlay, setCurrentTrack]);
@@ -102,11 +109,15 @@ export function usePlayerQueue(params: {
   const followedRef = useRef(followed); followedRef.current = followed;
   const langRef = useRef(lang); langRef.current = lang;
   const playWave = useCallback((silent = false) => {
+    const previous = currentTrackRef.current;
     const { track, reason } = smartNext(queueRef.current, likedRef.current, followedRef.current, currentTrackRef.current.id, langRef.current);
     loadedRef.current = true;
     currentTrackRef.current = track;
     setCurrentTrack(track);
-    audio.load(resolveUrl(track));
+    audio.load(resolveUrl(track), () => {
+      currentTrackRef.current = previous;
+      setCurrentTrack(previous);
+    });
     pushHistory(track.id);
     registerPlay(track);
     if (!silent) toast(`MYRA AI · ${track.title} — ${reason}`);
@@ -123,7 +134,10 @@ export function usePlayerQueue(params: {
     loadedRef.current = true;
     currentTrackRef.current = next;
     setCurrentTrack(next);
-    audio.load(resolveUrl(next));
+    audio.load(resolveUrl(next), () => {
+      currentTrackRef.current = prev;
+      setCurrentTrack(prev);
+    });
     pushHistory(next.id);
     registerPlay(next);
     toast(t("home.radioToast", next.title, next.artist));

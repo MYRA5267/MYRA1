@@ -6,7 +6,7 @@ import {
 } from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track, type Comment } from "./data";
+import { LYRICS, parseLyrics, artistByName, loadMyComments, addMyComment, commentsFor, type Track, type Comment } from "./data";
 import { commentHotMoments } from "./smart";
 import { F, GLASS, SPRING, fmtSec, FrequencyOrb, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
 import { DetailBackdrop, DetailWave } from "./detail";
@@ -112,7 +112,10 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
   // просто null, и волна выглядит как раньше.
   const structure = useTrackStructure(track);
 
-  const lines = LYRICS[track.id];
+  const customLyrics = useMemo(() => parseLyrics(track.lyrics), [track.lyrics]);
+  // Демо-текст допустим только для встроенного каталога: у локального или
+  // удалённого трека числовой id теоретически может совпасть с demo id.
+  const lines = customLyrics ?? (!track.local && !track.remoteId ? LYRICS[track.id] : undefined);
   const lyricIndex = Math.min((lines?.length ?? 1) - 1, Math.floor((progress / 100) * (lines?.length ?? 1)));
   const wordIndex = Math.floor(((progress / 100) * (lines?.length ?? 1) - lyricIndex) * (lines?.[lyricIndex]?.en.length ?? 1));
   const curSec = (progress / 100) * (duration || 0);
@@ -230,15 +233,14 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
             <section className="myra-player-content">
               <div className="myra-player-meta">
                 <div className="min-w-0">
-                  <div className="myra-player-eyebrow" style={{ fontFamily: F.m }}>{track.genre} · {track.plays}</div>
-                  <h1 className="myra-player-title" style={{ fontFamily: F.d }}>{track.title}</h1>
+                  <div className="myra-player-eyebrow" style={{ fontFamily: F.m }}>{track.genre}{track.plays && track.plays !== "0" ? ` · ${track.plays}` : ""}</div>
+                  <h1 className={`myra-player-title${track.title.length > 28 ? " is-long" : ""}`} style={{ fontFamily: F.d }}>{track.title}</h1>
                   <div className="flex items-center gap-2 mt-2.5 min-w-0">
                     <button onClick={() => onOpenArtist(track.artist)} className="myra-player-artist">
                       {track.artist}
                       {verified && <BadgeCheck size={15} style={{ color: track.c2 }} />}
                     </button>
-                    <span className="text-white/20">·</span>
-                    <button onClick={() => onOpenAlbum(track.album)} className="myra-player-album">{track.album}</button>
+                    {track.album !== "Local" && <><span className="text-white/20">·</span><button onClick={() => onOpenAlbum(track.album)} className="myra-player-album">{track.album}</button></>}
                   </div>
                 </div>
                 <motion.button aria-label={liked ? t("pl.unlike") : t("pl.like")} title={liked ? t("pl.unlike") : t("pl.like")} whileTap={{ scale: 0.84 }} onClick={onLike} className="myra-player-like" style={{ background: liked ? `${track.c2}1f` : undefined, borderColor: liked ? `${track.c2}48` : undefined }}>
@@ -247,8 +249,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
               </div>
 
               <div className="myra-player-timeline">
-                <DetailWave progress={progress} buffered={buffered} accent={track.c2} onSeek={onSeek} height={82} playing={playing} />
-                <TrackStructureBar sections={structure} height={22} />
+                <DetailWave progress={progress} buffered={buffered} accent={track.c2} onSeek={onSeek} height={32} playing={playing} />
                 <div className="flex justify-between mt-2.5 text-[11px]" style={{ color: "rgba(242,242,248,0.42)", fontFamily: F.m }}>
                   <span>{fmtSec(curSec)}</span>
                   <span>-{duration ? fmtSec(Math.max(0, duration - curSec)) : track.duration}</span>
@@ -340,7 +341,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }} className="flex-1 overflow-y-auto px-8 py-5 w-full max-w-xl mx-auto" style={{ scrollbarWidth: "none" }}>
             <div className="flex gap-2 mb-6 text-xs items-center" style={{ fontFamily: F.m }}>
               <Globe size={12} style={{ color: track.c2 }} />
-              <span style={{ color: track.c2 }}>{t("pl.translate")}</span>
+              <span style={{ color: track.c2 }}>{customLyrics ? t("pl.originalLyrics") : t("pl.translate")}</span>
             </div>
             {!lines && (
               <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -370,7 +371,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
                       </span>
                     ))}
                   </div>
-                  {isActive && lang === "ru" && (
+                  {isActive && lang === "ru" && line.ru && (
                     <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="text-sm" style={{ color: `${track.c2}cc`, fontFamily: F.b, fontWeight: 500 }}>
                       {line.ru}
                     </motion.div>
@@ -384,7 +385,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
         {tab === "comments" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }} className="flex-1 flex flex-col px-6 py-4 overflow-hidden w-full max-w-xl mx-auto">
             <div className="mb-5 relative flex-shrink-0">
-              <DetailWave progress={progress} buffered={buffered} accent={track.c2} onSeek={onSeek} height={54} playing={playing} compact />
+              <DetailWave progress={progress} buffered={buffered} accent={track.c2} onSeek={onSeek} height={30} playing={playing} compact />
               {comments.map((c, i) => (
                 <div key={i} className="absolute bottom-full mb-1 -translate-x-1/2" style={{ left: `${c.pct}%` }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: c.avatar, boxShadow: `0 0 8px ${c.avatar}` }} />

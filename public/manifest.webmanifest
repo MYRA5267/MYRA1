@@ -1,12 +1,15 @@
 {
   "name": "MYRA — музыка и артисты",
   "short_name": "MYRA",
+  "id": "./",
   "description": "Стриминг, прозрачные донаты артистам и социальные плейлисты — в одном приложении.",
   "lang": "ru",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "categories": ["music", "entertainment", "social"],
   "background_color": "#030304",
   "theme_color": "#09070a",
   "icons": [

@@ -117,10 +117,11 @@ export const DetailBackdrop = React.memo(function DetailBackdrop({
   );
 });
 
-const DETAIL_WAVE_PATH = "M-36 60 C45 8 112 26 184 58 C260 92 312 16 398 31 C476 45 507 92 590 68 C674 44 725 5 840 41 L840 78 C731 119 665 93 585 83 C502 72 467 122 384 103 C303 85 257 122 176 94 C96 66 38 112 -36 98 Z";
-const DETAIL_WAVE_BACK = "M-42 69 C47 30 113 65 188 79 C267 94 319 46 400 55 C488 65 520 102 602 83 C687 63 739 42 842 55 L842 101 C739 124 675 105 594 100 C512 95 474 128 386 113 C300 98 247 126 168 105 C92 85 34 119 -42 105 Z";
-const DETAIL_WAVE_EDGE = "M-36 60 C45 8 112 26 184 58 C260 92 312 16 398 31 C476 45 507 92 590 68 C674 44 725 5 840 41";
-const DETAIL_WAVE_INNER = "M-24 74 C58 39 118 55 190 71 C267 88 323 39 401 48 C484 58 523 95 596 77 C680 57 732 28 824 50";
+// A deliberately slim signature membrane. The previous version stacked four
+// filtered paths and three bitmap copies inside every timeline. That looked
+// oversized on a phone and was expensive for Android WebView's compositor.
+const DETAIL_WAVE_PATH = "M-12 30 C55 15 112 20 174 31 C239 43 296 18 360 24 C425 30 478 45 542 31 C611 16 676 20 812 32 L812 47 C690 39 619 48 547 44 C477 40 425 52 356 45 C288 38 236 53 169 44 C104 35 50 46 -12 41 Z";
+const DETAIL_WAVE_EDGE = "M-12 30 C55 15 112 20 174 31 C239 43 296 18 360 24 C425 30 478 45 542 31 C611 16 676 20 812 32";
 
 /**
  * Фирменный индикатор прогресса MYRA: органичная стеклянная лента из DETAIL.
@@ -131,7 +132,7 @@ export const DetailWave = React.memo(function DetailWave({
   progress,
   buffered,
   playing = false,
-  height = 64,
+  height = 32,
   onSeek,
   compact = false,
   className = "",
@@ -147,12 +148,10 @@ export const DetailWave = React.memo(function DetailWave({
   accent?: string;
 }) {
   const rawId = useId().replace(/:/g, "");
-  const ribbonId = `myra-detail-wave-ribbon-${rawId}`;
   const bufferId = `myra-detail-wave-buffer-${rawId}`;
   const progressId = `myra-detail-wave-progress-${rawId}`;
   const gradientId = `myra-detail-wave-gradient-${rawId}`;
   const bufferGradientId = `myra-detail-wave-buffer-gradient-${rawId}`;
-  const depthGradientId = `myra-detail-wave-depth-gradient-${rawId}`;
   const rootRef = useRef<HTMLDivElement>(null);
   const value = Math.max(0, Math.min(100, Number.isFinite(progress) ? progress : 0));
   const loadedValue = Math.max(value, Math.min(100, Number.isFinite(buffered) ? Number(buffered) : value));
@@ -196,66 +195,37 @@ export const DetailWave = React.memo(function DetailWave({
         if (e.key === "End") { e.preventDefault(); onSeek(100); }
       } : undefined}
     >
-      <svg viewBox="0 0 800 120" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <svg viewBox="0 0 800 64" preserveAspectRatio="none" aria-hidden="true" focusable="false">
         <defs>
-          <clipPath id={ribbonId}>
-            <path d={DETAIL_WAVE_PATH} />
-          </clipPath>
           <clipPath id={bufferId}>
-            <rect className="myra-detail-wave-buffer-mask" x="0" y="0" width="800" height="120" style={{ transform: `scaleX(${loadedValue / 100})` }} />
+            <rect x="0" y="0" width={Math.max(0, 800 * loadedValue / 100)} height="64" />
           </clipPath>
           <clipPath id={progressId}>
-            <rect className="myra-detail-wave-progress-mask" x="0" y="0" width="800" height="120" style={{ transform: `scaleX(${value / 100})` }} />
+            <rect x="0" y="0" width={Math.max(0, 800 * value / 100)} height="64" />
           </clipPath>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#fff2e8" stopOpacity="0.98" />
-            <stop offset="0.28" stopColor="#ffc29f" stopOpacity="0.9" />
-            <stop offset="0.62" stopColor={accent} stopOpacity="0.82" />
-            <stop offset="1" stopColor="#d9c8ff" stopOpacity="0.9" />
+            <stop offset="0" stopColor="#fff3ea" stopOpacity="0.96" />
+            <stop offset="0.34" stopColor="#ffc4a5" stopOpacity="0.9" />
+            <stop offset="0.7" stopColor={accent} stopOpacity="0.88" />
+            <stop offset="1" stopColor="#d8c6ff" stopOpacity="0.86" />
           </linearGradient>
           <linearGradient id={bufferGradientId} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#b998a4" stopOpacity="0.24" />
-            <stop offset="0.65" stopColor="#e7b6c9" stopOpacity="0.4" />
-            <stop offset="1" stopColor="#f3d9d0" stopOpacity="0.62" />
-          </linearGradient>
-          <linearGradient id={depthGradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#fff9f5" stopOpacity="0.72" />
-            <stop offset="0.36" stopColor={accent} stopOpacity="0.18" />
-            <stop offset="0.72" stopColor="#2b0d22" stopOpacity="0.42" />
-            <stop offset="1" stopColor="#050307" stopOpacity="0.72" />
+            <stop offset="0" stopColor="#cfa99d" stopOpacity="0.18" />
+            <stop offset="0.7" stopColor="#f0c9bd" stopOpacity="0.34" />
+            <stop offset="1" stopColor="#f8ded4" stopOpacity="0.48" />
           </linearGradient>
         </defs>
 
-        <g className="myra-detail-wave-body">
-          <path className="myra-detail-wave-back" d={DETAIL_WAVE_BACK} />
-          <path className="myra-detail-wave-ghost" d={DETAIL_WAVE_PATH} />
-          <g className="myra-detail-wave-media myra-detail-wave-media-base" clipPath={`url(#${ribbonId})`}>
-            <image href={DETAIL_SRC} x="-20" y="-150" width="840" height="420" preserveAspectRatio="xMidYMid slice" />
-            <path d={DETAIL_WAVE_PATH} fill={`url(#${depthGradientId})`} />
-          </g>
-          <path className="myra-detail-wave-top-rim" d={DETAIL_WAVE_EDGE} />
-          <path className="myra-detail-wave-bottom-rim" d={DETAIL_WAVE_INNER} />
-        </g>
-
+        <path className="myra-detail-wave-ghost" d={DETAIL_WAVE_PATH} />
         <g className="myra-detail-wave-buffer-layer" clipPath={`url(#${bufferId})`}>
-          <g clipPath={`url(#${ribbonId})`}>
-            <image href={DETAIL_SRC} x="-20" y="-150" width="840" height="420" preserveAspectRatio="xMidYMid slice" opacity="0.48" />
-            <path d={DETAIL_WAVE_PATH} fill={`url(#${bufferGradientId})`} />
-          </g>
-          <path className="myra-detail-wave-buffer-line" d={DETAIL_WAVE_INNER} />
+          <path d={DETAIL_WAVE_PATH} fill={`url(#${bufferGradientId})`} />
         </g>
-
         <g clipPath={`url(#${progressId})`}>
-          <g className="myra-detail-wave-media myra-detail-wave-media-progress" clipPath={`url(#${ribbonId})`}>
-            <image href={DETAIL_SRC} x="-20" y="-150" width="840" height="420" preserveAspectRatio="xMidYMid slice" />
-            <path d={DETAIL_WAVE_PATH} fill={`url(#${gradientId})`} />
-            <path d={DETAIL_WAVE_PATH} fill={`url(#${depthGradientId})`} />
-          </g>
+          <path className="myra-detail-wave-media-progress" d={DETAIL_WAVE_PATH} fill={`url(#${gradientId})`} />
           <path className="myra-detail-wave-highlight" d={DETAIL_WAVE_EDGE} />
-          <path className="myra-detail-wave-inner-light" d={DETAIL_WAVE_INNER} />
         </g>
+        <path className="myra-detail-wave-top-rim" d={DETAIL_WAVE_EDGE} />
       </svg>
-      <span className="myra-detail-wave-energy" aria-hidden="true"><i /><i /><i /></span>
       {loadedValue > value + 0.8 && loadedValue < 99.8 && <span className="myra-detail-wave-buffer-head" aria-hidden="true" />}
       {value > 0 && <span className="myra-detail-wave-playhead" aria-hidden="true"><i /></span>}
     </div>

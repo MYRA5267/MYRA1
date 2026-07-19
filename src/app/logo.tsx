@@ -30,25 +30,24 @@ export function MyraWordmark({ height = 26, style }: { height?: number; style?: 
   );
 }
 
-/** App mark: an organic M suspended inside a warm translucent sound membrane. */
+/**
+ * Основной знак приложения. Здесь используется утверждённый растровый мастер,
+ * а не приблизительно восстановленная SVG-буква: так M остаётся одинаковой в
+ * шапке, PWA и Android-ассетах.
+ */
 export function MyraIcon({ size = 96, className }: { size?: number; className?: string }) {
-  const u = useId();
+  const src = `${import.meta.env.BASE_URL}icon-reference-master.png`;
   return (
-    <svg viewBox="0 0 240 240" width={size} height={size} role="img" aria-label="MYRA" className={className}>
-      <title>MYRA</title>
-      <defs>
-        <radialGradient id={`${u}-bg`} cx=".28" cy=".18" r="1"><stop offset="0" stopColor="#241821" /><stop offset=".56" stopColor="#0d090f" /><stop offset="1" stopColor="#030305" /></radialGradient>
-        <linearGradient id={`${u}-ribbon`} x1=".04" y1=".1" x2=".92" y2=".82"><stop offset="0" stopColor={C.ice} /><stop offset=".18" stopColor={C.pearl} /><stop offset=".48" stopColor={C.champagne} /><stop offset=".72" stopColor={C.rose} /><stop offset="1" stopColor={C.lilac} /></linearGradient>
-        <radialGradient id={`${u}-mist`} cx=".5" cy=".5" r=".5"><stop offset="0" stopColor={C.copper} stopOpacity=".5" /><stop offset="1" stopColor={C.copper} stopOpacity="0" /></radialGradient>
-        <filter id={`${u}-soft`} x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="10" /></filter>
-      </defs>
-      <rect x="4" y="4" width="232" height="232" rx="58" fill={`url(#${u}-bg)`} stroke="#f2b794" strokeOpacity=".22" strokeWidth="2" />
-      <ellipse cx="120" cy="124" rx="104" ry="72" fill={`url(#${u}-mist)`} filter={`url(#${u}-soft)`} />
-      <path d="M20 103C54 60 82 76 112 94s54 18 108-18M16 153c36-31 64-29 92-6s62 26 118-10" fill="none" stroke={`url(#${u}-ribbon)`} strokeOpacity=".25" strokeWidth="12" strokeLinecap="round" />
-      <path d="M55 164V89c0-14 18-18 25-6l40 67 40-67c7-12 25-8 25 6v75" fill="none" stroke="#2c1219" strokeOpacity=".55" strokeWidth="39" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M55 156V83c0-14 18-18 25-6l40 67 40-67c7-12 25-8 25 6v73" fill="none" stroke={`url(#${u}-ribbon)`} strokeWidth="34" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M58 143V86c0-7 7-8 11-2l43 70" fill="none" stroke="#fffaf6" strokeOpacity=".62" strokeWidth="7" strokeLinecap="round" />
-    </svg>
+    <img
+      src={src}
+      width={size}
+      height={size}
+      alt="MYRA"
+      draggable={false}
+      decoding="async"
+      className={className}
+      style={{ width: size, height: size }}
+    />
   );
 }
 
@@ -57,7 +56,7 @@ export function MyraBrandLockup({ compact = false }: { compact?: boolean }) {
   return (
     <div className="myra-brand-lockup" aria-label="MYRA Music">
       <MyraIcon size={46} className="myra-brand-lockup-icon" />
-      <div className="myra-brand-lockup-copy"><MyraWordmark height={25} /><span>MUSIC · DEEPLY YOURS</span></div>
+      <div className="myra-brand-lockup-copy"><MyraWordmark height={25} /></div>
     </div>
   );
 }
