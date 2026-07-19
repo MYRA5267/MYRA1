@@ -1065,7 +1065,7 @@ export const EQ = React.memo(function EQ({ color, size = 12 }: { color: string; 
   return (
     <div className="flex items-end gap-[2px]" style={{ height: size }}>
       {[0, 1, 2].map(i => (
-        <div key={i} className="w-[3px] rounded-full origin-bottom" style={{ height: size, background: color, animation: `eq${i + 1} ${0.5 + i * 0.13}s ease-in-out infinite alternate` }} />
+        <div key={i} className="myra-eq-bar w-[3px] rounded-full origin-bottom" style={{ height: size, background: color, animation: `eq${i + 1} ${0.5 + i * 0.13}s ease-in-out infinite alternate` }} />
       ))}
     </div>
   );

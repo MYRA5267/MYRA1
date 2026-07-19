@@ -45,14 +45,14 @@ create policy "profiles_select_public"
 drop policy if exists "profiles_insert_own" on public.profiles;
 create policy "profiles_insert_own"
   on public.profiles for insert
-  with check (auth.uid() = id);
+  with check ((select auth.uid()) = id);
 
 -- Редактировать можно только свой собственный профиль
 drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own"
   on public.profiles for update
-  using (auth.uid() = id)
-  with check (auth.uid() = id);
+  using ((select auth.uid()) = id)
+  with check ((select auth.uid()) = id);
 
 
 -- ============================================================================
@@ -75,18 +75,18 @@ alter table public.profile_private enable row level security;
 drop policy if exists "profile_private_select_own" on public.profile_private;
 create policy "profile_private_select_own"
   on public.profile_private for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 drop policy if exists "profile_private_insert_own" on public.profile_private;
 create policy "profile_private_insert_own"
   on public.profile_private for insert
-  with check (auth.uid() = user_id);
+  with check ((select auth.uid()) = user_id);
 
 drop policy if exists "profile_private_update_own" on public.profile_private;
 create policy "profile_private_update_own"
   on public.profile_private for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 
 -- ============================================================================
@@ -120,20 +120,20 @@ create policy "tracks_select_public"
 drop policy if exists "tracks_insert_own" on public.tracks;
 create policy "tracks_insert_own"
   on public.tracks for insert
-  with check (auth.uid() = owner_id);
+  with check ((select auth.uid()) = owner_id);
 
 -- Редактировать можно только свои треки
 drop policy if exists "tracks_update_own" on public.tracks;
 create policy "tracks_update_own"
   on public.tracks for update
-  using (auth.uid() = owner_id)
-  with check (auth.uid() = owner_id);
+  using ((select auth.uid()) = owner_id)
+  with check ((select auth.uid()) = owner_id);
 
 -- Удалять можно только свои треки
 drop policy if exists "tracks_delete_own" on public.tracks;
 create policy "tracks_delete_own"
   on public.tracks for delete
-  using (auth.uid() = owner_id);
+  using ((select auth.uid()) = owner_id);
 
 
 -- ============================================================================
@@ -155,6 +155,7 @@ create table if not exists public.comments (
 
 -- Обычный btree-индекс для быстрой выборки «все комментарии этого трека»
 create index if not exists comments_track_id_idx on public.comments (track_id);
+create index if not exists comments_user_id_idx on public.comments (user_id);
 
 alter table public.comments enable row level security;
 
@@ -170,7 +171,7 @@ create policy "comments_select_public"
 drop policy if exists "comments_insert_own" on public.comments;
 create policy "comments_insert_own"
   on public.comments for insert
-  with check (auth.uid() = user_id);
+  with check ((select auth.uid()) = user_id);
 
 
 -- ============================================================================
@@ -194,13 +195,13 @@ alter table public.donations enable row level security;
 drop policy if exists "donations_select_own" on public.donations;
 create policy "donations_select_own"
   on public.donations for select
-  using (auth.uid() = from_user);
+  using ((select auth.uid()) = from_user);
 
 -- Создавать донат можно только от своего имени
 drop policy if exists "donations_insert_own" on public.donations;
 create policy "donations_insert_own"
   on public.donations for insert
-  with check (auth.uid() = from_user);
+  with check ((select auth.uid()) = from_user);
 
 
 -- ============================================================================
@@ -220,7 +221,7 @@ alter table public.subscriptions enable row level security;
 drop policy if exists "subscriptions_select_own" on public.subscriptions;
 create policy "subscriptions_select_own"
   on public.subscriptions for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- Клиент НЕ может сам выдать себе активную подписку — иначе любой
 -- авторизованный пользователь мог бы бесплатно включить себе MYRA Pro
@@ -231,8 +232,8 @@ create policy "subscriptions_select_own"
 drop policy if exists "subscriptions_update_own" on public.subscriptions;
 create policy "subscriptions_update_own"
   on public.subscriptions for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id and status <> 'active');
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id and status <> 'active');
 
 
 -- ============================================================================
@@ -258,13 +259,13 @@ create policy "follows_select_public"
 drop policy if exists "follows_insert_own" on public.follows;
 create policy "follows_insert_own"
   on public.follows for insert
-  with check (auth.uid() = follower_id);
+  with check ((select auth.uid()) = follower_id);
 
 -- Отписаться можно только от своего имени
 drop policy if exists "follows_delete_own" on public.follows;
 create policy "follows_delete_own"
   on public.follows for delete
-  using (auth.uid() = follower_id);
+  using ((select auth.uid()) = follower_id);
 
 
 -- ============================================================================
@@ -277,15 +278,29 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  display_name text;
 begin
-  -- Профиль: username/role берутся из raw_user_meta_data, если переданы
-  -- при регистрации (supabase.auth.signUp({ options: { data: {...} } })),
-  -- иначе — разумные значения по умолчанию.
+  -- Провайдеры OAuth используют разные ключи имени. Роль из внешних метаданных
+  -- всегда проверяем по белому списку.
+  display_name := coalesce(
+    nullif(btrim(new.raw_user_meta_data ->> 'username'), ''),
+    nullif(btrim(new.raw_user_meta_data ->> 'full_name'), ''),
+    nullif(btrim(new.raw_user_meta_data ->> 'name'), ''),
+    nullif(btrim(new.raw_user_meta_data ->> 'user_name'), ''),
+    nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
+    'MYRA listener'
+  );
+
   insert into public.profiles (id, username, role)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data ->> 'username', split_part(new.email, '@', 1)),
-    coalesce(new.raw_user_meta_data ->> 'role', 'listener')
+    left(display_name, 80),
+    case
+      when new.raw_user_meta_data ->> 'role' in ('artist', 'listener')
+        then new.raw_user_meta_data ->> 'role'
+      else 'listener'
+    end
   );
 
   -- Почта — отдельно, в приватную таблицу (см. profile_private выше)
@@ -300,6 +315,10 @@ begin
   return new;
 end;
 $$;
+
+-- Триггерная функция вызывается только самим триггером auth.users. Оставлять
+-- SECURITY DEFINER доступным как RPC для anon/authenticated опасно и не нужно.
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
 -- SECURITY DEFINER выше позволяет функции обойти RLS таблиц profiles/subscriptions
 -- (она выполняется от имени владельца функции, а не от анонимного/нового пользователя)
@@ -347,37 +366,35 @@ grant insert, delete on public.follows to authenticated;
 -- Storage, а в audio_url — только его публичная ссылка (getPublicUrl).
 --
 -- Путь объекта в бакете организован как "{uid}/{trackId}.{ext}" — первый
--- сегмент пути обязан быть auth.uid() владельца, чтобы политики insert/
+-- сегмент пути обязан быть (select auth.uid()) владельца, чтобы политики insert/
 -- update/delete ниже могли это проверить через storage.foldername(name)
 -- (первый элемент результата — как раз папка верхнего уровня).
 insert into storage.buckets (id, name, public)
 values ('tracks', 'tracks', true)
 on conflict (id) do nothing;
 
--- Бакет публичный на чтение — трек слушает кто угодно, без авторизации
--- (как и сама таблица tracks, см. tracks_select_public выше)
+-- Публичный getPublicUrl работает без SELECT-политики. Широкая политика SELECT
+-- позволяла любому клиенту перечислять все имена файлов в бакете, поэтому её
+-- намеренно нет; приложение получает точный audio_url из public.tracks.
 drop policy if exists "tracks_storage_select_public" on storage.objects;
-create policy "tracks_storage_select_public"
-  on storage.objects for select
-  using (bucket_id = 'tracks');
 
--- Заливать файл можно только в свою же папку {auth.uid()}/...
+-- Заливать файл можно только в свою же папку {(select auth.uid())}/...
 drop policy if exists "tracks_storage_insert_own" on storage.objects;
 create policy "tracks_storage_insert_own"
   on storage.objects for insert
-  with check (bucket_id = 'tracks' and auth.uid()::text = (storage.foldername(name))[1]);
+  with check (bucket_id = 'tracks' and (select auth.uid())::text = (storage.foldername(name))[1]);
 
 -- Перезаливать (upsert) можно только свои же файлы
 drop policy if exists "tracks_storage_update_own" on storage.objects;
 create policy "tracks_storage_update_own"
   on storage.objects for update
-  using (bucket_id = 'tracks' and auth.uid()::text = (storage.foldername(name))[1]);
+  using (bucket_id = 'tracks' and (select auth.uid())::text = (storage.foldername(name))[1]);
 
 -- Удалять можно только свои файлы
 drop policy if exists "tracks_storage_delete_own" on storage.objects;
 create policy "tracks_storage_delete_own"
   on storage.objects for delete
-  using (bucket_id = 'tracks' and auth.uid()::text = (storage.foldername(name))[1]);
+  using (bucket_id = 'tracks' and (select auth.uid())::text = (storage.foldername(name))[1]);
 
 
 -- ============================================================================
@@ -399,7 +416,7 @@ alter table public.admins enable row level security;
 drop policy if exists "admins_select_own" on public.admins;
 create policy "admins_select_own"
   on public.admins for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 
 -- ============================================================================
@@ -426,7 +443,7 @@ alter table public.support_messages enable row level security;
 drop policy if exists "support_messages_select_own" on public.support_messages;
 create policy "support_messages_select_own"
   on public.support_messages for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- ...а админ — вообще любой тред (несколько permissive-политик для одной
 -- операции объединяются через OR, отдельный security definer не нужен —
@@ -435,7 +452,7 @@ create policy "support_messages_select_own"
 drop policy if exists "support_messages_select_admin" on public.support_messages;
 create policy "support_messages_select_admin"
   on public.support_messages for select
-  using (exists (select 1 from public.admins where user_id = auth.uid()));
+  using (exists (select 1 from public.admins where user_id = (select auth.uid())));
 
 -- Пользователь пишет в свой же тред, но НЕ может подделать from_role='support' —
 -- иначе можно было бы нарисовать себе фальшивый "официальный" ответ поддержки.
@@ -445,15 +462,15 @@ create policy "support_messages_select_admin"
 drop policy if exists "support_messages_insert_own" on public.support_messages;
 create policy "support_messages_insert_own"
   on public.support_messages for insert
-  with check (auth.uid() = user_id and from_role in ('user', 'ai'));
+  with check ((select auth.uid()) = user_id and from_role in ('user', 'ai'));
 
 -- Админ отвечает в ЧУЖОМ треде (user_id = id треда, а не его собственный uid) —
--- это в принципе не покрывается "auth.uid() = user_id", поэтому нужна отдельная
+-- это в принципе не покрывается "(select auth.uid()) = user_id", поэтому нужна отдельная
 -- insert-политика именно для админов, тоже через exists() в admins
 drop policy if exists "support_messages_insert_admin" on public.support_messages;
 create policy "support_messages_insert_admin"
   on public.support_messages for insert
-  with check (from_role = 'support' and exists (select 1 from public.admins where user_id = auth.uid()));
+  with check (from_role = 'support' and exists (select 1 from public.admins where user_id = (select auth.uid())));
 
 -- UPDATE нужен админам — пометить сообщения пользователя прочитанными
 -- (read_at) при открытии треда в инбоксе. Обычным пользователям UPDATE не
@@ -461,7 +478,7 @@ create policy "support_messages_insert_admin"
 drop policy if exists "support_messages_update_admin" on public.support_messages;
 create policy "support_messages_update_admin"
   on public.support_messages for update
-  using (exists (select 1 from public.admins where user_id = auth.uid()));
+  using (exists (select 1 from public.admins where user_id = (select auth.uid())));
 
 
 -- ============================================================================
@@ -487,6 +504,7 @@ alter table public.donations
   add column if not exists to_user_id uuid references public.profiles(id) on delete set null;
 
 create index if not exists donations_to_user_id_idx on public.donations (to_user_id);
+create index if not exists donations_from_user_idx on public.donations (from_user);
 
 -- До этой секции донат мог видеть только отправитель (donations_select_own) —
 -- получателю банально нечего было видеть, все получатели были демо-каталогом.
@@ -494,7 +512,7 @@ create index if not exists donations_to_user_id_idx on public.donations (to_user
 drop policy if exists "donations_select_received" on public.donations;
 create policy "donations_select_received"
   on public.donations for select
-  using (auth.uid() = to_user_id);
+  using ((select auth.uid()) = to_user_id);
 
 
 -- ============================================================================
@@ -531,19 +549,19 @@ alter table public.user_follows enable row level security;
 drop policy if exists "user_follows_select_own" on public.user_follows;
 create policy "user_follows_select_own"
   on public.user_follows for select
-  using (auth.uid() = follower_id);
+  using ((select auth.uid()) = follower_id);
 
 -- Подписаться можно только от своего имени
 drop policy if exists "user_follows_insert_own" on public.user_follows;
 create policy "user_follows_insert_own"
   on public.user_follows for insert
-  with check (auth.uid() = follower_id);
+  with check ((select auth.uid()) = follower_id);
 
 -- Отписаться можно только от своего имени
 drop policy if exists "user_follows_delete_own" on public.user_follows;
 create policy "user_follows_delete_own"
   on public.user_follows for delete
-  using (auth.uid() = follower_id);
+  using ((select auth.uid()) = follower_id);
 
 
 -- ============================================================================
@@ -583,6 +601,7 @@ create table if not exists public.reports (
 
 -- Ускоряет очередь модерации — она почти всегда фильтрует по status = 'open'
 create index if not exists reports_status_idx on public.reports (status);
+create index if not exists reports_reporter_id_idx on public.reports (reporter_id);
 
 alter table public.reports enable row level security;
 
@@ -590,7 +609,7 @@ alter table public.reports enable row level security;
 drop policy if exists "reports_insert_own" on public.reports;
 create policy "reports_insert_own"
   on public.reports for insert
-  with check (auth.uid() = reporter_id);
+  with check ((select auth.uid()) = reporter_id);
 
 -- Автор жалобы видит свои же жалобы (например, чтобы на фронтенде не дать
 -- пожаловаться на одно и то же дважды — сама проверка на клиенте не входит в
@@ -598,7 +617,7 @@ create policy "reports_insert_own"
 drop policy if exists "reports_select_own" on public.reports;
 create policy "reports_select_own"
   on public.reports for select
-  using (auth.uid() = reporter_id);
+  using ((select auth.uid()) = reporter_id);
 
 -- Админы (та же таблица admins, что и в support_messages, см. секции 8-9) —
 -- видят и обновляют ЛЮБЫЕ жалобы. Это и есть очередь модерации: несколько
@@ -607,7 +626,7 @@ create policy "reports_select_own"
 drop policy if exists "reports_select_admin" on public.reports;
 create policy "reports_select_admin"
   on public.reports for select
-  using (exists (select 1 from public.admins where user_id = auth.uid()));
+  using (exists (select 1 from public.admins where user_id = (select auth.uid())));
 
 -- UPDATE нужен админам — пометить жалобу resolved/dismissed. Обычным
 -- пользователям UPDATE не нужен: подавать жалобу можно, а редактировать/
@@ -615,7 +634,7 @@ create policy "reports_select_admin"
 drop policy if exists "reports_update_admin" on public.reports;
 create policy "reports_update_admin"
   on public.reports for update
-  using (exists (select 1 from public.admins where user_id = auth.uid()));
+  using (exists (select 1 from public.admins where user_id = (select auth.uid())));
 
 
 -- ============================================================================
@@ -637,14 +656,14 @@ alter table public.tracks
 drop policy if exists "tracks_select_public" on public.tracks;
 create policy "tracks_select_public"
   on public.tracks for select
-  using (not hidden or owner_id = auth.uid());
+  using (not hidden or owner_id = (select auth.uid()));
 
 -- Админы видят вообще все треки, включая чужие скрытые — нужно для очереди
 -- модерации (проверить решение до и после, у кого угодно)
 drop policy if exists "tracks_select_admin" on public.tracks;
 create policy "tracks_select_admin"
   on public.tracks for select
-  using (exists (select 1 from public.admins where user_id = auth.uid()));
+  using (exists (select 1 from public.admins where user_id = (select auth.uid())));
 
 -- Скрыть/вернуть ЧУЖОЙ трек может только админ — tracks_update_own (секция 2)
 -- уже разрешает владельцу редактировать свои же поля (в т.ч. свой hidden),
@@ -652,7 +671,7 @@ create policy "tracks_select_admin"
 drop policy if exists "tracks_update_admin" on public.tracks;
 create policy "tracks_update_admin"
   on public.tracks for update
-  using (exists (select 1 from public.admins where user_id = auth.uid()));
+  using (exists (select 1 from public.admins where user_id = (select auth.uid())));
 
 
 -- ============================================================================
@@ -692,7 +711,7 @@ alter table public.payments enable row level security;
 drop policy if exists "payments_select_own" on public.payments;
 create policy "payments_select_own"
   on public.payments for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 
 -- ============================================================================

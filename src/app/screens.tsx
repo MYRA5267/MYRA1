@@ -19,7 +19,7 @@ import { MyraGlyph, type MyraGlyphName } from "./myraIcons";
 import type { UserRole } from "./auth";
 import { supabaseEnabled, paymentsEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
 import type { SmartPick } from "./smart";
-import { ProfileGiftShowcase, type CompanionController } from "./companion";
+import { ProfileIdentityShowcase, type CompanionController } from "./companion";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
 
@@ -259,49 +259,15 @@ function relTimeParts(ts: number): [number, string] {
   return [Math.round(hours / 24), "time.d"];
 }
 
-// Простой превью-плеер для ленты подписок — независимая пара <audio> + id
-// текущего трека, отдельная от главного плеера приложения (useAudio в lib.tsx):
-// эти треки чужие, не часть очереди/"Моей волны" и не должны трогать currentTrack
-function useTrackPreview(onStart?: () => void) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const onStartRef = useRef(onStart);
-  onStartRef.current = onStart;
-
-  useEffect(() => {
-    const audio = new Audio();
-    audioRef.current = audio;
-    const onEnded = () => setPlayingId(null);
-    audio.addEventListener("ended", onEnded);
-    return () => {
-      audio.removeEventListener("ended", onEnded);
-      audio.pause();
-    };
-  }, []);
-
-  const toggle = useCallback((id: string, url: string) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    setPlayingId(prev => {
-      if (prev === id) { audio.pause(); return null; }
-      // Основной плеер ставится на паузу — иначе играли бы два потока сразу
-      onStartRef.current?.();
-      audio.src = url;
-      audio.play().catch(() => {});
-      return id;
-    });
-  }, []);
-
-  return { playingId, toggle };
-}
-
 /** Одна карточка ленты подписок: реальный трек реального человека, на которого подписан пользователь */
-function FriendFeedRow({ item, playingId, onToggle, onOpenProfile }: {
-  item: FriendFeedItem; playingId: string | null; onToggle: (id: string, url: string) => void; onOpenProfile: (p: PublicProfile) => void;
+function FriendFeedRow({ item, currentTrack, playing, onPlay, onPause, onOpenProfile }: {
+  item: FriendFeedItem; currentTrack: Track; playing: boolean;
+  onPlay: (track: Track) => void; onPause: () => void; onOpenProfile: (p: PublicProfile) => void;
 }) {
   const { t } = useLang();
   const owner = item.owner;
-  const isPlaying = playingId === item.id;
+  const track = useMemo(() => trackFromRow(item, owner?.username ?? "?"), [item, owner?.username]);
+  const isPlaying = currentTrack.remoteId === item.id && playing;
   const [val, unitKey] = relTimeParts(new Date(item.created_at).getTime());
 
   return (
@@ -320,9 +286,9 @@ function FriendFeedRow({ item, playingId, onToggle, onOpenProfile }: {
       </button>
       <motion.button
         whileTap={{ scale: 0.88 }}
-        onClick={() => onToggle(item.id, item.audio_url)}
+        onClick={() => (isPlaying ? onPause() : onPlay(track))}
         className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)" }}
+        style={{ background: `linear-gradient(135deg, ${track.c2}, color-mix(in srgb, ${track.c2} 68%, white))` }}
       >
         {isPlaying ? <Pause size={13} fill="white" stroke="none" /> : <Play size={13} fill="white" stroke="none" className="ml-0.5" />}
       </motion.button>
@@ -359,7 +325,6 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
     setNotifOpen(o => !o);
   };
   const waveActive = playing;
-  const { playingId: previewPlayingId, toggle: togglePreview } = useTrackPreview(onPauseMain);
   const pulsePeople = useMemo(() => {
     const unique = new Map<string, FriendFeedItem>();
     friendsFeed.forEach(item => {
@@ -557,13 +522,13 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
         </div>
       )}
 
-      {/* Пульс объединяет людей, их свежие релизы и совместные комнаты в одну
+      {/* «Между» объединяет людей, их свежие релизы и совместные комнаты в одну
           социальную поверхность. Здесь нет демонстрационных аккаунтов: только
           реальные профили и треки из Supabase. */}
       <section className="myra-pulse-shell mx-5 mb-8" style={{ "--pulse-accent": currentTrack.c2 } as React.CSSProperties}>
         <header className="myra-pulse-header">
           <div>
-            <span>MYRA SOCIAL</span>
+            <span>МУЗЫКА МЕЖДУ НАМИ</span>
             <h2>{t("soc.feedTitle")}</h2>
             <p>{t("soc.pulseSub")}</p>
           </div>
@@ -596,7 +561,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
             </button>
           ) : (
             friendsFeed.slice(0, 8).map(item => (
-              <FriendFeedRow key={item.id} item={item} playingId={previewPlayingId} onToggle={togglePreview} onOpenProfile={onOpenRealProfile} />
+              <FriendFeedRow key={item.id} item={item} currentTrack={currentTrack} playing={playing} onPlay={onPlay} onPause={onPauseMain} onOpenProfile={onOpenRealProfile} />
             ))
           )}
         </div>
@@ -632,6 +597,108 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
           ))}
         </div>
       </div>
+    </Page>
+  );
+});
+
+// ─── Между ────────────────────────────────────────────────────────────────────
+
+export const BetweenScreen = React.memo(function BetweenScreen({ currentTrack, playing, friendsFeed, uid, onPlay, onPause, onOpenPeopleSearch, onOpenRealProfile, onOpenRealArtist, onOpenRooms }: {
+  currentTrack: Track; playing: boolean; friendsFeed: FriendFeedItem[]; uid: string | null;
+  onPlay: (track: Track) => void; onPause: () => void; onOpenPeopleSearch: () => void;
+  onOpenRealProfile: (profile: PublicProfile) => void; onOpenRealArtist: (id: string) => void; onOpenRooms: () => void;
+}) {
+  const { t } = useLang();
+  const [feed, setFeed] = useState<"near" | "open">("near");
+  const [communityTracks, setCommunityTracks] = useState<CommunityTrackRow[]>([]);
+  const nearbyPeople = useMemo(() => {
+    const unique = new Map<string, FriendFeedItem>();
+    friendsFeed.forEach(item => {
+      if (item.owner && !unique.has(item.owner_id)) unique.set(item.owner_id, item);
+    });
+    return Array.from(unique.values()).slice(0, 10);
+  }, [friendsFeed]);
+
+  useEffect(() => {
+    if (!supabaseEnabled) { setCommunityTracks([]); return; }
+    fetchRecentTracks(uid ?? undefined).then(({ data }) => setCommunityTracks(data));
+  }, [uid]);
+
+  return (
+    <Page className="myra-experience-page myra-between-page">
+      <header className="myra-page-header px-5 pt-6 pb-5">
+        <div className="lg:hidden"><MyraBrandLockup /></div>
+        <div className="hidden lg:block myra-desktop-page-title"><span>MYRA / 03</span>{t("nav.between")}</div>
+      </header>
+
+      <section className="myra-between-hero mx-5 mb-6" style={{ "--between-accent": currentTrack.c2 } as React.CSSProperties}>
+        <DetailBackdrop variant="soft" accent={currentTrack.c2} active={playing} />
+        <div className="relative z-10">
+          <span>{t("between.eyebrow")}</span>
+          <h1>{t("between.title")}</h1>
+          <p>{t("between.sub")}</p>
+          <div className="myra-between-hero-actions">
+            <button onClick={onOpenPeopleSearch}><MyraGlyph name="search" size={16} />{t("soc.findPeople")}</button>
+            <button onClick={onOpenRooms}><MyraGlyph name="rooms" size={16} />{t("room.entry")}</button>
+          </div>
+        </div>
+      </section>
+
+      {nearbyPeople.length > 0 && (
+        <section className="mx-5 mb-5">
+          <div className="myra-section-heading"><h2>{t("between.people")}</h2></div>
+          <div className="myra-pulse-people myra-between-people" aria-label={t("between.people")}>
+            {nearbyPeople.map(item => (
+              <button key={item.owner_id} onClick={() => item.owner && onOpenRealProfile({ id: item.owner_id, username: item.owner.username, handle: item.owner.handle, avatar_url: item.owner.avatar_url, role: item.owner.role })}>
+                <span><img src={item.owner?.avatar_url || item.cover_url || AVATARS[0]} alt="" loading="lazy" decoding="async" /></span>
+                <small>{item.owner?.username ?? "?"}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="myra-pulse-shell myra-between-feed mx-5 mb-8" style={{ "--pulse-accent": currentTrack.c2 } as React.CSSProperties}>
+        <div className="myra-between-tabs" role="tablist" aria-label={t("nav.between")}>
+          <button role="tab" aria-selected={feed === "near"} data-active={feed === "near" || undefined} onClick={() => setFeed("near")}>{t("between.near")}</button>
+          <button role="tab" aria-selected={feed === "open"} data-active={feed === "open" || undefined} onClick={() => setFeed("open")}>{t("between.open")}</button>
+        </div>
+
+        {feed === "near" ? (
+          <div className="myra-pulse-feed">
+            {friendsFeed.length === 0 ? (
+              <button onClick={onOpenPeopleSearch} className="myra-pulse-empty">
+                <span><UserPlus size={17} /></span>
+                <div><strong>{t("soc.feedEmpty")}</strong><small>{t("soc.feedEmptySub")}</small></div>
+                <MyraGlyph name="arrow" size={16} />
+              </button>
+            ) : friendsFeed.map(item => (
+              <FriendFeedRow key={item.id} item={item} currentTrack={currentTrack} playing={playing} onPlay={onPlay} onPause={onPause} onOpenProfile={onOpenRealProfile} />
+            ))}
+          </div>
+        ) : (
+          <div className="myra-pulse-feed">
+            {communityTracks.length === 0 ? (
+              <div className="myra-between-empty">
+                <MyraGlyph name="between" size={21} />
+                <strong>{t("between.openEmpty")}</strong>
+                <small>{t("between.openEmptySub")}</small>
+              </div>
+            ) : communityTracks.map(row => {
+              const track = trackFromRow(row, row.profiles?.username ?? "?");
+              return (
+                <PremiumTrackRow key={row.id} track={track} active={currentTrack.remoteId === row.id} playing={playing} onPlay={onPlay} onArtist={() => onOpenRealArtist(row.owner_id)} />
+              );
+            })}
+          </div>
+        )}
+
+        <button onClick={onOpenRooms} className="myra-pulse-room">
+          <span><MyraGlyph name="rooms" size={17} /></span>
+          <div><strong>{t("room.entry")}</strong><small>{t("room.entrySub")}</small></div>
+          <MyraGlyph name="arrow" size={16} />
+        </button>
+      </section>
     </Page>
   );
 });
@@ -1259,14 +1326,14 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onOpenAchievements, achDone, achTotal, onLogout, simpleFx, onToggleSimpleFx, quality, onSetQuality, userRole, donationCount, devMode, onToggleDevMode, onOpenDevPanel, companionController, onOpenGifts }: {
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onOpenAchievements, achDone, achTotal, onLogout, simpleFx, onToggleSimpleFx, quality, onSetQuality, userRole, donationCount, devMode, onOpenDevPanel, onOpenStudio, companionController, onOpenIdentity }: {
   c2: string; userName: string; handle: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
   onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onOpenSplit: () => void;
   onOpenAchievements: () => void; achDone: number; achTotal: number; onLogout: () => void;
   simpleFx: boolean; onToggleSimpleFx: () => void; quality: number; onSetQuality: (idx: number) => void;
   userRole: UserRole; donationCount: number;
-  devMode: boolean; onToggleDevMode: () => void; onOpenDevPanel: () => void;
-  companionController: CompanionController; onOpenGifts: () => void;
+  devMode: boolean; onOpenDevPanel: () => void; onOpenStudio: () => void;
+  companionController: CompanionController; onOpenIdentity: () => void;
 }) {
   const { t, lang, setLang } = useLang();
   const { theme, toggleTheme } = useTheme();
@@ -1274,27 +1341,15 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [logoutQ, setLogoutQ] = useState(false);
 
-  // Секретная активация режима разработчика: 7 быстрых тапов по аватару —
-  // стандартный паттерн (как версия сборки в настройках Android)
-  const tapCount = useRef(0);
-  const tapTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const onAvatarTap = () => {
-    tapCount.current += 1;
-    clearTimeout(tapTimer.current);
-    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1500);
-    if (tapCount.current >= 7) { tapCount.current = 0; onToggleDevMode(); }
-  };
-
-  // Бейджи: у артиста и слушателя — свои, визуально разные; Pro и «Меценат»
-  // добавляются к базовому; «Разработчик» — только у создателей в dev-режиме
+  // Бейджи профиля отражают публичную идентичность. Служебный статус
+  // администратора намеренно не показываем.
   const badges = useMemo(() => [
     userRole === "artist"
       ? { icon: Mic2, label: t("bd.artist"), c: "#a78bfa" }
       : { icon: Headphones, label: t("bd.listener"), c: "#34d399" },
     ...(userRole === "artist" && creatorPlus ? [{ icon: Crown, label: "MYRA Pro", c: "#c4b5fd" }] : []),
     ...(donationCount > 0 ? [{ icon: Gift, label: t("bd.donor"), c: "#facc15" }] : []),
-    ...(devMode ? [{ icon: Wrench, label: t("bd.dev"), c: "#f472b6" }] : []),
-  ], [userRole, creatorPlus, donationCount, devMode, t]);
+  ], [userRole, creatorPlus, donationCount, t]);
 
   const QUALITIES = ["AAC 256", "FLAC", "Hi-Res 24-bit"];
 
@@ -1322,13 +1377,13 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
         userName={userName}
         handle={handle}
         badges={badges}
-        onAvatarTap={onAvatarTap}
+        onAvatarTap={onOpenAccount}
         onManage={onOpenAccount}
         manageLabel={t("pr.manageAccount")}
       />
 
       <div className="px-5 mb-6">
-        <ProfileGiftShowcase controller={companionController} onOpen={onOpenGifts} />
+        <ProfileIdentityShowcase controller={companionController} onOpen={onOpenIdentity} />
       </div>
 
       {/* Статистика — тот же паттерн стат-плиток, что в Медиатеке (myra-library-overview) */}
@@ -1340,6 +1395,10 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
       <div className="px-5 flex flex-col gap-1.5">
         <SectionLabel>{t("pr.sectionProfile")}</SectionLabel>
+
+        {userRole === "artist" && (
+          <NavigationCard icon={Mic2} accent="#c98cff" label={t("nav.creator")} sub={t("pr.studioSub")} onClick={onOpenStudio} accentBorder />
+        )}
 
         <ProgressCard
           icon={Trophy}
@@ -1462,7 +1521,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         <SectionLabel>{t("pr.sectionSecurity")}</SectionLabel>
 
-        {/* Панель разработчика — появляется после 7 тапов по аватару */}
+        {/* Серверно защищённые инструменты команды видят только строки из admins. */}
         {devMode && (
           <NavigationCard icon={Wrench} accent="#f472b6" label={t("dev.row")} onClick={onOpenDevPanel} accentBorder />
         )}

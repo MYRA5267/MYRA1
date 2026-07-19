@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
-import { Check, ChevronRight, Gift, Heart, Lock, Music2, Sparkles, X } from "./myraIcons";
+import { BadgeCheck, Check, ChevronRight, Gift, Heart, Lock, Music2, Send, Sparkles, X } from "./myraIcons";
 import { ls, type Track } from "./data";
 import { F, Sheet } from "./lib";
 import { useLang, type Lang } from "./i18n";
@@ -338,7 +338,7 @@ export function useCompanion() {
     const unlocked = next.unlockedGiftIds.find(id => !previous.unlockedGiftIds.includes(id));
     if (unlocked) {
       const gift = RESONANCES.find(item => item.id === unlocked)!;
-      toast.success(lang === "ru" ? `Новый резонанс: ${gift.name.ru}` : `New resonance: ${gift.name.en}`);
+      toast.success(lang === "ru" ? `Новый артефакт: ${gift.name.ru}` : `New artifact: ${gift.name.en}`);
     }
   }, [commit, lang]);
 
@@ -394,7 +394,7 @@ const UI = {
   ru: {
     eyebrow: "ЖИВОЙ СПУТНИК",
     chooseTitle: "Кто услышит музыку вместе с тобой?",
-    chooseSub: "Спутник растёт из твоего вкуса, реагирует на треки и собирает редкие резонансы.",
+    chooseSub: "Спутник растёт из твоего вкуса, реагирует на треки и собирает редкие артефакты.",
     choose: "Выбрать",
     choiceWarning: "Выбор закрепится за профилем. Спутника нельзя будет заменить — зато его характер и форма будут развиваться вместе с тобой.",
     confirmChoice: "Связать навсегда",
@@ -404,8 +404,8 @@ const UI = {
     meet: "Познакомиться",
     level: "уровень",
     energy: "энергии",
-    collection: "Резонансы",
-    collectionSub: "Живые подарки за музыкальные открытия",
+    collection: "Артефакты",
+    collectionSub: "Редкие знаки музыкальных открытий",
     touch: "Позвать в полёт",
     flow: "Слушать вместе",
     listening: "чувствует этот трек",
@@ -426,7 +426,7 @@ const UI = {
     memory: "Память спутника",
     tracks: "треков",
     genres: "жанров",
-    gifts: "подарков",
+    gifts: "артефактов",
   },
   en: {
     eyebrow: "LIVING COMPANION",
@@ -441,8 +441,8 @@ const UI = {
     meet: "Meet yours",
     level: "level",
     energy: "energy",
-    collection: "Resonances",
-    collectionSub: "Living gifts for musical discoveries",
+    collection: "Artifacts",
+    collectionSub: "Rare marks of musical discovery",
     touch: "Call to flight",
     flow: "Listen together",
     listening: "feels this track",
@@ -463,7 +463,7 @@ const UI = {
     memory: "Companion memory",
     tracks: "tracks",
     genres: "genres",
-    gifts: "gifts",
+    gifts: "artifacts",
   },
 } as const;
 
@@ -739,7 +739,7 @@ export function CompanionSheet({ open, onClose, controller, playing, genre, trac
   );
 }
 
-export function ProfileGiftShowcase({ controller, onOpen }: { controller: CompanionController; onOpen: () => void }) {
+export function ProfileIdentityShowcase({ controller, onOpen }: { controller: CompanionController; onOpen: () => void }) {
   const { lang } = useLang();
   const unlocked = RESONANCES.filter(gift => controller.state.unlockedGiftIds.includes(gift.id));
   const pinned = controller.state.showcasedGiftId
@@ -749,9 +749,9 @@ export function ProfileGiftShowcase({ controller, onOpen }: { controller: Compan
   return (
     <motion.button whileTap={{ scale: 0.985 }} onClick={onOpen} className="myra-profile-gift-showcase">
       <div className="myra-profile-gift-copy">
-        <span>{lang === "ru" ? "ВИТРИНА ПРОФИЛЯ" : "PROFILE SHOWCASE"}</span>
-        <strong>{lang === "ru" ? "Живые подарки" : "Living gifts"}</strong>
-        <p>{unlocked.length}/{RESONANCES.length} {lang === "ru" ? "открыто · выбери главный знак" : "unlocked · choose your signature"}</p>
+        <span>{lang === "ru" ? "КОЛЛЕКЦИЯ ПРОФИЛЯ" : "PROFILE COLLECTION"}</span>
+        <strong>{lang === "ru" ? "Твоя музыкальная коллекция" : "Your music identity"}</strong>
+        <p>{unlocked.length}/{RESONANCES.length} {lang === "ru" ? "артефактов · знаки · подарки от людей" : "artifacts · badges · gifts from people"}</p>
       </div>
       <div className="myra-profile-gift-stack" aria-hidden="true">
         {visible.length ? visible.map(gift => <GiftVisual key={gift.id} gift={gift} unlocked />) : <span><Gift size={18} /></span>}
@@ -761,37 +761,69 @@ export function ProfileGiftShowcase({ controller, onOpen }: { controller: Compan
   );
 }
 
-export function GiftGallerySheet({ open, onClose, controller }: { open: boolean; onClose: () => void; controller: CompanionController }) {
+export function IdentityCollectionSheet({ open, onClose, controller }: { open: boolean; onClose: () => void; controller: CompanionController }) {
   const { lang } = useLang();
   const { state, showcase } = controller;
+  const [section, setSection] = useState<"artifacts" | "badges" | "gifts">("artifacts");
+  const copy = {
+    artifacts: lang === "ru" ? "Артефакты" : "Artifacts",
+    badges: lang === "ru" ? "Знаки" : "Badges",
+    gifts: lang === "ru" ? "Подарки" : "Gifts",
+  };
   return (
     <Sheet open={open} onClose={onClose} z={72}>
       <div className="myra-gift-gallery-sheet">
         <header>
           <div>
-            <span>{lang === "ru" ? "КОЛЛЕКЦИЯ MYRA" : "MYRA COLLECTION"}</span>
-            <h2>{lang === "ru" ? "Живые подарки" : "Living gifts"}</h2>
-            <p>{lang === "ru" ? "Подарки хранятся отдельно от спутника и украшают твой профиль." : "Gifts live separately from your companion and decorate your profile."}</p>
+            <span>{lang === "ru" ? "МУЗЫКАЛЬНАЯ ИДЕНТИЧНОСТЬ" : "MUSIC IDENTITY"}</span>
+            <h2>{lang === "ru" ? "Твоя коллекция" : "Your collection"}</h2>
+            <p>{lang === "ru" ? "Спутник растёт вместе со вкусом, знаки отмечают путь, а подарки сохраняют связи между людьми." : "Your companion grows with your taste, badges mark the journey, and gifts preserve connections between people."}</p>
           </div>
           <button onClick={onClose} aria-label={lang === "ru" ? "Закрыть" : "Close"}><X size={16} /></button>
         </header>
-        <div className="myra-gift-gallery-summary">
-          <Gift size={16} /><strong>{state.unlockedGiftIds.length}/{RESONANCES.length}</strong>
-          <span>{lang === "ru" ? "собрано" : "collected"}</span>
+        <div className="myra-identity-tabs" role="tablist" aria-label={lang === "ru" ? "Раздел коллекции" : "Collection section"}>
+          {(["artifacts", "badges", "gifts"] as const).map(id => (
+            <button key={id} role="tab" aria-selected={section === id} data-active={section === id || undefined} onClick={() => setSection(id)}>{copy[id]}</button>
+          ))}
         </div>
-        <div className="myra-resonance-grid myra-gift-gallery-grid">
-          {RESONANCES.map(gift => {
-            const unlocked = state.unlockedGiftIds.includes(gift.id);
-            const showcased = state.showcasedGiftId === gift.id;
-            return (
-              <button key={gift.id} disabled={!unlocked} onClick={() => showcase(gift.id)} className={showcased ? "is-showcased" : ""} style={{ "--gift-accent": gift.accent } as React.CSSProperties}>
-                <GiftVisual gift={gift} unlocked={unlocked} />
-                <strong>{gift.name[lang]}</strong>
-                <span>{!unlocked ? gift.hint[lang] : showcased ? (lang === "ru" ? "На витрине" : "Showcased") : (lang === "ru" ? "Повесить в профиль" : "Pin to profile")}</span>
-              </button>
-            );
-          })}
-        </div>
+
+        {section === "artifacts" && <>
+          <div className="myra-gift-gallery-summary">
+            <Sparkles size={16} /><strong>{state.unlockedGiftIds.length}/{RESONANCES.length}</strong>
+            <span>{lang === "ru" ? "артефактов собрано" : "artifacts collected"}</span>
+          </div>
+          <div className="myra-resonance-grid myra-gift-gallery-grid">
+            {RESONANCES.map(artifact => {
+              const unlocked = state.unlockedGiftIds.includes(artifact.id);
+              const showcased = state.showcasedGiftId === artifact.id;
+              return (
+                <button key={artifact.id} disabled={!unlocked} onClick={() => showcase(artifact.id)} className={showcased ? "is-showcased" : ""} style={{ "--gift-accent": artifact.accent } as React.CSSProperties}>
+                  <GiftVisual gift={artifact} unlocked={unlocked} />
+                  <strong>{artifact.name[lang]}</strong>
+                  <span>{!unlocked ? artifact.hint[lang] : showcased ? (lang === "ru" ? "На витрине" : "Showcased") : (lang === "ru" ? "Показать в профиле" : "Show in profile")}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>}
+
+        {section === "badges" && (
+          <div className="myra-identity-empty is-badges">
+            <span><BadgeCheck size={22} /></span>
+            <strong>{lang === "ru" ? "Знаки видны вокруг аватара" : "Badges live around your avatar"}</strong>
+            <p>{lang === "ru" ? "Роль, вклад в сообщество, события и редкие достижения получают разные формы. В имени показываются только два главных — профиль остаётся чистым." : "Role, community contribution, events, and rare achievements have distinct forms. Only two signature badges appear by the name."}</p>
+            <div><i /><i /><i /></div>
+          </div>
+        )}
+
+        {section === "gifts" && (
+          <div className="myra-identity-empty is-gifts">
+            <span><Gift size={22} /></span>
+            <strong>{lang === "ru" ? "Подарки — от людей, не от алгоритма" : "Gifts come from people, not an algorithm"}</strong>
+            <p>{lang === "ru" ? "После общего прослушивания или важного релиза здесь появятся подарки с именем отправителя, датой и личным сообщением. Никаких случайных платных коробок." : "After a shared listen or meaningful release, gifts will appear here with the sender, date, and a personal message. No random paid loot boxes."}</p>
+            <button disabled><Send size={15} />{lang === "ru" ? "Отправка откроется в бета-версии «Между»" : "Sending opens in the Between beta"}</button>
+          </div>
+        )}
       </div>
     </Sheet>
   );

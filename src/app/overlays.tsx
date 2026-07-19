@@ -4,7 +4,7 @@ import {
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
   Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine, Search, Flag,
-  FileText, ShieldCheck,
+  FileText, ShieldCheck, KeyRound,
 } from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -14,7 +14,7 @@ import { DetailBackdrop } from "./detail";
 import { useLang } from "./i18n";
 import { monthDays, splitAmountByShares, minutesOf, currentMonthKey, type ArtistShare } from "./stats";
 import { buildAchievements, ACHIEVEMENTS, type AchievementCounters } from "./achievements";
-import { supabaseEnabled, paymentsEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, submitReport, createPayment, type SupportMessageRow, type ArtistProfileData, type PublicProfile, type ReportTargetType } from "./supabase";
+import { supabaseEnabled, paymentsEnabled, passkeysEnabled, canUsePasskeys, registerPasskey, listPasskeys, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, submitReport, createPayment, type SupportMessageRow, type ArtistProfileData, type PublicProfile, type ReportTargetType } from "./supabase";
 
 // Фирменный фиолетовый градиент приложения — единый для CTA, чипов и пузырей
 // чата (тот же, что был разбросан по шторкам инлайном)
@@ -884,9 +884,31 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
   const [handleInput, setHandleInput] = useState(handle);
   const [deleteQ, setDeleteQ] = useState(false);
   const [xpInfoOpen, setXpInfoOpen] = useState(false);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyCount, setPasskeyCount] = useState(0);
   useEffect(() => { setName(userName); }, [userName, open]);
   useEffect(() => { setEmailInput(email); }, [email, open]);
   useEffect(() => { setHandleInput(handle); }, [handle, open]);
+  useEffect(() => {
+    if (!open || !passkeysEnabled) return;
+    listPasskeys()
+      .then(({ data }) => setPasskeyCount(data?.length ?? 0))
+      .catch(() => setPasskeyCount(0));
+  }, [open]);
+
+  const enrollPasskey = async () => {
+    if (passkeyBusy || !canUsePasskeys()) return;
+    setPasskeyBusy(true);
+    try {
+      const { error } = await registerPasskey();
+      if (error) { toast.error(t("acc.passkeyFailed")); return; }
+      const { data } = await listPasskeys();
+      setPasskeyCount(data?.length ?? Math.max(1, passkeyCount));
+      toast.success(t("acc.passkeyAdded"));
+    } finally {
+      setPasskeyBusy(false);
+    }
+  };
 
   const saveEmail = () => {
     const v = emailInput.trim();
@@ -1045,6 +1067,32 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
 
           {/* Подписка, импорт, поддержка — одна карточка строк с ховером вместо
               трёх отдельных GLASS-плашек */}
+          {passkeysEnabled && (
+            <>
+              <span className="myra-account-section-label">{t("acc.sectionSecurity")}</span>
+              <div className="myra-account-card mb-6">
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.99 }}
+                  disabled={passkeyBusy || !canUsePasskeys()}
+                  onClick={enrollPasskey}
+                  className="myra-account-row w-full text-left disabled:opacity-45"
+                >
+                  <KeyRound size={15} style={{ color: "#c4b5fd" }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm" style={{ fontFamily: F.b }}>{t("acc.passkey")}</div>
+                    <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>
+                      {passkeyCount > 0 ? t("acc.passkeyCount", passkeyCount) : t("acc.passkeySub")}
+                    </div>
+                  </div>
+                  <span className="text-[10px]" style={{ color: "#c4b5fd", fontFamily: F.m }}>
+                    {passkeyBusy ? t("acc.passkeyAdding") : t("acc.passkeyAdd")}
+                  </span>
+                </motion.button>
+              </div>
+            </>
+          )}
+
           <span className="myra-account-section-label">{t("acc.sectionMore")}</span>
           <div className="myra-account-card mb-6">
             <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenPlan(); }} className="myra-account-row">

@@ -61,6 +61,7 @@ test("показывает нижнюю навигацию для дефолтн
   await expect(bottomNav).toBeVisible();
   await expect(bottomNav.getByRole("button", { name: "Главная" })).toBeVisible();
   await expect(bottomNav.getByRole("button", { name: "Обзор" })).toBeVisible();
+  await expect(bottomNav.getByRole("button", { name: "Между" })).toBeVisible();
   await expect(bottomNav.getByRole("button", { name: "Полка" })).toBeVisible();
   await expect(bottomNav.getByRole("button", { name: "Профиль" })).toBeVisible();
 
