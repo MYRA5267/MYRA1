@@ -800,7 +800,7 @@ export function BlendSheet({ friend, onClose, onPlay, currentTrack, playing, ava
         <div className="mb-6">
           <span className="myra-sheet-eyebrow">{t("bl.genres")}</span>
           <div className="flex gap-2 flex-wrap">
-            {["Lo-fi", "Synthwave", "Indie"].map(g => (
+            {["Лоу-фай", "Синтвейв", "Инди"].map(g => (
               <span key={g} className="px-3.5 py-1.5 rounded-full text-xs font-medium" style={{ ...GLASS, fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{g}</span>
             ))}
           </div>
