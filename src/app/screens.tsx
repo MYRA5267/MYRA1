@@ -17,7 +17,7 @@ import { useLang, type Lang } from "./i18n";
 import { track as trackEvent } from "./analytics";
 import { lastNDays, isMonthEndWindow, type ActivityItem } from "./stats";
 import { MyraBrandLockup } from "./logo";
-import { MyraGlyph, type MyraGlyphName } from "./myraIcons";
+import { MyraGlyph, MyraVerifiedBadge, type MyraGlyphName } from "./myraIcons";
 import type { UserRole } from "./auth";
 import { supabaseEnabled, paymentsEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
 import type { SmartPick } from "./smart";
@@ -1184,6 +1184,24 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
     [myTracks, myPlaysByTrack],
   );
 
+  // Верификация: реальные, проверяемые условия (по фактическим данным студии).
+  // Галочку в MYRA нельзя купить или включить — её подтверждает команда после
+  // выполнения условий (принцип честности: не выдаём автоматически).
+  const totalPlays = useMemo(() => Object.values(myPlaysByTrack).reduce((a, b) => a + b, 0), [myPlaysByTrack]);
+  const verifyCriteria = [
+    { label: t("verify.c1"), have: myTracks.length, need: 3 },
+    { label: t("verify.c2"), have: totalPlays, need: 500 },
+    { label: t("verify.c3"), have: realDonationsTotal > 0 ? 1 : 0, need: 1 },
+  ];
+  const verifyMet = verifyCriteria.every(c => c.have >= c.need);
+  const [verifyRequested, setVerifyRequested] = useState(() => ls.get("verifyRequested", false));
+  const requestVerify = () => {
+    if (!verifyMet || verifyRequested) return;
+    setVerifyRequested(true);
+    ls.set("verifyRequested", true);
+    toast.success(t("verify.requested"));
+  };
+
   // Детальная аналитика — реальная привилегия Pro (шторка Pro её обещает
   // третьим пунктом; раньше она была открыта всем, и обещание было пустым)
   const openStatsGated = () => {
@@ -1244,6 +1262,40 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
             <span className="text-xs" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{t("cr.realDonations", realDonationsTotal.toLocaleString("ru-RU"))}</span>
           </div>
         )}
+
+        {/* Верификация — реальные условия галочки (см. requestVerify выше) */}
+        <div className="mt-3.5 rounded-[22px] p-4" style={{ ...GLASS }}>
+          <div className="flex items-center gap-2.5 mb-3">
+            <MyraVerifiedBadge size={26} accent={c2} />
+            <div className="min-w-0">
+              <div className="text-sm font-bold" style={{ fontFamily: F.b }}>{t("verify.title")}</div>
+              <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 48%, transparent)", fontFamily: F.m }}>{t("verify.sub")}</div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 mb-3.5">
+            {verifyCriteria.map(cr => {
+              const done = cr.have >= cr.need;
+              return (
+                <div key={cr.label} className="flex items-center gap-2.5">
+                  <span className="flex items-center justify-center shrink-0" style={{ width: 22, height: 22, borderRadius: "50%", background: done ? `${c2}2e` : "color-mix(in srgb, var(--fg) 8%, transparent)", color: done ? c2 : "color-mix(in srgb, var(--fg) 38%, transparent)" }}>
+                    {done ? <Check size={13} /> : <Lock size={12} />}
+                  </span>
+                  <span className="flex-1 text-xs" style={{ fontFamily: F.b, color: done ? "var(--fg)" : "color-mix(in srgb, var(--fg) 62%, transparent)" }}>{cr.label}</span>
+                  <span className="text-xs font-semibold shrink-0" style={{ fontFamily: F.m, color: done ? c2 : "color-mix(in srgb, var(--fg) 40%, transparent)" }}>{Math.min(cr.have, cr.need)}/{cr.need}</span>
+                </div>
+              );
+            })}
+          </div>
+          <button
+            onClick={requestVerify}
+            disabled={!verifyMet || verifyRequested}
+            className="w-full py-3 rounded-2xl text-sm font-bold transition-opacity disabled:opacity-45"
+            style={{ background: verifyMet && !verifyRequested ? `linear-gradient(108deg, ${c2}, #c98cff)` : "color-mix(in srgb, var(--fg) 9%, transparent)", color: verifyMet && !verifyRequested ? "#160f26" : "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}
+          >
+            {verifyRequested ? t("verify.pending") : verifyMet ? t("verify.cta") : t("verify.ctaLocked")}
+          </button>
+          <div className="text-[11px] mt-2.5 text-center" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m, lineHeight: 1.4 }}>{t("verify.note")}</div>
+        </div>
       </section>
 
       <section className="myra-content-section px-5 mb-7">
