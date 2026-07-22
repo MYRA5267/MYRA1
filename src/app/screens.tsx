@@ -429,8 +429,10 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
           <DetailBackdrop variant="soft" accent="#8b5cf6" active={waveActive} />
           <div className="myra-home-flow-main relative z-10 flex items-center justify-between p-6">
             <div className="myra-home-flow-copy">
-              <div className="myra-flow-kicker text-[10px] uppercase tracking-[0.2em] mb-2">{t("home.flow")}</div>
-              <h1>{t("home.headline")}</h1>
+              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 46, letterSpacing: "-0.045em", lineHeight: 0.95, background: "linear-gradient(118deg, #ffffff, #f6b8c8 55%, #c98cff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{t("home.wave")}</h1>
+              <p style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.35, maxWidth: 190, color: "color-mix(in srgb, var(--fg) 58%, transparent)", fontFamily: F.b }}>
+                {waveActive ? `${currentTrack.title} · ${currentTrack.artist}` : t("home.flowSub")}
+              </p>
             </div>
             <div className="myra-home-flow-art" style={{ "--flow-color": currentTrack.c2 } as React.CSSProperties}>
               <img src={currentTrack.img} alt="" />

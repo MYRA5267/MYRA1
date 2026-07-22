@@ -28,6 +28,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   // Эхо месяца (итоги), Глубина (свайп-дека), Полка (медиатека), Перелив (кроссфейд)
   "home.flow":       { ru: "Персональный поток", en: "Personal flow" },
   "home.headline":   { ru: "Музыка, которая чувствует момент", en: "Music that feels the moment" },
+  "home.flowSub":    { ru: "звучит под тебя", en: "tuned to you" },
   "home.headlineSub":{ ru: "Новые релизы, любимые артисты и персональный поток — без шума и повторов.", en: "New releases, favorite artists and a personal flow — without noise or repeats." },
   "home.forYou":     { ru: "Создано для тебя", en: "Made for you" },
   "home.forYouSub":  { ru: "Подборка меняется вместе с твоим вкусом", en: "A selection that evolves with your taste" },

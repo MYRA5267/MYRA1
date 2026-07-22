@@ -13,26 +13,41 @@ const rnd = (seed: number) => {
 /** Абстрактная обложка: градиент + светящиеся круги + волна */
 export const svgCover = (c1: string, c2: string, seed: number) => {
   const r = rnd(seed * 7 + 3);
-  const circles = Array.from({ length: 4 }, (_, i) => {
-    const cx = Math.round(60 + r() * 380);
-    const cy = Math.round(60 + r() * 380);
-    const rad = Math.round(50 + r() * 150);
-    const o = (0.10 + r() * 0.22).toFixed(2);
-    return `<circle cx="${cx}" cy="${cy}" r="${rad}" fill="url(#o${i % 2})" opacity="${o}"/>`;
-  }).join("");
-  const wavePts = Array.from({ length: 11 }, (_, i) => `${i * 50},${Math.round(330 + Math.sin(i * 1.3 + seed) * 40)}`).join(" L");
+  const ang = Math.round(r() * 360);
+  // Мягкие аврора-пятна на радиальных градиентах (без SVG-фильтров — надёжно
+  // рендерятся в Android WebView, в отличие от feGaussianBlur), плюс глубокий
+  // диагональный градиент, глянцевый блик сверху и виньетка. Вариативность —
+  // по seed трека, поэтому обложки отличаются друг от друга.
+  const palette = [c2, c1, "#ffffff", c2];
+  const blobDefs: string[] = [];
+  const blobEls: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    const col = palette[i];
+    const cx = (8 + r() * 84).toFixed(1);
+    const cy = (8 + r() * 84).toFixed(1);
+    const rad = (32 + r() * 34).toFixed(1);
+    const op = 0.6 - i * 0.09;
+    blobDefs.push(
+      `<radialGradient id="b${i}" cx="${cx}%" cy="${cy}%" r="${rad}%">` +
+        `<stop offset="0" stop-color="${col}" stop-opacity="${op.toFixed(2)}"/>` +
+        `<stop offset="0.5" stop-color="${col}" stop-opacity="${(op * 0.4).toFixed(2)}"/>` +
+        `<stop offset="1" stop-color="${col}" stop-opacity="0"/>` +
+      `</radialGradient>`,
+    );
+    blobEls.push(`<rect width="500" height="500" fill="url(#b${i})"/>`);
+  }
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">` +
     `<defs>` +
-    `<radialGradient id="bg" cx="0.3" cy="0.22" r="1.1"><stop offset="0" stop-color="${c2}"/><stop offset="0.55" stop-color="${c1}"/><stop offset="1" stop-color="#07070f"/></radialGradient>` +
-    `<radialGradient id="o0" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>` +
-    `<radialGradient id="o1" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${c2}"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></radialGradient>` +
-    `<linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c2}" stop-opacity="0.55"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></linearGradient>` +
+    `<linearGradient id="bg" gradientTransform="rotate(${ang} 0.5 0.5)"><stop offset="0" stop-color="${c1}"/><stop offset="0.6" stop-color="#140a24"/><stop offset="1" stop-color="#08060f"/></linearGradient>` +
+    blobDefs.join("") +
+    `<linearGradient id="sheen" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.42"/><stop offset="0.42" stop-color="#ffffff" stop-opacity="0"/></linearGradient>` +
+    `<radialGradient id="vig" cx="0.5" cy="0.42" r="0.75"><stop offset="0.55" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.5"/></radialGradient>` +
     `</defs>` +
     `<rect width="500" height="500" fill="url(#bg)"/>` +
-    circles +
-    `<path d="M0,340 L${wavePts} L500,500 L0,500 Z" fill="url(#w)"/>` +
-    `<rect width="500" height="500" fill="#000000" opacity="0.08"/>` +
+    blobEls.join("") +
+    `<path d="M-30,150 C130,70 300,190 530,90 L530,-30 L-30,-30 Z" fill="url(#sheen)"/>` +
+    `<rect width="500" height="500" fill="url(#vig)"/>` +
     `</svg>`;
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
 };
