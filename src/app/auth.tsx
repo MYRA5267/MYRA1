@@ -267,6 +267,9 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
   // Бесконечные лупы отключаем на слабом железе (fx-simple) и при reduce-motion.
   const weakFx = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
   const liveMotion = !reducedMotion && !weakFx;
+  // Экраны «вокруг спутника»: спокойный аврора-фон в цвет питомца, без случайной
+  // обложки трека — так вход/настройка читаются как единый премиальный портал.
+  const companionStep = step === "companion" || step === "auth" || step === "taste";
 
   const enterWithCompanion = () => {
     // Закрепляем спутника (если ещё не связан) и уходим на регистрацию.
@@ -278,7 +281,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
   return (
     <div className="myra-onboarding fixed inset-0 z-[90] flex flex-col overflow-hidden" style={{ background: "var(--bg)", fontFamily: F.b, color: "var(--fg)" }}>
       {/* Фон */}
-      {step !== "companion" && (
+      {!companionStep && (
         <AnimatePresence>
           <motion.img
             key={step === "slides" ? slide : step}
@@ -293,7 +296,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
           />
         </AnimatePresence>
       )}
-      <DetailBackdrop variant="soft" accent={step === "companion" ? pickedComp.accent : S.c2} />
+      <DetailBackdrop variant="soft" accent={companionStep ? pickedComp.accent : S.c2} />
       <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 0%, var(--bg) var(--aurora-fade))" }} />
       <div className="absolute bottom-0 left-0 right-0 h-80" style={{ background: "linear-gradient(to top, var(--bg) 0%, transparent 100%)" }} />
 
@@ -419,16 +422,25 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
           {/* ── Вход / регистрация ── */}
           {step === "auth" && (
             <motion.div key="auth" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
-              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 32, letterSpacing: "-0.04em" }} className="mb-1.5">{t("au.welcome")}</h1>
-              <p className="text-sm mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{t("au.sub")}</p>
+              {/* Портал спутника — «аватар аккаунта» в духе Yandex ID, но это твой спутник */}
+              <div className="flex flex-col items-center text-center mb-6">
+                <div className="relative" style={{ width: 104, height: 104 }}>
+                  <div className="absolute" style={{ inset: "-16%", borderRadius: 36, background: `radial-gradient(circle, ${pickedComp.accent}55, transparent 70%)`, filter: "blur(16px)" }} />
+                  <div className="relative w-full h-full flex items-center justify-center" style={{ borderRadius: 30, background: `linear-gradient(150deg, ${pickedComp.accent}26, ${pickedComp.accent2}14)`, border: `1px solid ${pickedComp.accent}44`, boxShadow: `0 18px 44px ${pickedComp.accent2}44` }}>
+                    <motion.img src={pickedComp.image} alt={pickedComp.name} animate={liveMotion ? { y: [0, -5, 0] } : undefined} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} style={{ width: "82%", height: "82%", objectFit: "contain", filter: `drop-shadow(0 10px 22px ${pickedComp.accent}99)` }} />
+                  </div>
+                </div>
+                <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em", marginTop: 16 }}>{mode === "login" ? t("au.backTitle") : t("au.welcome")}</h1>
+                <p className="text-sm mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 48%, transparent)" }}>{mode === "login" ? t("au.backSub") : t("au.sub")}</p>
 
-              <div className="flex gap-1 p-1 rounded-full mb-6 w-fit" style={GLASS}>
-                {(["signup", "login"] as const).map(m => (
-                  <button key={m} onClick={() => setMode(m)} className="relative px-5 py-2 rounded-full text-xs font-semibold" style={{ color: mode === m ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>
-                    {mode === m && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="absolute inset-0 rounded-full myra-brand-fill" />}
-                    <span className="relative z-10">{m === "signup" ? t("au.signup") : t("au.login")}</span>
-                  </button>
-                ))}
+                <div className="flex gap-1 p-1 rounded-full mt-5" style={GLASS}>
+                  {(["signup", "login"] as const).map(m => (
+                    <button key={m} onClick={() => setMode(m)} className="relative px-5 py-2 rounded-full text-xs font-semibold" style={{ color: mode === m ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>
+                      {mode === m && <motion.div layoutId="auth-mode-pill" className="absolute inset-0 rounded-full myra-brand-fill" transition={SPRING} />}
+                      <span className="relative z-10">{m === "signup" ? t("au.signup") : t("au.login")}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex flex-col gap-2.5 mb-5">

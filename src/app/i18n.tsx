@@ -535,6 +535,8 @@ const STR: Record<string, { ru: string; en: string }> = {
   "comp.signin":   { ru: "Войти в аккаунт", en: "Sign in" },
   "au.welcome": { ru: "Привет!", en: "Hey there!" },
   "au.sub":     { ru: "Войди или создай аккаунт MYRA", en: "Log in or create a MYRA account" },
+  "au.backTitle": { ru: "С возвращением", en: "Welcome back" },
+  "au.backSub":   { ru: "Спутник тебя заждался", en: "Your companion missed you" },
   "au.login":   { ru: "Вход", en: "Log in" },
   "au.signup":  { ru: "Регистрация", en: "Sign up" },
   "au.name":    { ru: "Как тебя зовут?", en: "Your name" },
