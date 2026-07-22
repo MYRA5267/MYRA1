@@ -6,6 +6,10 @@ import { ls, type Track } from "./data";
 import { F, Sheet } from "./lib";
 import { useLang, type Lang } from "./i18n";
 
+// Ассеты берём относительно base (Vite base: './') — иначе абсолютный "/companions/…"
+// 404-ит на подпути (GitHub Pages: myra5267.github.io/<repo>/), и картинки не грузятся.
+const ASSET_BASE = (import.meta as any).env?.BASE_URL ?? "./";
+
 export type CompanionId = "luma" | "spark" | "echo";
 export type ResonanceId = "first-wave" | "discovery-drop" | "genre-prism" | "night-star" | "pulse-heart" | "aurora-crown";
 
@@ -53,7 +57,7 @@ export const COMPANIONS: CompanionDefinition[] = [
   {
     id: "luma",
     name: "Люма",
-    image: "/companions/luma.webp",
+    image: ASSET_BASE + "companions/luma.webp",
     accent: "#f4a77f",
     accent2: "#c98cff",
     copy: {
@@ -64,7 +68,7 @@ export const COMPANIONS: CompanionDefinition[] = [
   {
     id: "spark",
     name: "Искра",
-    image: "/companions/spark.webp",
+    image: ASSET_BASE + "companions/spark.webp",
     accent: "#ff8b5d",
     accent2: "#ff4f91",
     copy: {
@@ -75,7 +79,7 @@ export const COMPANIONS: CompanionDefinition[] = [
   {
     id: "echo",
     name: "Эхо",
-    image: "/companions/echo.webp",
+    image: ASSET_BASE + "companions/echo.webp",
     accent: "#9a8cff",
     accent2: "#68b8ff",
     copy: {

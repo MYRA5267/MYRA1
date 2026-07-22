@@ -260,6 +260,10 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
   const S = SLIDES[slide];
   const pickedComp = COMPANIONS.find(c => c.id === companionPick) ?? COMPANIONS[0];
   const others = COMPANIONS.filter(c => c.id !== companionPick);
+  // Правильный падеж имени спутника в кнопке (RU): «Войти с Люмой/Искрой/Эхо».
+  const enterLabel = lang === "ru"
+    ? `Войти с ${({ luma: "Люмой", spark: "Искрой", echo: "Эхо" } as Record<CompanionId, string>)[companionPick]}`
+    : t("comp.enter", pickedComp.name);
   // Бесконечные лупы отключаем на слабом железе (fx-simple) и при reduce-motion.
   const weakFx = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
   const liveMotion = !reducedMotion && !weakFx;
@@ -365,7 +369,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
 
               <motion.div key={pickedComp.id + "-copy"} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mt-2">
                 <h2 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 38, letterSpacing: "-0.03em", lineHeight: 1 }}>{pickedComp.name}</h2>
-                <p className="mt-2 mx-auto" style={{ maxWidth: 300, fontSize: 13.5, lineHeight: 1.5, color: "color-mix(in srgb, var(--fg) 58%, transparent)" }}>{pickedComp.copy[lang].character} — {pickedComp.copy[lang].ability}</p>
+                <p className="mt-2 mx-auto" style={{ maxWidth: 300, fontSize: 13.5, lineHeight: 1.5, color: "color-mix(in srgb, var(--fg) 58%, transparent)" }}>{pickedComp.copy[lang].ability}</p>
               </motion.div>
 
               <div className="flex items-center justify-center gap-2 mt-4">
@@ -375,7 +379,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
               </div>
 
               <motion.button whileTap={{ scale: 0.96 }} onClick={enterWithCompanion} className="w-full mt-6 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold" style={{ background: `linear-gradient(108deg, ${pickedComp.accent}, ${pickedComp.accent2})`, color: "#160f26", fontSize: 16, boxShadow: `0 16px 40px ${pickedComp.accent2}55` }}>
-                {t("comp.enter", pickedComp.name)} <MyraGlyph name="arrow" size={16} />
+                {enterLabel} <MyraGlyph name="arrow" size={16} />
               </motion.button>
               <button onClick={() => { setMode("login"); setStep("auth"); }} className="mt-4 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>
                 {t("comp.have")} <b style={{ color: pickedComp.accent }}>{t("comp.signin")}</b>
