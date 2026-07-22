@@ -523,44 +523,30 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
             </motion.div>
           )}
 
-          {/* ── Вкусы ── */}
+          {/* ── Настройка под спутника (без выбора жанров) ── */}
           {step === "taste" && (
-            <motion.div key="taste" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
-              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em" }} className="mb-1.5">{t("ta.title")}</h1>
-              <p className="text-sm mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{t("ta.sub")}</p>
-
-              <div className="flex flex-wrap gap-2.5 mb-7">
-                {TASTE_GENRES.map(([g, c], i) => {
-                  const on = picked.has(g);
-                  return (
-                    <motion.button
-                      key={g}
-                      initial={{ opacity: 0, scale: 0.85 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.035, ...SPRING }}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => setPicked(p => { const n = new Set(p); if (n.has(g)) n.delete(g); else n.add(g); return n; })}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors"
-                      style={{ background: on ? `${c}2b` : "color-mix(in srgb, var(--wash) 5.5%, transparent)", border: `1px solid ${on ? c : "color-mix(in srgb, var(--wash) 10%, transparent)"}`, color: on ? c : "color-mix(in srgb, var(--fg) 65%, transparent)", fontFamily: F.b }}
-                    >
-                      {on && <Check size={13} />}
-                      {g}
-                    </motion.button>
-                  );
-                })}
+            <motion.div key="taste" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full flex flex-col items-center text-center">
+              <div className="relative" style={{ width: 168, height: 168, marginTop: 6 }}>
+                <div className="absolute" style={{ inset: "12%", borderRadius: "50%", background: `radial-gradient(circle, ${pickedComp.accent}66, ${pickedComp.accent2}33 46%, transparent 68%)`, filter: "blur(10px)" }} />
+                <motion.img
+                  src={pickedComp.image}
+                  alt={pickedComp.name}
+                  animate={liveMotion ? { y: [0, -7, 0], scale: [1, 1.03, 1] } : undefined}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", position: "relative", filter: `drop-shadow(0 16px 40px ${pickedComp.accent}88)` }}
+                />
               </div>
+              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 28, letterSpacing: "-0.04em", lineHeight: 1.05, marginTop: 12 }}>{t("ta.tuneTitle", pickedComp.name)}</h1>
+              <p className="text-sm mt-3" style={{ maxWidth: 320, color: "color-mix(in srgb, var(--fg) 55%, transparent)", lineHeight: 1.55 }}>{t("ta.tuneSub")}</p>
 
-              <div className="flex items-center justify-between">
-                <span className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("ta.picked", picked.size)}</span>
-                <motion.button
-                  whileTap={{ scale: 0.94 }}
-                  onClick={() => { if (picked.size >= 3) setStep("role"); }}
-                  className="flex items-center gap-2 pl-6 pr-5 py-3.5 rounded-full text-sm font-bold transition-opacity"
-                  style={{ background: "var(--myra-brand-gradient)", opacity: picked.size >= 3 ? 1 : 0.35, fontFamily: F.b }}
-                >
-                  {t("ta.continue")} <MyraGlyph name="arrow" size={15} />
-                </motion.button>
-              </div>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => setStep("role")}
+                className="w-full mt-8 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold"
+                style={{ background: `linear-gradient(108deg, ${pickedComp.accent}, ${pickedComp.accent2})`, color: "#160f26", fontSize: 16, boxShadow: `0 16px 40px ${pickedComp.accent2}55`, fontFamily: F.b }}
+              >
+                {t("ta.continue")} <MyraGlyph name="arrow" size={16} />
+              </motion.button>
             </motion.div>
           )}
 

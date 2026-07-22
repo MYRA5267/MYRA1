@@ -585,6 +585,8 @@ const STR: Record<string, { ru: string; en: string }> = {
   "ta.sub":     { ru: "Выбери минимум 3 жанра — настроим твой Прилив", en: "Pick at least 3 genres — we'll tune your Tide" },
   "ta.continue":{ ru: "Продолжить", en: "Continue" },
   "ta.picked":  { ru: "Выбрано: {0}", en: "Picked: {0}" },
+  "ta.tuneTitle": { ru: "{0} настроится под тебя", en: "{0} will tune to you" },
+  "ta.tuneSub":   { ru: "Никаких анкет. Подбор подстраивается под то, что ты слушаешь и лайкаешь.", en: "No forms. Your mix adapts to what you play and like." },
   "au.welcomeBack": { ru: "С возвращением, {0}!", en: "Welcome back, {0}!" },
   "au.created":     { ru: "Аккаунт создан. Добро пожаловать в MYRA!", en: "Account created. Welcome to MYRA!" },
   "role.title":     { ru: "Кто ты в MYRA?", en: "Who are you on MYRA?" },
