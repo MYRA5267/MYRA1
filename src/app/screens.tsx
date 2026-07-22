@@ -1016,10 +1016,20 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
         </motion.button>
       </header>
 
-      <section className="myra-library-overview mx-5 mb-5" style={{ "--library-accent": currentTrack.c2 } as React.CSSProperties}>
-        <div><MyraGlyph name="heart" size={19} /><strong>{liked.length}</strong><span>{t("lib.saved")}</span></div>
-        <div><MyraGlyph name="download" size={19} /><strong>{myTracks.length}</strong><span>{t("lib.local")}</span></div>
-        <div><MyraGlyph name="library" size={19} /><strong>{playlists.length}</strong><span>{t("lib.playlists")}</span></div>
+      <section className="grid grid-cols-3 gap-2.5 mx-5 mb-5">
+        {[
+          { glyph: "heart" as const, value: liked.length, label: t("lib.saved"), a: "#ff6fa5", b: "#c98cff" },
+          { glyph: "download" as const, value: myTracks.length, label: t("lib.local"), a: "#5ee7ac", b: "#67d7ff" },
+          { glyph: "library" as const, value: playlists.length, label: t("lib.playlists"), a: "#f4a77f", b: "#c98cff" },
+        ].map(o => (
+          <div key={o.glyph} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 8px 14px", background: `linear-gradient(158deg, ${o.a}22, ${o.b}0d)`, border: `1px solid ${o.a}38`, boxShadow: `0 12px 32px ${o.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
+            <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${o.a}, ${o.b})`, color: "#160f26", boxShadow: `0 6px 18px ${o.a}66` }}>
+              <MyraGlyph name={o.glyph} size={17} />
+            </span>
+            <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, lineHeight: 1, letterSpacing: "-0.04em", background: `linear-gradient(120deg, ${o.a}, ${o.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{o.value}</strong>
+            <span className="mt-1.5" style={{ fontSize: 11, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{o.label}</span>
+          </div>
+        ))}
       </section>
 
       <div className="myra-library-search mx-5 mb-5">
