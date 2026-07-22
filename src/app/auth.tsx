@@ -327,9 +327,8 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
       <div className="myra-onboarding-content relative z-10 flex-1 flex flex-col justify-end md:justify-center overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           {/* ── Выбор спутника (вход) ── */}
           {step === "companion" && (
-            <motion.div key="companion" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="myra-onboarding-panel px-6 pb-9 max-w-md mx-auto w-full flex flex-col items-center text-center">
-              <div style={{ fontFamily: F.m, fontSize: 10, letterSpacing: "0.32em", textTransform: "uppercase", color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{t("comp.eyebrow")}</div>
-              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em", lineHeight: 1.05, marginTop: 8 }}>{t("comp.title")}</h1>
+            <motion.div key="companion" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="myra-onboarding-panel px-6 pb-9 pt-4 max-w-md mx-auto w-full flex flex-col items-center text-center">
+              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em", lineHeight: 1.05 }}>{t("comp.title")}</h1>
 
               {/* трио: центр — выбранный, по бокам — остальные (тап делает их центром) */}
               <div className="relative flex items-center justify-center gap-1 mt-6" style={{ height: 234 }}>
