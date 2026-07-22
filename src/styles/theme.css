@@ -2460,6 +2460,22 @@
 .fx-simple .myra-detail-ribbon-b { display: none; }
 .fx-simple .myra-detail-photo { animation: none !important; filter: blur(4px) brightness(0.9); }
 
+/* Живой заголовок: перламутровый градиент медленно перетекает по буквам.
+   Гасится на слабых устройствах и при prefers-reduced-motion (см. ниже) —
+   тогда остаётся статичный градиент, как раньше. */
+@keyframes myra-shimmer-slide { to { background-position: 260% 50%; } }
+.myra-hero-word {
+  background: linear-gradient(100deg, #c98cff 0%, #f6b8c8 24%, #ffffff 40%, #f6b8c8 56%, #c98cff 80%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: myra-shimmer-slide 6s linear infinite;
+}
+.fx-simple .myra-hero-word { animation: none; background-size: 100% 100%; }
+@media (prefers-reduced-motion: reduce) { .myra-hero-word { animation: none; } }
+
 /* Мини-плеер: тонкая полоса-акцент сверху, а не полноценный фон — "не
    перегружать mini player эффектами" (см. план, раздел 4) */
 .myra-mini-detail {

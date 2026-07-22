@@ -429,7 +429,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
           <DetailBackdrop variant="soft" accent="#8b5cf6" active={waveActive} />
           <div className="myra-home-flow-main relative z-10 flex items-center justify-between p-6">
             <div className="myra-home-flow-copy">
-              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 46, letterSpacing: "-0.045em", lineHeight: 0.95, background: "linear-gradient(118deg, #ffffff, #f6b8c8 55%, #c98cff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{t("home.wave")}</h1>
+              <h1 className="myra-hero-word" style={{ fontFamily: F.d, fontWeight: 900, fontSize: 46, letterSpacing: "-0.045em", lineHeight: 0.95 }}>{t("home.wave")}</h1>
               <p style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.35, maxWidth: 190, color: "color-mix(in srgb, var(--fg) 58%, transparent)", fontFamily: F.b }}>
                 {waveActive ? `${currentTrack.title} · ${currentTrack.artist}` : t("home.flowSub")}
               </p>
@@ -1037,14 +1037,14 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
           { glyph: "heart" as const, value: liked.length, label: t("lib.saved"), a: "#ff6fa5", b: "#c98cff" },
           { glyph: "download" as const, value: myTracks.length, label: t("lib.local"), a: "#5ee7ac", b: "#67d7ff" },
           { glyph: "library" as const, value: playlists.length, label: t("lib.playlists"), a: "#f4a77f", b: "#c98cff" },
-        ].map(o => (
-          <div key={o.glyph} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 8px 14px", background: `linear-gradient(158deg, ${o.a}22, ${o.b}0d)`, border: `1px solid ${o.a}38`, boxShadow: `0 12px 32px ${o.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
+        ].map((o, i) => (
+          <motion.div key={o.glyph} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 8px 14px", background: `linear-gradient(158deg, ${o.a}22, ${o.b}0d)`, border: `1px solid ${o.a}38`, boxShadow: `0 12px 32px ${o.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
             <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${o.a}, ${o.b})`, color: "#160f26", boxShadow: `0 6px 18px ${o.a}66` }}>
               <MyraGlyph name={o.glyph} size={17} />
             </span>
             <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, lineHeight: 1, letterSpacing: "-0.04em", background: `linear-gradient(120deg, ${o.a}, ${o.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{o.value}</strong>
             <span className="mt-1.5" style={{ fontSize: 11, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{o.label}</span>
-          </div>
+          </motion.div>
         ))}
       </section>
 
