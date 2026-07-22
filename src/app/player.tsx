@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo, useEffect } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat,
   ChevronDown, Share2, Volume2, VolumeX, Globe, Flag,
-  MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2, Flame, Blend,
+  MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2, Flame, Blend, Sparkles,
 } from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -17,10 +17,11 @@ import { supabaseEnabled, fetchComments, postComment } from "./supabase";
 import { enqueueSyncOp, isNetworkError } from "./syncQueue";
 import { useTrackStructure, sectionForPct } from "./structure";
 import { ReportSheet } from "./overlays";
+import type { ResonanceDefinition } from "./companion";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
-export function FullPlayer({ track, playing, onToggle, onClose, progress, buffered, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid, crossfade, onToggleCrossfade, shuffle, onToggleShuffle, repeat, onToggleRepeat, queue }: {
+export function FullPlayer({ track, playing, onToggle, onClose, progress, buffered, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid, crossfade, onToggleCrossfade, shuffle, onToggleShuffle, repeat, onToggleRepeat, queue, artifact }: {
   track: Track; playing: boolean; onToggle: () => void; onClose: () => void;
   progress: number; buffered: number; duration: number; onSeek: (p: number) => void; onNext: () => void; onPrev: () => void;
   liked: boolean; onLike: () => void; volume: number; onVolume: (v: number) => void;
@@ -31,6 +32,9 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
   // Перемешивание/повтор живут в App и реально управляют переходами треков
   shuffle: boolean; onToggleShuffle: () => void; repeat: boolean; onToggleRepeat: () => void;
   queue: Track[];
+  // Надетый артефакт-награда: реально оформляет плеер (свечение + герб),
+  // а не остаётся значком в профиле. null — ничего не надето.
+  artifact?: ResonanceDefinition | null;
 }) {
   const { t, lang } = useLang();
   const [tab, setTab] = useState<"player" | "lyrics" | "comments" | "queue">("player");
@@ -184,6 +188,8 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
             главная витрина, где он должен быть особенно заметен (см. план) */}
         <DetailBackdrop variant="full" accent={track.c2} active={playing} />
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 46%, ${track.c2}18 0%, transparent 34%), linear-gradient(115deg, rgba(2,2,7,0.66), rgba(2,2,7,0.94) 70%)` }} />
+        {/* Оформление от надетого артефакта — реальное свечение в его цвете */}
+        {artifact && <div className="fx-heavy absolute inset-0" style={{ background: `radial-gradient(circle at 82% 12%, ${artifact.accent}33 0%, transparent 42%)` }} />}
         <div className="myra-player-noise absolute inset-0" />
       </div>
 
@@ -223,9 +229,24 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
               <div className="absolute inset-0" style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.13), inset 0 0 0 1px rgba(255,255,255,0.07)" }} />
 
               <div className="absolute left-5 right-5 top-5 flex items-center justify-between z-10">
-                <div className="myra-player-kicker">
-                  <span className="myra-live-dot" style={{ background: track.c2, boxShadow: `0 0 14px ${track.c2}` }} />
-                  {t("pl.nowPlays")}
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="myra-player-kicker">
+                    <span className="myra-live-dot" style={{ background: track.c2, boxShadow: `0 0 14px ${track.c2}` }} />
+                    {t("pl.nowPlays")}
+                  </div>
+                  {/* Надетый артефакт-награда — герб виден, пока ты слушаешь */}
+                  {artifact && (
+                    <span
+                      className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full shrink-0"
+                      title={artifact.name[lang]}
+                      style={{ background: `${artifact.accent}22`, border: `1px solid ${artifact.accent}55` }}
+                    >
+                      <span className="flex items-center justify-center" style={{ width: 16, height: 16, borderRadius: "50%", background: `radial-gradient(circle, ${artifact.accent}, ${artifact.accent}44)`, boxShadow: `0 0 10px ${artifact.accent}aa` }}>
+                        <Sparkles size={9} style={{ color: "#160f26" }} />
+                      </span>
+                      <span className="truncate" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.02em", color: artifact.accent, fontFamily: F.m, maxWidth: 108 }}>{artifact.name[lang]}</span>
+                    </span>
+                  )}
                 </div>
                 <SectionBadge section={sectionForPct(structure, progressRounded)} />
               </div>

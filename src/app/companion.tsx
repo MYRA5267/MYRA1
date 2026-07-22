@@ -921,7 +921,7 @@ export function IdentityCollectionSheet({ open, onClose, controller }: { open: b
                 <button key={artifact.id} disabled={!unlocked} onClick={() => showcase(artifact.id)} className={showcased ? "is-showcased" : ""} style={{ "--gift-accent": artifact.accent } as React.CSSProperties}>
                   <GiftVisual gift={artifact} unlocked={unlocked} />
                   <strong>{artifact.name[lang]}</strong>
-                  <span>{!unlocked ? artifact.hint[lang] : showcased ? (lang === "ru" ? "На витрине" : "Showcased") : (lang === "ru" ? "Показать в профиле" : "Show in profile")}</span>
+                  <span>{!unlocked ? artifact.hint[lang] : showcased ? (lang === "ru" ? "Надето · оформляет плеер" : "Equipped · skins player") : (lang === "ru" ? "Надеть на плеер" : "Equip on player")}</span>
                 </button>
               );
             })}

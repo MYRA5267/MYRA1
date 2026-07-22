@@ -19,7 +19,7 @@ import { useIdentity } from "./useIdentity";
 import { usePlayerQueue } from "./usePlayerQueue";
 import { track } from "./analytics";
 import { smartRecommendations, getHistory } from "./smart";
-import { CompanionReturnGreeting, IdentityCollectionSheet, useCompanion } from "./companion";
+import { CompanionReturnGreeting, IdentityCollectionSheet, useCompanion, RESONANCES } from "./companion";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
   topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds, grantXp,
@@ -694,6 +694,12 @@ function AppInner() {
     );
   }
 
+  // Надетый (показанный) артефакт — только если реально разблокирован. Он
+  // оформляет плеер (Этап 3: награды настоящие, а не значок в профиле).
+  const showcasedArtifact = RESONANCES.find(
+    g => g.id === companionController.state.showcasedGiftId && companionController.state.unlockedGiftIds.includes(g.id),
+  ) ?? null;
+
   // Производные значения реальной статистики — общий источник для рейтинга/профиля/аккаунта
   const xp = xpOf(stats);
   const lvl = levelInfo(xp);
@@ -965,6 +971,7 @@ function AppInner() {
               onDownload={() => downloadTrack(currentTrack)}
               handle={handle}
               uid={uid}
+              artifact={showcasedArtifact}
             />
           </motion.div>
         )}
