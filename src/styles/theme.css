@@ -404,6 +404,25 @@
 }
 .myra-mood-chip:active { transform: translateY(0) scale(0.97); }
 
+/* Светящиеся орбы-иконки на карточках-метриках (Полка/Профиль/Студия) мягко
+   «дышат» — живой пульс света. Только transform (компоузер), со сдвигом фаз
+   по позиции в тройке, гаснет на слабых устройствах и reduced-motion. */
+.myra-glow-orb {
+  will-change: transform;
+  animation: myra-orb-breathe 4.6s ease-in-out infinite;
+}
+.myra-glow-orb:nth-child(1) { animation-delay: 0s; }
+section > *:nth-child(2) > .myra-glow-orb,
+.grid > *:nth-child(2) > .myra-glow-orb { animation-delay: -1.5s; }
+section > *:nth-child(3) > .myra-glow-orb,
+.grid > *:nth-child(3) > .myra-glow-orb { animation-delay: -3s; }
+@keyframes myra-orb-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.09); }
+}
+.fx-simple .myra-glow-orb { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .myra-glow-orb { animation: none !important; } }
+
 .myra-chart-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
