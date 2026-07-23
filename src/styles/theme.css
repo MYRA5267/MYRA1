@@ -1069,11 +1069,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: rgba(242,242,248,0.78);
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.055);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 36px rgba(0,0,0,0.2);
-  transition: color 180ms ease, background 180ms ease, border-color 180ms ease, transform 180ms ease;
+  color: rgba(242,242,248,0.82);
+  border: 1px solid rgba(255,255,255,0.12);
+  /* объёмная стеклянная клавиша: верхний блик + нижняя внутренняя тень */
+  background: linear-gradient(162deg, rgba(255,255,255,0.11), rgba(255,255,255,0.028) 62%);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.18),
+    inset 0 -7px 13px rgba(0,0,0,0.3),
+    0 14px 32px rgba(0,0,0,0.26);
+  transition: color 180ms ease, background 180ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
 .myra-player-icon-button {
@@ -1088,9 +1092,19 @@
 .myra-player-like:hover,
 .myra-player-utility:hover {
   color: #fff;
-  border-color: rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.09);
+  border-color: rgba(255,255,255,0.22);
+  background: linear-gradient(162deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05) 62%);
 }
+.myra-player-control:hover,
+.myra-player-like:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.24),
+    inset 0 -7px 13px rgba(0,0,0,0.26),
+    0 18px 40px rgba(0,0,0,0.3);
+}
+.myra-player-control:active,
+.myra-player-like:active { transform: translateY(0) scale(0.95); }
 
 .myra-player-tabs {
   justify-self: center;
@@ -1145,6 +1159,28 @@
   background: #090914;
   box-shadow: 0 38px 100px rgba(0,0,0,0.48), 0 0 80px rgba(124,58,237,0.08);
 }
+
+/* Дышащая аура за орбом — панель перестаёт быть мёртвым прямоугольником,
+   особенно на паузе. Только transform/opacity (компоузер), z-index:0 держит
+   её над затемнённой обложкой, но под орбом (.fx-parallax, z-10). */
+.myra-player-visual::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  width: 68%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,92,246,0.3), rgba(139,92,246,0.08) 46%, transparent 66%);
+  pointer-events: none;
+  animation: myra-player-aura 7.5s ease-in-out infinite;
+}
+@keyframes myra-player-aura {
+  0%, 100% { transform: scale(0.9);  opacity: 0.45; }
+  50%      { transform: scale(1.1);  opacity: 0.85; }
+}
+.myra-full-player.is-paused .myra-player-visual::after { animation-duration: 15s; }
+.fx-simple .myra-player-visual::after { animation: none !important; opacity: 0.6; }
+@media (prefers-reduced-motion: reduce) { .myra-player-visual::after { animation: none !important; } }
 
 .myra-player-visual .fx-parallax > div {
   transform: scale(1.12);
