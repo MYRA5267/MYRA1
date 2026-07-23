@@ -137,6 +137,25 @@ describe("usePlayerQueue: handleNext/handlePrev по каталогу", () => {
   });
 });
 
+describe("usePlayerQueue: контекст плейлиста", () => {
+  it("playTracks запускает первый трек и ведёт Next/ended по всему выбранному списку", () => {
+    const playlist = [TRACKS[2], TRACKS[5], TRACKS[7]];
+    mount(TRACKS[0]);
+
+    act(() => { apiRef.current!.playTracks(playlist); });
+
+    expect(currentTrackRef.current!.id).toBe(playlist[0].id);
+    expect(apiRef.current!.queue.map(track => track.id)).toEqual(playlist.map(track => track.id));
+    expect(fakeAudioApi.load).toHaveBeenLastCalledWith(resolveUrl(playlist[0]), expect.any(Function));
+
+    act(() => { apiRef.current!.handleNext(); });
+    expect(currentTrackRef.current!.id).toBe(playlist[1].id);
+
+    act(() => { onEndedBox.current(); });
+    expect(currentTrackRef.current!.id).toBe(playlist[2].id);
+  });
+});
+
 describe("usePlayerQueue: shuffle", () => {
   // Math.random застаблен → shuffle-выбор детерминирован, и можно ассертить
   // КОНКРЕТНЫЙ id. Guard-ассерты подтверждают, что ожидание отличается от

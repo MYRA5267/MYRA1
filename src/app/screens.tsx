@@ -19,7 +19,11 @@ import { lastNDays, isMonthEndWindow, type ActivityItem } from "./stats";
 import { MyraBrandLockup } from "./logo";
 import { MyraGlyph, MyraVerifiedBadge, type MyraGlyphName } from "./myraIcons";
 import type { UserRole } from "./auth";
-import { supabaseEnabled, paymentsEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
+import {
+  supabaseEnabled, paymentsEnabled, fetchRecentTracks,
+  fetchCreatorVerificationRequest, submitCreatorVerificationRequest,
+  type CreatorVerificationStatus, type CommunityTrackRow, type FriendFeedItem, type PublicProfile,
+} from "./supabase";
 import type { SmartPick } from "./smart";
 import { ProfileIdentityShowcase, companionLevel, RESONANCES, type CompanionController } from "./companion";
 
@@ -224,13 +228,15 @@ function CountUp({ value, duration = 0.9 }: { value: number | string; duration?:
 
 function SectionHeading({ title, sub, action, onAction }: { title: string; sub?: string; action?: string; onAction?: () => void }) {
   // Секция мягко въезжает, когда попадает в зону видимости (один раз). На слабом
-  // железе и при prefers-reduced-motion эффект отключается (reduced → без анимации).
+  // железе и при prefers-reduced-motion эффект отключается.
   const reduced = useReducedMotion();
+  const weak = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
+  const animate = !reduced && !weak;
   return (
     <motion.div
       className="myra-section-heading"
-      initial={reduced ? false : { opacity: 0, y: 16 }}
-      whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
+      initial={animate ? { opacity: 0, y: 16 } : false}
+      whileInView={animate ? { opacity: 1, y: 0 } : undefined}
       viewport={{ once: true, margin: "0px 0px -12% 0px" }}
       transition={{ duration: 0.45, ease: [0.32, 0.72, 0, 1] }}
     >
@@ -1016,8 +1022,9 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
 
 // ─── Медиатека ────────────────────────────────────────────────────────────────
 
-export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, onUploadFiles, playlists = [], onCreatePlaylist, customPlIds, onDeletePlaylist, companionController }: {
+export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, onPlayTracks, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, onUploadFiles, playlists = [], onCreatePlaylist, customPlIds, onDeletePlaylist, companionController }: {
   onPlay: (t: Track) => void; likedIds: Set<number>; onLike: (id: number) => void;
+  onPlayTracks?: (tracks: Track[], startIndex?: number) => void;
   currentTrack: Track; playing: boolean; onOpenArtist: (name: string) => void;
   onOpenAlbum?: (album: string) => void; onOpenPlaylist?: (id: string) => void;
   myTracks?: Track[]; onDeleteLocal?: (id: number) => void; onUploadFiles?: (files: FileList | File[]) => void;
@@ -1178,7 +1185,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                   <h3 className="myra-hero-word" style={{ fontFamily: F.d, fontWeight: 900, fontSize: 25, letterSpacing: "-0.03em", lineHeight: 1.05 }}>{t("reward.title")}</h3>
                   <p className="text-xs mt-1" style={{ color: onDark(60), fontFamily: F.b }}>{t("reward.sub", rewardTracks.length)}</p>
                   {rewardUnlocked ? (
-                    <motion.button whileTap={{ scale: 0.96 }} onClick={() => { onPlay(rewardTracks[0]); toast.success(t("reward.playing")); }} className="myra-pulse mt-4 inline-flex items-center gap-2 pl-5 pr-6 py-3 rounded-full font-bold" style={{ background: `linear-gradient(108deg, ${currentTrack.c2}, #c98cff)`, color: "#160f26", fontFamily: F.b, boxShadow: `0 12px 30px ${currentTrack.c2}55` }}>
+                    <motion.button whileTap={{ scale: 0.96 }} onClick={() => { (onPlayTracks ?? ((tracks: Track[]) => onPlay(tracks[0])))(rewardTracks); toast.success(t("reward.playing")); }} className="myra-pulse mt-4 inline-flex items-center gap-2 pl-5 pr-6 py-3 rounded-full font-bold" style={{ background: `linear-gradient(108deg, ${currentTrack.c2}, #c98cff)`, color: "#160f26", fontFamily: F.b, boxShadow: `0 12px 30px ${currentTrack.c2}55` }}>
                       <Play size={16} fill="#160f26" stroke="none" />{t("reward.listen")}
                     </motion.button>
                   ) : (
@@ -1255,11 +1262,11 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
 
 // ─── Студия ───────────────────────────────────────────────────────────────────
 
-export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onStartRelease, onPlay, myPlaysByTrack, myPlaysByDay, balance, onWithdraw, realDonationsTotal }: {
+export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onStartRelease, onPlay, myPlaysByTrack, myPlaysByDay, balance, onWithdraw, realDonationsTotal, uid }: {
   c2: string; creatorPlus: boolean; onOpenCreatorPlus: () => void;
   onOpenStats: () => void; myTracks?: Track[]; onStartRelease: (files: FileList | File[]) => void; onPlay: (t: Track) => void;
   myPlaysByTrack: Record<number, number>; myPlaysByDay: Record<string, number>;
-  balance: number; onWithdraw: (amt: number) => void; realDonationsTotal: number;
+  balance: number; onWithdraw: (amt: number) => void; realDonationsTotal: number; uid: string | null;
 }) {
   const { t } = useLang();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1296,13 +1303,58 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
     { label: t("verify.c3"), have: realDonationsTotal > 0 ? 1 : 0, need: 1 },
   ];
   const verifyMet = verifyCriteria.every(c => c.have >= c.need);
-  const [verifyRequested, setVerifyRequested] = useState(() => ls.get("verifyRequested", false));
-  const requestVerify = () => {
-    if (!verifyMet || verifyRequested) return;
-    setVerifyRequested(true);
-    ls.set("verifyRequested", true);
+  const [verifyStatus, setVerifyStatus] = useState<CreatorVerificationStatus | null>(null);
+  const [verifyNote, setVerifyNote] = useState<string | null>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifySubmitting, setVerifySubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!supabaseEnabled || !uid) {
+      setVerifyStatus(null);
+      setVerifyNote(null);
+      return;
+    }
+    let active = true;
+    setVerifyLoading(true);
+    fetchCreatorVerificationRequest(uid)
+      .then(({ data }) => {
+        if (!active) return;
+        setVerifyStatus(data?.status ?? null);
+        setVerifyNote(data?.reviewer_note ?? null);
+      })
+      .finally(() => { if (active) setVerifyLoading(false); });
+    return () => { active = false; };
+  }, [uid]);
+
+  const requestVerify = async () => {
+    if (!verifyMet || verifyStatus === "pending" || verifyStatus === "approved" || verifySubmitting) return;
+    if (!uid) { toast.error(t("verify.signIn")); return; }
+    if (!supabaseEnabled) { toast.error(t("verify.unavailable")); return; }
+    setVerifySubmitting(true);
+    const { data, error } = await submitCreatorVerificationRequest(uid, {
+      releasesCount: myTracks.length,
+      playCount: totalPlays,
+      hasListenerSupport: realDonationsTotal > 0,
+    });
+    setVerifySubmitting(false);
+    if (error || !data) { toast.error(t("verify.error")); return; }
+    setVerifyStatus(data.status);
+    setVerifyNote(null);
     toast.success(t("verify.requested"));
   };
+  const verifyRequested = verifyStatus === "pending" || verifyStatus === "approved";
+  const canRequestVerify = verifyMet && !verifyRequested && !verifyLoading && !verifySubmitting;
+  const verifyButtonLabel = verifyLoading || verifySubmitting
+    ? t("verify.loading")
+    : verifyStatus === "approved"
+      ? t("verify.approved")
+      : verifyStatus === "rejected"
+        ? t("verify.retry")
+        : verifyStatus === "pending"
+          ? t("verify.pending")
+          : verifyMet
+            ? t("verify.cta")
+            : t("verify.ctaLocked");
 
   // Детальная аналитика — реальная привилегия Pro (шторка Pro её обещает
   // третьим пунктом; раньше она была открыта всем, и обещание было пустым)
@@ -1398,12 +1450,15 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           </div>
           <button
             onClick={requestVerify}
-            disabled={!verifyMet || verifyRequested}
+            disabled={!canRequestVerify}
             className="w-full py-3 rounded-2xl text-sm font-bold transition-opacity disabled:opacity-45"
-            style={{ background: verifyMet && !verifyRequested ? `linear-gradient(108deg, ${c2}, #c98cff)` : "color-mix(in srgb, var(--fg) 9%, transparent)", color: verifyMet && !verifyRequested ? "#160f26" : "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}
+            style={{ background: canRequestVerify ? `linear-gradient(108deg, ${c2}, #c98cff)` : "color-mix(in srgb, var(--fg) 9%, transparent)", color: canRequestVerify ? "#160f26" : "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}
           >
-            {verifyRequested ? t("verify.pending") : verifyMet ? t("verify.cta") : t("verify.ctaLocked")}
+            {verifyButtonLabel}
           </button>
+          {verifyNote && (
+            <div className="text-[11px] mt-2.5 text-center" style={{ color: "color-mix(in srgb, var(--fg) 58%, transparent)", fontFamily: F.b, lineHeight: 1.4 }}>{verifyNote}</div>
+          )}
           <div className="text-[11px] mt-2.5 text-center" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m, lineHeight: 1.4 }}>{t("verify.note")}</div>
         </div>
       </section>

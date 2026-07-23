@@ -39,7 +39,7 @@ describe("спутник MYRA", () => {
 
     expect(first.xp).toBe(28);
     expect(first.playedTrackIds).toEqual([7]);
-    expect(first.discoveredGenres).toEqual(["Ambient"]);
+    expect(first.discoveredGenres).toEqual(["Эмбиент"]);
     expect(repeated.xp).toBe(first.xp);
   });
 
@@ -106,6 +106,17 @@ describe("спутник MYRA", () => {
     expect(state.xp).toBe(0);
     expect(state.playedTrackIds).toEqual([1, 2]);
     expect(state.unlockedGiftIds).toEqual(["first-wave"]);
+  });
+
+  it("мигрирует старые английские жанры без дублей после русификации каталога", () => {
+    const state = normalizeCompanionState({
+      selectedId: "luma",
+      discoveredGenres: ["Ambient", "Эмбиент", "Synthwave", "Lo-fi"],
+      daily: { date: "2026-07-23", trackIds: [], genres: ["Electronic"], liked: false, claimed: false },
+    });
+
+    expect(state.discoveredGenres).toEqual(["Эмбиент", "Синтвейв", "Лоу-фай"]);
+    expect(state.daily.genres).toEqual(["Электроника"]);
   });
 
   it("считает прогресс уровня без выхода за диапазон", () => {
