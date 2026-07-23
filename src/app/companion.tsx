@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 import { BadgeCheck, Check, ChevronRight, Gift, Heart, Lock, Music2, Play, Send, Sparkles, X } from "./myraIcons";
-import { ls, type Track } from "./data";
+import { ls, normalizeGenre, normalizeGenres, type Track } from "./data";
 import { F, Sheet } from "./lib";
 import { useLang, type Lang } from "./i18n";
 import { type SmartPick } from "./smart";
@@ -170,7 +170,9 @@ function normalizeDaily(value: unknown): CompanionDailyState {
   return {
     date: typeof raw.date === "string" ? raw.date : "",
     trackIds: Array.isArray(raw.trackIds) ? raw.trackIds.filter(Number.isFinite).slice(-12) : [],
-    genres: Array.isArray(raw.genres) ? raw.genres.filter((genre): genre is string => typeof genre === "string").slice(-8) : [],
+    genres: Array.isArray(raw.genres)
+      ? normalizeGenres(raw.genres.filter((genre): genre is string => typeof genre === "string")).slice(-8)
+      : [],
     liked: raw.liked === true,
     claimed: raw.claimed === true,
   };
@@ -197,7 +199,9 @@ export function normalizeCompanionState(value: unknown): CompanionState {
     selectedId: isCompanionId(raw.selectedId) ? raw.selectedId : null,
     xp: Math.max(0, Number.isFinite(raw.xp) ? Number(raw.xp) : 0),
     playedTrackIds: Array.isArray(raw.playedTrackIds) ? raw.playedTrackIds.filter(Number.isFinite).slice(-160) : [],
-    discoveredGenres: Array.isArray(raw.discoveredGenres) ? raw.discoveredGenres.filter((genre): genre is string => typeof genre === "string").slice(-40) : [],
+    discoveredGenres: Array.isArray(raw.discoveredGenres)
+      ? normalizeGenres(raw.discoveredGenres.filter((genre): genre is string => typeof genre === "string")).slice(-40)
+      : [],
     unlockedGiftIds: Array.isArray(raw.unlockedGiftIds) ? raw.unlockedGiftIds.filter(isResonanceId) : [],
     showcasedGiftId: isResonanceId(raw.showcasedGiftId) ? raw.showcasedGiftId : null,
     lastTrackId: Number.isFinite(raw.lastTrackId) ? Number(raw.lastTrackId) : null,
@@ -236,7 +240,7 @@ export function rewardCompanionForPlay(state: CompanionState, track: Pick<Track,
   if (!state.selectedId) return state;
   const rolled = rollDaily(state, now);
   const firstTrackPlay = !rolled.playedTrackIds.includes(track.id);
-  const genre = track.genre.trim();
+  const genre = normalizeGenre(track.genre);
   const firstGenre = !!genre && !rolled.discoveredGenres.some(item => item.toLocaleLowerCase() === genre.toLocaleLowerCase());
   const repeatRewardReady = now - rolled.lastRewardAt >= REPEAT_REWARD_COOLDOWN;
   const gained = (firstTrackPlay ? 12 : repeatRewardReady ? 2 : 0) + (firstGenre ? 16 : 0);

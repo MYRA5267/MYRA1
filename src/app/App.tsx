@@ -343,8 +343,12 @@ function AppInner() {
     if (getHistory().length < 1) return;
     const dayKey = new Date().toISOString().slice(0, 10);
     if (ls.get("companionGreetSeen", "") === dayKey) return;
-    ls.set("companionGreetSeen", dayKey);
-    const timer = setTimeout(() => setCompanionGreetOpen(true), 1000);
+    const timer = setTimeout(() => {
+      setCompanionGreetOpen(true);
+      // Помечаем показанным только в момент фактического открытия: если
+      // приложение закрыли в первую секунду, приветствие не потеряется.
+      ls.set("companionGreetSeen", dayKey);
+    }, 1000);
     return () => clearTimeout(timer);
     // Проверка осмысленна один раз за запуск (момент «зашёл сегодня» не
     // повторяется в сессии); companionController.state менять зависимость не должен
@@ -427,7 +431,7 @@ function AppInner() {
 
   const {
     audio, queue, shuffle, setShuffle, repeat, setRepeat,
-    playTrack, togglePlay, handleNext, handlePrev, playRadio, startWave,
+    playTrack, playTracks, togglePlay, handleNext, handlePrev, playRadio, startWave,
   } = usePlayerQueue({ currentTrack, setCurrentTrack, myTracks, resolveUrl, registerPlay, likedIds, followed, fadeRef });
   const { sleepLeft, handleSleep } = useSleepTimer(audio.pause);
   const lastAudioErrorRef = useRef<string | null>(null);
@@ -776,6 +780,7 @@ function AppInner() {
     library: (
       <LibraryScreen
         onPlay={playTrack}
+        onPlayTracks={playTracks}
         likedIds={likedIds}
         onLike={toggleLike}
         currentTrack={currentTrack}
@@ -807,6 +812,7 @@ function AppInner() {
         balance={balance}
         onWithdraw={withdraw}
         realDonationsTotal={realDonationsTotal}
+        uid={uid}
       />
     ),
     profile: (

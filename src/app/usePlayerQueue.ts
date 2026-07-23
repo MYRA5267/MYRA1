@@ -38,6 +38,20 @@ export function usePlayerQueue(params: {
   const nextRef = useRef<() => void>(() => {});
   const audio = useAudio(() => nextRef.current(), () => fadeRef.current);
 
+  // Каталог — очередь по умолчанию. Отдельное состояние playbackQueue нужно
+  // для настоящих контекстов (плейлист, альбом): тогда Next и автопереход
+  // идут по выбранному списку, а вкладка «Далее» показывает именно его.
+  const catalogQueue = useMemo(() => (myTracks.length ? [...myTracks, ...TRACKS] : TRACKS), [myTracks]);
+  const catalogQueueRef = useRef<Track[]>(catalogQueue);
+  catalogQueueRef.current = catalogQueue;
+  const [queue, setQueue] = useState<Track[]>(catalogQueue);
+  const queueRef = useRef<Track[]>(queue);
+  queueRef.current = queue;
+  const contextQueueRef = useRef(false);
+  useEffect(() => {
+    if (!contextQueueRef.current) setQueue(catalogQueue);
+  }, [catalogQueue]);
+
   const playTrack = useCallback((tr: Track) => {
     if (currentTrackRef.current.id === tr.id && loadedRef.current) {
       trackEvent(audio.playing ? { name: "track_pause" } : { name: "track_play", source: "toggle", trackId: tr.id });
@@ -47,6 +61,8 @@ export function usePlayerQueue(params: {
     // play() должен происходить прямо в обработчике клика, иначе браузер
     // теряет user activation и может заблокировать звук.
     const previous = currentTrackRef.current;
+    contextQueueRef.current = false;
+    setQueue(catalogQueueRef.current);
     loadedRef.current = true;
     currentTrackRef.current = tr;
     setCurrentTrack(tr);
@@ -57,6 +73,32 @@ export function usePlayerQueue(params: {
     pushHistory(tr.id);
     registerPlay(tr);
     trackEvent({ name: "track_play", source: "direct", trackId: tr.id });
+  }, [audio, resolveUrl, registerPlay, setCurrentTrack]);
+
+  const playTracks = useCallback((tracks: Track[], startIndex = 0) => {
+    if (!tracks.length) return;
+    const safeIndex = Math.min(Math.max(0, startIndex), tracks.length - 1);
+    const nextQueue = [...tracks];
+    const next = nextQueue[safeIndex];
+    const previous = currentTrackRef.current;
+    const previousQueue = queueRef.current;
+    const previousWasContext = contextQueueRef.current;
+    contextQueueRef.current = true;
+    queueRef.current = nextQueue;
+    setQueue(nextQueue);
+    loadedRef.current = true;
+    currentTrackRef.current = next;
+    setCurrentTrack(next);
+    audio.load(resolveUrl(next), () => {
+      contextQueueRef.current = previousWasContext;
+      queueRef.current = previousQueue;
+      setQueue(previousQueue);
+      currentTrackRef.current = previous;
+      setCurrentTrack(previous);
+    });
+    pushHistory(next.id);
+    registerPlay(next);
+    trackEvent({ name: "track_play", source: "queue", trackId: next.id });
   }, [audio, resolveUrl, registerPlay, setCurrentTrack]);
 
   const togglePlay = useCallback(() => {
@@ -73,11 +115,6 @@ export function usePlayerQueue(params: {
       audio.toggle();
     }
   }, [audio, currentTrack, resolveUrl, registerPlay]);
-
-  // Очередь = локальные файлы + каталог — пересобираем, только когда реально меняются свои треки
-  const queue = useMemo(() => (myTracks.length ? [...myTracks, ...TRACKS] : TRACKS), [myTracks]);
-  const queueRef = useRef<Track[]>(queue);
-  queueRef.current = queue;
 
   // Перемешивание и повтор — настоящие, а не декоративные тумблеры: shuffle
   // меняет и ручной next, и автопереход; repeat заново запускает текущий трек
@@ -120,7 +157,10 @@ export function usePlayerQueue(params: {
   const langRef = useRef(lang); langRef.current = lang;
   const playWave = useCallback((silent = false) => {
     const previous = currentTrackRef.current;
-    const { track, reason } = smartNext(queueRef.current, likedRef.current, followedRef.current, currentTrackRef.current.id, langRef.current);
+    const catalog = catalogQueueRef.current;
+    const { track, reason } = smartNext(catalog, likedRef.current, followedRef.current, currentTrackRef.current.id, langRef.current);
+    contextQueueRef.current = false;
+    setQueue(catalog);
     loadedRef.current = true;
     currentTrackRef.current = track;
     setCurrentTrack(track);
@@ -138,10 +178,13 @@ export function usePlayerQueue(params: {
   // Раньше кнопка молча дублировала «Прилив», хотя называлась иначе
   const playRadio = useCallback(() => {
     const prev = currentTrackRef.current;
-    const sameGenre = queueRef.current.filter(tr => tr.genre === prev.genre && tr.id !== prev.id);
-    const pool = sameGenre.length ? sameGenre : queueRef.current.filter(tr => tr.id !== prev.id);
+    const catalog = catalogQueueRef.current;
+    const sameGenre = catalog.filter(tr => tr.genre === prev.genre && tr.id !== prev.id);
+    const pool = sameGenre.length ? sameGenre : catalog.filter(tr => tr.id !== prev.id);
     if (!pool.length) return;
     const next = pool[Math.floor(Math.random() * pool.length)];
+    contextQueueRef.current = false;
+    setQueue(catalog);
     loadedRef.current = true;
     currentTrackRef.current = next;
     setCurrentTrack(next);
@@ -174,6 +217,7 @@ export function usePlayerQueue(params: {
         trackEvent({ name: "track_play", source: "auto", trackId: track.id });
         return;
       }
+      if (contextQueueRef.current && queueRef.current.length > 1) { step(1); return; }
       if (shuffleRef.current) { step(1); return; }
       playWave(true);
     };
@@ -182,6 +226,6 @@ export function usePlayerQueue(params: {
 
   return {
     audio, queue, shuffle, setShuffle, repeat, setRepeat,
-    playTrack, togglePlay, handleNext, handlePrev, playRadio, startWave,
+    playTrack, playTracks, togglePlay, handleNext, handlePrev, playRadio, startWave,
   };
 }

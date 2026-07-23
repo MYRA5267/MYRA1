@@ -88,6 +88,66 @@ export interface Track {
   remoteId?: string;
 }
 
+// Стабильные названия жанров для данных и рекомендаций. До русификации
+// каталога вкусы и память спутника сохранялись по-английски; без миграции
+// старые значения больше не совпадали с track.genre и персонализация
+// обнулялась после обновления.
+const GENRE_ALIASES: Record<string, string> = {
+  synthwave: "Синтвейв",
+  "синтвейв": "Синтвейв",
+  electronic: "Электроника",
+  electronica: "Электроника",
+  "электроника": "Электроника",
+  "lo-fi": "Лоу-фай",
+  lofi: "Лоу-фай",
+  "lo fi": "Лоу-фай",
+  "лоу-фай": "Лоу-фай",
+  ambient: "Эмбиент",
+  "эмбиент": "Эмбиент",
+  "dream pop": "Дрим-поп",
+  "dream-pop": "Дрим-поп",
+  "дрим-поп": "Дрим-поп",
+  indie: "Инди",
+  "инди": "Инди",
+  pop: "Поп",
+  "поп": "Поп",
+  rock: "Рок",
+  "рок": "Рок",
+  "hip-hop": "Хип-хоп",
+  "hip hop": "Хип-хоп",
+  "хип-хоп": "Хип-хоп",
+  jazz: "Джаз",
+  "джаз": "Джаз",
+  classical: "Классика",
+  classicals: "Классика",
+  "классика": "Классика",
+  techno: "Техно",
+  "техно": "Техно",
+  house: "Хаус",
+  "хаус": "Хаус",
+  "r&b": "R&B",
+  rnb: "R&B",
+};
+
+export function normalizeGenre(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return GENRE_ALIASES[trimmed.toLocaleLowerCase()] ?? trimmed;
+}
+
+export function normalizeGenres(values: string[]): string[] {
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const genre = normalizeGenre(value);
+    const key = genre.toLocaleLowerCase();
+    if (!genre || seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(genre);
+  }
+  return normalized;
+}
+
 export interface LyricsLine {
   en: string[];
   ru: string;

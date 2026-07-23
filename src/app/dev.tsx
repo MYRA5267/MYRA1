@@ -7,7 +7,13 @@ import { F, GLASS, Sheet, copyText } from "./lib";
 import { useLang } from "./i18n";
 import { buildAchievements, type AchievementCounters } from "./achievements";
 import type { UserRole } from "./auth";
-import { isAdmin, supabaseEnabled, distributionChannel, fetchAllSupportThreads, fetchSupportThread, sendSupportMessage, markSupportThreadRead, fetchOpenReports, resolveReport, hideTrack, type SupportMessageRow, type SupportThreadPreview, type OpenReportRow } from "./supabase";
+import {
+  isAdmin, supabaseEnabled, distributionChannel, fetchAllSupportThreads, fetchSupportThread,
+  sendSupportMessage, markSupportThreadRead, fetchOpenReports, resolveReport, hideTrack,
+  fetchPendingCreatorVerificationRequests, reviewCreatorVerificationRequest,
+  type SupportMessageRow, type SupportThreadPreview, type OpenReportRow,
+  type CreatorVerificationRequestPreview,
+} from "./supabase";
 
 // ─── Панель разработчика ──────────────────────────────────────────────────────
 // Только для создателей MYRA: в production вход появляется после серверной
@@ -466,6 +472,7 @@ export function ModerationSheet({ open, onClose, uid }: { open: boolean; onClose
   // null = проверяем, true/false = результат isAdmin(uid)
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [reports, setReports] = useState<OpenReportRow[]>([]);
+  const [verificationRequests, setVerificationRequests] = useState<CreatorVerificationRequestPreview[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   // Локальный оверрайд hidden по target_id трека — чтобы кнопка "скрыть/
@@ -474,11 +481,18 @@ export function ModerationSheet({ open, onClose, uid }: { open: boolean; onClose
 
   const load = useCallback(() => {
     setLoading(true);
-    fetchOpenReports()
-      .then(setReports)
-      .catch(() => { setReports([]); toast("Не удалось загрузить очередь жалоб"); })
+    Promise.all([fetchOpenReports(), fetchPendingCreatorVerificationRequests()])
+      .then(([nextReports, nextVerificationRequests]) => {
+        setReports(nextReports);
+        setVerificationRequests(nextVerificationRequests);
+      })
+      .catch(() => {
+        setReports([]);
+        setVerificationRequests([]);
+        toast(t("mod.loadError"));
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const verifyAccess = useCallback(() => {
     if (!uid) { setAllowed(false); return; }
@@ -512,6 +526,15 @@ export function ModerationSheet({ open, onClose, uid }: { open: boolean; onClose
     toast(!currentlyHidden ? t("mod.hidden") : t("mod.unhidden"));
   };
 
+  const reviewVerification = async (requestId: string, status: "approved" | "rejected") => {
+    setBusyId(requestId);
+    const { error } = await reviewCreatorVerificationRequest(requestId, status);
+    setBusyId(null);
+    if (error) { toast(t("mod.err")); return; }
+    setVerificationRequests(prev => prev.filter(request => request.id !== requestId));
+    toast(status === "approved" ? t("mod.verifyApproved") : t("mod.verifyRejected"));
+  };
+
   return (
     <Sheet open={open} onClose={onClose} z={71}>
       <div className="px-6 pt-7 pb-8 flex flex-col" style={{ height: "min(78vh, 640px)" }}>
@@ -540,8 +563,60 @@ export function ModerationSheet({ open, onClose, uid }: { open: boolean; onClose
             {loading && (
               <div className="flex justify-center py-8"><Loader2 size={18} className="animate-spin" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} /></div>
             )}
-            {!loading && reports.length === 0 && (
+            {!loading && reports.length === 0 && verificationRequests.length === 0 && (
               <div className="text-xs text-center py-8" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("mod.empty")}</div>
+            )}
+            {verificationRequests.length > 0 && (
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] px-1 pt-1" style={{ color: "#c98cff", fontFamily: F.m }}>
+                {t("mod.verificationQueue")}
+              </div>
+            )}
+            {verificationRequests.map(request => {
+              const busy = busyId === request.id;
+              return (
+                <div key={request.id} className="p-3.5 rounded-2xl flex flex-col gap-2.5" style={{ ...GLASS, borderColor: "rgba(201,140,255,0.28)" }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>
+                        {request.username ?? request.user_id.slice(0, 8)}
+                      </div>
+                      <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 38%, transparent)", fontFamily: F.m }}>
+                        {fmtReportTime(request.created_at)}
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background: "rgba(201,140,255,0.14)", color: "#c98cff", fontFamily: F.m }}>
+                      {t("mod.verification")}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl py-2" style={{ background: "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
+                      <strong className="block text-sm">{request.releases_count}</strong>
+                      <span className="text-[9px]" style={{ color: "color-mix(in srgb, var(--fg) 42%, transparent)" }}>{t("mod.releases")}</span>
+                    </div>
+                    <div className="rounded-xl py-2" style={{ background: "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
+                      <strong className="block text-sm">{request.play_count}</strong>
+                      <span className="text-[9px]" style={{ color: "color-mix(in srgb, var(--fg) 42%, transparent)" }}>{t("mod.plays")}</span>
+                    </div>
+                    <div className="rounded-xl py-2" style={{ background: "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
+                      <strong className="block text-sm">{request.has_listener_support ? "✓" : "—"}</strong>
+                      <span className="text-[9px]" style={{ color: "color-mix(in srgb, var(--fg) 42%, transparent)" }}>{t("mod.support")}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button disabled={busy} onClick={() => reviewVerification(request.id, "approved")} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold" style={{ background: "rgba(52,211,153,0.15)", color: "#34d399", fontFamily: F.b, opacity: busy ? 0.6 : 1 }}>
+                      <CheckCheck size={12} /> {t("mod.approve")}
+                    </button>
+                    <button disabled={busy} onClick={() => reviewVerification(request.id, "rejected")} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold" style={{ background: "rgba(248,113,113,0.14)", color: "#f87171", fontFamily: F.b, opacity: busy ? 0.6 : 1 }}>
+                      <XCircle size={12} /> {t("mod.reject")}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {reports.length > 0 && (
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] px-1 pt-2" style={{ color: "#f87171", fontFamily: F.m }}>
+                {t("mod.reportsQueue")}
+              </div>
             )}
             {reports.map(r => {
               const isTrack = r.target_type === "track";

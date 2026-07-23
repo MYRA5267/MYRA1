@@ -1,7 +1,7 @@
 // ─── MYRA AI: локальный умный подбор ─────────────────────────────────────────
 // История прослушиваний + вкусовой профиль. Волна не повторяет недавние треки.
 
-import { ls, type Track } from "./data";
+import { ls, normalizeGenres, type Track } from "./data";
 
 const HIST_MAX = 48;
 
@@ -12,7 +12,14 @@ export const pushHistory = (id: number) => {
   ls.set("history", h);
 };
 
-export const getTaste = () => new Set(ls.get<string[]>("taste", []));
+export const getTaste = () => {
+  const saved = ls.get<string[]>("taste", []);
+  const normalized = normalizeGenres(saved);
+  if (normalized.length !== saved.length || normalized.some((genre, index) => genre !== saved[index])) {
+    ls.set("taste", normalized);
+  }
+  return new Set(normalized);
+};
 
 export interface SmartPick { track: Track; reason: string }
 
