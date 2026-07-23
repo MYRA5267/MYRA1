@@ -46,11 +46,10 @@ const paths: Record<MyraGlyphName, React.ReactNode> = {
     <path d="M4.6 19.4c1.8-3.6 4.2-5.2 7.4-5.2s5.6 1.6 7.4 5.2c-3.8 1.7-11 1.7-14.8 0Z" />
   </>,
   search: <>
-    <path d="M4.5 10.2c0-3.4 2.5-5.9 6-5.9 3.7 0 6.2 2.4 6.2 5.8 0 3.6-2.5 6-6.1 6-3.5 0-6.1-2.4-6.1-5.9Z" />
-    <path d="M15.2 14.6c2.1 1.3 3.6 2.9 4.5 4.9" />
-    <path d="M7.6 10.9c1.1 1.4 3.1 1.8 4.7.7" opacity=".55" />
+    <circle cx="11" cy="10.6" r="6.2" />
+    <path d="M15.6 15.4 19.4 19.2" />
   </>,
-  heart: <path d="M12 20.2C7.8 17.5 4.4 15 4.4 10.7c0-2.6 1.7-4.6 4.1-4.6 1.7 0 2.9 1 3.5 2.2.6-1.2 1.8-2.2 3.5-2.2 2.4 0 4.1 2 4.1 4.6 0 4.3-3.4 6.8-7.6 9.5Z" />,
+  heart: <path d="M12 20c-.42 0-.83-.15-1.15-.42C6.6 16.1 4 13.7 4 10.5 4 7.9 5.95 6 8.4 6c1.42 0 2.72.72 3.6 1.86C12.88 6.72 14.18 6 15.6 6 18.05 6 20 7.9 20 10.5c0 3.2-2.6 5.6-6.85 9.08-.32.27-.73.42-1.15.42Z" />,
   chart: <>
     <path d="M4.5 18.8V14c1.1-.8 2.3-.8 3.4 0v4.8M10.3 18.8V9.5c1.1-.8 2.3-.8 3.4 0v9.3M16.1 18.8V5c1.1-.8 2.3-.8 3.4 0v13.8" />
     <path d="M3.5 20.3c4.7.6 12.3.6 17 0" opacity=".5" />
@@ -71,15 +70,15 @@ const paths: Record<MyraGlyphName, React.ReactNode> = {
   </>,
   spark: <path d="M12 2.9c.8 5.7 2.4 8.2 7.8 9.1-5.4.9-7 3.4-7.8 9.1-.8-5.7-2.4-8.2-7.8-9.1 5.4-.9 7-3.4 7.8-9.1Z" />,
   bell: <>
-    <path d="M6.2 15.8c1-1.3 1.4-2.7 1.4-4.4 0-3.1 1.7-5.5 4.4-5.5s4.4 2.4 4.4 5.5c0 1.7.4 3.1 1.4 4.4-3.2 1.1-8.4 1.1-11.6 0Z" />
-    <path d="M10 18.2c1.3 1.3 2.7 1.3 4 0" />
+    <path d="M12 4.2c-2.95 0-4.9 2.25-4.9 5.35 0 2.55-.5 3.95-1.45 5.1-.55.66-.12 1.66.72 1.78 3.75.5 7.5.5 11.26 0 .84-.12 1.27-1.12.72-1.78-.95-1.15-1.45-2.55-1.45-5.1C16.9 6.45 14.95 4.2 12 4.2Z" fill="currentColor" stroke="none" />
+    <path d="M10.1 18.9c.5.85 1.15 1.25 1.9 1.25s1.4-.4 1.9-1.25" />
   </>,
-  play: <path d="M8.1 5.1c4.5 2 7.7 4.3 9.8 6.9-2.1 2.6-5.3 4.9-9.8 6.9V5.1Z" />,
+  play: <path d="M8 6.4c0-1.18 1.28-1.92 2.3-1.32l8.1 4.9c1 .6 1 2.05 0 2.65l-8.1 4.9c-1.02.6-2.3-.14-2.3-1.32V6.4Z" />,
   pause: <><path d="M8.5 5.3v13.4M15.5 5.3v13.4" /></>,
   arrow: <><path d="M5 12h13.5M14.4 7.5 19 12l-4.6 4.5" /></>,
-  plus: <><path d="M12 5v14M5 12h14" /><circle cx="12" cy="12" r="9" opacity=".45" /></>,
-  settings: <><path d="M5.6 8.1c1.2-2.4 3.4-3.7 6.4-3.7s5.2 1.3 6.4 3.7M5.6 15.9c1.2 2.4 3.4 3.7 6.4 3.7s5.2-1.3 6.4-3.7" /><circle cx="12" cy="12" r="3.2" /></>,
-  download: <><path d="M12 4.2v10.2M7.8 10.7l4.2 4.2 4.2-4.2" /><path d="M5 18.7c4.5.8 9.5.8 14 0" /></>,
+  plus: <><circle cx="12" cy="12" r="8.4" opacity=".4" /><path d="M12 8v8M8 12h8" /></>,
+  settings: <><path d="M4 8h8.5M16.5 8H20" /><circle cx="14.5" cy="8" r="2.15" /><path d="M4 16h3.5M11.5 16H20" /><circle cx="9.5" cy="16" r="2.15" /></>,
+  download: <><path d="M12 4.4v9.4M8.2 10.2 12 14l3.8-3.8" /><path d="M5.4 18.4c4.4.7 8.8.7 13.2 0" /></>,
   globe: <><circle cx="12" cy="12" r="8.3" /><path d="M3.9 12h16.2M12 3.7c-2.2 2.2-3.1 5-3.1 8.3s.9 6.1 3.1 8.3M12 3.7c2.2 2.2 3.1 5 3.1 8.3s-.9 6.1-3.1 8.3" /></>,
 };
 
@@ -115,6 +114,84 @@ export const MyraBetweenIcon = createMyraIcon("between");
 export const MyraLibraryIcon = createMyraIcon("library");
 export const MyraStudioIcon = createMyraIcon("studio");
 export const MyraProfileIcon = createMyraIcon("profile");
+
+// ─── Объёмные 3D-иконки нижней навигации ─────────────────────────────────────
+// Выпуклая заливка (градиент) + глянцевый блик сверху + мягкое свечение —
+// референс: нижний бар Яндекс-музыки. Активная светится фирменным градиентом
+// (персик→фиолет), неактивная — приглушённый currentColor (адаптируется под
+// тему), тоже с объёмом. Свечение (SVG-фильтр) гасится на слабых устройствах
+// (weak = fx-simple): на Android WebView фильтры дают лишние перерисовки.
+const NAV3D_SHAPES: Record<string, { shape: React.ReactNode; overlay?: React.ReactNode }> = {
+  home: {
+    shape: <path d="M4.4 11.5c0-.7.33-1.36.9-1.8l5.5-4.1c.72-.54 1.72-.54 2.44 0l5.5 4.1c.57.44.9 1.1.9 1.8v6.1c0 1.16-.94 2.1-2.1 2.1H6.5c-1.16 0-2.1-.94-2.1-2.1V11.5Z" />,
+    overlay: <rect x="10" y="14.4" width="4" height="4.7" rx="1.1" fill="rgba(20,12,30,.34)" />,
+  },
+  browse: {
+    shape: <circle cx="12" cy="12" r="8.5" />,
+    overlay: <><path d="M15.6 8.4 10.7 10.7 8.4 15.6 13.3 13.3 15.6 8.4Z" fill="rgba(20,12,30,.5)" /><circle cx="12" cy="12" r="1.4" fill="rgba(20,12,30,.5)" /></>,
+  },
+  between: { shape: <><circle cx="8.9" cy="12" r="4.9" /><circle cx="15.1" cy="12" r="4.9" /></> },
+  library: {
+    shape: <><rect x="4.7" y="4.8" width="4.3" height="14.4" rx="1.7" /><rect x="9.9" y="4.8" width="4.3" height="14.4" rx="1.7" /><rect x="15.4" y="6.3" width="4" height="12.9" rx="1.6" transform="rotate(9 17.4 12.7)" /></>,
+  },
+  profile: {
+    shape: <><circle cx="12" cy="8.3" r="3.9" /><path d="M4.7 18.7c.85-3.5 3.5-5.5 7.3-5.5s6.45 2 7.3 5.5c.2.8-.2 1.3-1 1.5-4.1 1-8.5 1-12.6 0-.8-.2-1.2-.7-1-1.5Z" /></>,
+  },
+};
+
+// Знак «проверенный артист» — фирменная печать (гребёнка) с градиентной
+// заливкой и белой галочкой. Крупнее и качественнее простого BadgeCheck.
+export function MyraVerifiedBadge({ size = 18, accent = "#7dd3fc", className, style, title }: {
+  size?: number; accent?: string; className?: string; style?: React.CSSProperties; title?: string;
+}) {
+  const uid = React.useId().replace(/:/g, "");
+  const gid = `vb-${uid}`;
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={["myra-verified", className].filter(Boolean).join(" ")} style={style} role="img" aria-label={title ?? "Проверенный артист"}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={accent} />
+          <stop offset="1" stopColor="#c98cff" />
+        </linearGradient>
+      </defs>
+      <path d="M12 1.8c1.1 0 2.13.62 2.64 1.6.9-.5 2.02-.42 2.86.2.83.63 1.2 1.68 1 2.68 1.05.28 1.9 1.07 2.16 2.12.26 1.05-.13 2.1-.98 2.72.55.9.55 2.04 0 2.94.85.62 1.24 1.67.98 2.72-.26 1.05-1.11 1.84-2.16 2.12.2 1-.17 2.05-1 2.68-.84.62-1.96.7-2.86.2A2.98 2.98 0 0 1 12 22.2c-1.1 0-2.13-.62-2.64-1.6-.9.5-2.02.42-2.86-.2-.83-.63-1.2-1.68-1-2.68-1.05-.28-1.9-1.07-2.16-2.12-.26-1.05.13-2.1.98-2.72a2.98 2.98 0 0 1 0-2.94c-.85-.62-1.24-1.67-.98-2.72.26-1.05 1.11-1.84 2.16-2.12-.2-1 .17-2.05 1-2.68.84-.62 1.96-.7 2.86-.2A2.98 2.98 0 0 1 12 1.8Z" fill={`url(#${gid})`} stroke="none" />
+      <path d="m8.2 12.2 2.5 2.5 5.1-5.4" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function MyraNavIcon3D({ name, active, size = 22, weak = false, className, style }: {
+  name: string; active: boolean; size?: number; weak?: boolean; className?: string; style?: React.CSSProperties;
+}) {
+  const uid = React.useId().replace(/:/g, "");
+  const def = NAV3D_SHAPES[name] ?? NAV3D_SHAPES.home;
+  const gid = `n3g-${uid}`, hid = `n3h-${uid}`, cid = `n3c-${uid}`, fid = `n3f-${uid}`;
+  const glow = active && !weak;
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false" className={["myra-nav3d", className].filter(Boolean).join(" ")} style={style}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          {active
+            ? <><stop offset="0" stopColor="#ffe6c8" /><stop offset="0.5" stopColor="#f4a77f" /><stop offset="1" stopColor="#c98cff" /></>
+            : <><stop offset="0" stopColor="currentColor" stopOpacity="0.92" /><stop offset="1" stopColor="currentColor" stopOpacity="0.5" /></>}
+        </linearGradient>
+        <radialGradient id={hid} cx="50%" cy="24%" r="60%">
+          <stop offset="0" stopColor="#ffffff" stopOpacity={active ? 0.72 : 0.32} />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        <clipPath id={cid}>{def.shape}</clipPath>
+        {glow && (
+          <filter id={fid} x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2.2" floodColor="#c98cff" floodOpacity="0.55" />
+          </filter>
+        )}
+      </defs>
+      <g filter={glow ? `url(#${fid})` : undefined} fill={`url(#${gid})`}>{def.shape}</g>
+      <g clipPath={`url(#${cid})`}><rect x="0" y="0" width="24" height="16" fill={`url(#${hid})`} /></g>
+      {def.overlay}
+    </svg>
+  );
+}
 
 /*
  * Compatibility layer for the whole application. These are not aliases to an
@@ -199,7 +276,7 @@ const semanticIcon = (node: React.ReactNode): LucideIcon => {
   return Icon;
 };
 
-export const Play = semanticIcon(<path d="M8.1 5.1c4.5 2 7.7 4.3 9.8 6.9-2.1 2.6-5.3 4.9-9.8 6.9V5.1Z" />);
+export const Play = semanticIcon(<path d="M8 6.4c0-1.18 1.28-1.92 2.3-1.32l8.1 4.9c1 .6 1 2.05 0 2.65l-8.1 4.9c-1.02.6-2.3-.14-2.3-1.32V6.4Z" />);
 export const Pause = semanticIcon(<><path d="M7.4 5.2h3.2v13.6H7.4Z" fill="currentColor" stroke="none" /><path d="M13.4 5.2h3.2v13.6h-3.2Z" fill="currentColor" stroke="none" /></>);
 export const Heart = semanticIcon(paths.heart);
 export const Search = semanticIcon(paths.search);

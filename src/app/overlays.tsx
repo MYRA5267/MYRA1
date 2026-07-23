@@ -4,7 +4,7 @@ import {
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
   Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine, Search, Flag,
-  FileText, ShieldCheck, KeyRound,
+  FileText, ShieldCheck, KeyRound, MyraVerifiedBadge,
 } from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -226,7 +226,7 @@ export const ArtistSheet = React.memo(function ArtistSheet({ name, onClose, onPl
         <div className="myra-artist-identity absolute bottom-3 left-6 right-6">
           <div className="flex items-center gap-2">
             <span style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.03em", color: ON_DARK }}>{artist.name}</span>
-            {artist.verified && <BadgeCheck size={20} style={{ color: artist.c2 }} />}
+            {artist.verified && <MyraVerifiedBadge size={24} accent={artist.c2} title={t("verify.badge")} />}
           </div>
           <div className="text-xs mt-0.5" style={{ color: onDark(55), fontFamily: F.m }}>{artist.listeners} {t("ar.listeners")}</div>
           <div className="myra-artist-genre">{artist.genre}</div>
@@ -800,7 +800,7 @@ export function BlendSheet({ friend, onClose, onPlay, currentTrack, playing, ava
         <div className="mb-6">
           <span className="myra-sheet-eyebrow">{t("bl.genres")}</span>
           <div className="flex gap-2 flex-wrap">
-            {["Lo-fi", "Synthwave", "Indie"].map(g => (
+            {["Лоу-фай", "Синтвейв", "Инди"].map(g => (
               <span key={g} className="px-3.5 py-1.5 rounded-full text-xs font-medium" style={{ ...GLASS, fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{g}</span>
             ))}
           </div>

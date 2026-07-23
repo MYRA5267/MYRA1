@@ -13,26 +13,41 @@ const rnd = (seed: number) => {
 /** Абстрактная обложка: градиент + светящиеся круги + волна */
 export const svgCover = (c1: string, c2: string, seed: number) => {
   const r = rnd(seed * 7 + 3);
-  const circles = Array.from({ length: 4 }, (_, i) => {
-    const cx = Math.round(60 + r() * 380);
-    const cy = Math.round(60 + r() * 380);
-    const rad = Math.round(50 + r() * 150);
-    const o = (0.10 + r() * 0.22).toFixed(2);
-    return `<circle cx="${cx}" cy="${cy}" r="${rad}" fill="url(#o${i % 2})" opacity="${o}"/>`;
-  }).join("");
-  const wavePts = Array.from({ length: 11 }, (_, i) => `${i * 50},${Math.round(330 + Math.sin(i * 1.3 + seed) * 40)}`).join(" L");
+  const ang = Math.round(r() * 360);
+  // Мягкие аврора-пятна на радиальных градиентах (без SVG-фильтров — надёжно
+  // рендерятся в Android WebView, в отличие от feGaussianBlur), плюс глубокий
+  // диагональный градиент, глянцевый блик сверху и виньетка. Вариативность —
+  // по seed трека, поэтому обложки отличаются друг от друга.
+  const palette = [c2, c1, "#ffffff", c2];
+  const blobDefs: string[] = [];
+  const blobEls: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    const col = palette[i];
+    const cx = (8 + r() * 84).toFixed(1);
+    const cy = (8 + r() * 84).toFixed(1);
+    const rad = (32 + r() * 34).toFixed(1);
+    const op = 0.6 - i * 0.09;
+    blobDefs.push(
+      `<radialGradient id="b${i}" cx="${cx}%" cy="${cy}%" r="${rad}%">` +
+        `<stop offset="0" stop-color="${col}" stop-opacity="${op.toFixed(2)}"/>` +
+        `<stop offset="0.5" stop-color="${col}" stop-opacity="${(op * 0.4).toFixed(2)}"/>` +
+        `<stop offset="1" stop-color="${col}" stop-opacity="0"/>` +
+      `</radialGradient>`,
+    );
+    blobEls.push(`<rect width="500" height="500" fill="url(#b${i})"/>`);
+  }
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">` +
     `<defs>` +
-    `<radialGradient id="bg" cx="0.3" cy="0.22" r="1.1"><stop offset="0" stop-color="${c2}"/><stop offset="0.55" stop-color="${c1}"/><stop offset="1" stop-color="#07070f"/></radialGradient>` +
-    `<radialGradient id="o0" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>` +
-    `<radialGradient id="o1" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${c2}"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></radialGradient>` +
-    `<linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c2}" stop-opacity="0.55"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></linearGradient>` +
+    `<linearGradient id="bg" gradientTransform="rotate(${ang} 0.5 0.5)"><stop offset="0" stop-color="${c1}"/><stop offset="0.6" stop-color="#140a24"/><stop offset="1" stop-color="#08060f"/></linearGradient>` +
+    blobDefs.join("") +
+    `<linearGradient id="sheen" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.42"/><stop offset="0.42" stop-color="#ffffff" stop-opacity="0"/></linearGradient>` +
+    `<radialGradient id="vig" cx="0.5" cy="0.42" r="0.75"><stop offset="0.55" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.5"/></radialGradient>` +
     `</defs>` +
     `<rect width="500" height="500" fill="url(#bg)"/>` +
-    circles +
-    `<path d="M0,340 L${wavePts} L500,500 L0,500 Z" fill="url(#w)"/>` +
-    `<rect width="500" height="500" fill="#000000" opacity="0.08"/>` +
+    blobEls.join("") +
+    `<path d="M-30,150 C130,70 300,190 530,90 L530,-30 L-30,-30 Z" fill="url(#sheen)"/>` +
+    `<rect width="500" height="500" fill="url(#vig)"/>` +
     `</svg>`;
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
 };
@@ -71,6 +86,66 @@ export interface Track {
   // (Supabase выключен, ещё не синхронизировалось или это демо-трек каталога) —
   // трек не «настоящий» с точки зрения комментариев, и они идут в localStorage
   remoteId?: string;
+}
+
+// Стабильные названия жанров для данных и рекомендаций. До русификации
+// каталога вкусы и память спутника сохранялись по-английски; без миграции
+// старые значения больше не совпадали с track.genre и персонализация
+// обнулялась после обновления.
+const GENRE_ALIASES: Record<string, string> = {
+  synthwave: "Синтвейв",
+  "синтвейв": "Синтвейв",
+  electronic: "Электроника",
+  electronica: "Электроника",
+  "электроника": "Электроника",
+  "lo-fi": "Лоу-фай",
+  lofi: "Лоу-фай",
+  "lo fi": "Лоу-фай",
+  "лоу-фай": "Лоу-фай",
+  ambient: "Эмбиент",
+  "эмбиент": "Эмбиент",
+  "dream pop": "Дрим-поп",
+  "dream-pop": "Дрим-поп",
+  "дрим-поп": "Дрим-поп",
+  indie: "Инди",
+  "инди": "Инди",
+  pop: "Поп",
+  "поп": "Поп",
+  rock: "Рок",
+  "рок": "Рок",
+  "hip-hop": "Хип-хоп",
+  "hip hop": "Хип-хоп",
+  "хип-хоп": "Хип-хоп",
+  jazz: "Джаз",
+  "джаз": "Джаз",
+  classical: "Классика",
+  classicals: "Классика",
+  "классика": "Классика",
+  techno: "Техно",
+  "техно": "Техно",
+  house: "Хаус",
+  "хаус": "Хаус",
+  "r&b": "R&B",
+  rnb: "R&B",
+};
+
+export function normalizeGenre(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return GENRE_ALIASES[trimmed.toLocaleLowerCase()] ?? trimmed;
+}
+
+export function normalizeGenres(values: string[]): string[] {
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const genre = normalizeGenre(value);
+    const key = genre.toLocaleLowerCase();
+    if (!genre || seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(genre);
+  }
+  return normalized;
 }
 
 export interface LyricsLine {
@@ -130,14 +205,14 @@ export function trackFromRow(row: { id: string; title: string; genre: string; ly
 }
 
 export const TRACKS: Track[] = [
-  mk(1, "Midnight Echo",   "Luna Wave",   "Synthwave Sessions", "6:12", "Synthwave",  "2.1M", true,  "#12083a", "#8b5cf6"),
-  mk(2, "Glass City",      "KRVT",        "Urban Frequencies",  "7:04", "Electronic", "890K", false, "#071a10", "#34d399"),
-  mk(3, "Neon Drift",      "Solstice",    "Phase II",           "5:20", "Lo-fi",      "4.5M", true,  "#1a0a08", "#fb923c"),
-  mk(4, "Ivory Keys",      "Mara Dell",   "Piano Diaries",      "5:47", "Ambient",    "1.3M", false, "#071218", "#38bdf8"),
-  mk(5, "Dissolve",        "Yara Voss",   "Dissolution EP",     "5:59", "Dream Pop",  "670K", true,  "#181200", "#facc15"),
-  mk(6, "Carbon Skies",    "Axel Rune",   "Dark Matter",        "6:26", "Indie",      "3.2M", false, "#0f0818", "#f472b6"),
-  mk(7, "Hollow Ground",   "Echo & Glow", "Resonance",          "6:52", "Indie",      "12K",  false, "#071018", "#22d3ee"),
-  mk(8, "Saltwater Dream", "Nadia Sol",   "Sol EP",             "6:03", "Pop",        "8.4K", false, "#180f07", "#fdba74"),
+  mk(1, "Midnight Echo",   "Luna Wave",   "Synthwave Sessions", "6:12", "Синтвейв",  "2.1M", true,  "#12083a", "#8b5cf6"),
+  mk(2, "Glass City",      "KRVT",        "Urban Frequencies",  "7:04", "Электроника", "890K", false, "#071a10", "#34d399"),
+  mk(3, "Neon Drift",      "Solstice",    "Phase II",           "5:20", "Лоу-фай",      "4.5M", true,  "#1a0a08", "#fb923c"),
+  mk(4, "Ivory Keys",      "Mara Dell",   "Piano Diaries",      "5:47", "Эмбиент",    "1.3M", false, "#071218", "#38bdf8"),
+  mk(5, "Dissolve",        "Yara Voss",   "Dissolution EP",     "5:59", "Дрим-поп",  "670K", true,  "#181200", "#facc15"),
+  mk(6, "Carbon Skies",    "Axel Rune",   "Dark Matter",        "6:26", "Инди",      "3.2M", false, "#0f0818", "#f472b6"),
+  mk(7, "Hollow Ground",   "Echo & Glow", "Resonance",          "6:52", "Инди",      "12K",  false, "#071018", "#22d3ee"),
+  mk(8, "Saltwater Dream", "Nadia Sol",   "Sol EP",             "6:03", "Поп",        "8.4K", false, "#180f07", "#fdba74"),
 ];
 
 export interface Artist {
@@ -151,14 +226,14 @@ export interface Artist {
 }
 
 export const ARTISTS: Artist[] = [
-  { name: "Luna Wave",   listeners: "1.2M", genre: "Synthwave",  verified: true,  img: TRACKS[0].img, c2: TRACKS[0].c2, similar: ["Solstice", "KRVT"] },
-  { name: "KRVT",        listeners: "640K", genre: "Electronic", verified: true,  img: TRACKS[1].img, c2: TRACKS[1].c2, similar: ["Luna Wave", "Axel Rune"] },
-  { name: "Solstice",    listeners: "2.8M", genre: "Lo-fi",      verified: true,  img: TRACKS[2].img, c2: TRACKS[2].c2, similar: ["Mara Dell", "Luna Wave"] },
-  { name: "Mara Dell",   listeners: "890K", genre: "Ambient",    verified: false, img: TRACKS[3].img, c2: TRACKS[3].c2, similar: ["Solstice", "Yara Voss"] },
-  { name: "Yara Voss",   listeners: "410K", genre: "Dream Pop",  verified: false, img: TRACKS[4].img, c2: TRACKS[4].c2, similar: ["Nadia Sol", "Mara Dell"] },
-  { name: "Axel Rune",   listeners: "1.9M", genre: "Indie",      verified: true,  img: TRACKS[5].img, c2: TRACKS[5].c2, similar: ["Echo & Glow", "KRVT"] },
-  { name: "Echo & Glow", listeners: "8K",   genre: "Indie",      verified: false, img: TRACKS[6].img, c2: TRACKS[6].c2, similar: ["Axel Rune", "Nadia Sol"] },
-  { name: "Nadia Sol",   listeners: "5K",   genre: "Pop",        verified: false, img: TRACKS[7].img, c2: TRACKS[7].c2, similar: ["Yara Voss", "Echo & Glow"] },
+  { name: "Luna Wave",   listeners: "1.2M", genre: "Синтвейв",  verified: true,  img: TRACKS[0].img, c2: TRACKS[0].c2, similar: ["Solstice", "KRVT"] },
+  { name: "KRVT",        listeners: "640K", genre: "Электроника", verified: true,  img: TRACKS[1].img, c2: TRACKS[1].c2, similar: ["Luna Wave", "Axel Rune"] },
+  { name: "Solstice",    listeners: "2.8M", genre: "Лоу-фай",      verified: true,  img: TRACKS[2].img, c2: TRACKS[2].c2, similar: ["Mara Dell", "Luna Wave"] },
+  { name: "Mara Dell",   listeners: "890K", genre: "Эмбиент",    verified: false, img: TRACKS[3].img, c2: TRACKS[3].c2, similar: ["Solstice", "Yara Voss"] },
+  { name: "Yara Voss",   listeners: "410K", genre: "Дрим-поп",  verified: false, img: TRACKS[4].img, c2: TRACKS[4].c2, similar: ["Nadia Sol", "Mara Dell"] },
+  { name: "Axel Rune",   listeners: "1.9M", genre: "Инди",      verified: true,  img: TRACKS[5].img, c2: TRACKS[5].c2, similar: ["Echo & Glow", "KRVT"] },
+  { name: "Echo & Glow", listeners: "8K",   genre: "Инди",      verified: false, img: TRACKS[6].img, c2: TRACKS[6].c2, similar: ["Axel Rune", "Nadia Sol"] },
+  { name: "Nadia Sol",   listeners: "5K",   genre: "Поп",        verified: false, img: TRACKS[7].img, c2: TRACKS[7].c2, similar: ["Yara Voss", "Echo & Glow"] },
 ];
 
 export const artistByName = (name: string) => ARTISTS.find(a => a.name === name);
@@ -329,9 +404,9 @@ export const AVATARS = [
 ];
 
 export const TASTE_GENRES = [
-  ["Synthwave", "#8b5cf6"], ["Lo-fi", "#34d399"], ["Hip-Hop", "#fb923c"], ["Ambient", "#38bdf8"],
-  ["Indie", "#f472b6"], ["Pop", "#fdba74"], ["Rock", "#f87171"], ["Electronic", "#22d3ee"],
-  ["Jazz", "#facc15"], ["Classical", "#c4b5fd"], ["Techno", "#4ade80"], ["R&B", "#fb7185"],
+  ["Синтвейв", "#8b5cf6"], ["Лоу-фай", "#34d399"], ["Хип-хоп", "#fb923c"], ["Эмбиент", "#38bdf8"],
+  ["Инди", "#f472b6"], ["Поп", "#fdba74"], ["Рок", "#f87171"], ["Электроника", "#22d3ee"],
+  ["Джаз", "#facc15"], ["Классика", "#c4b5fd"], ["Техно", "#4ade80"], ["R&B", "#fb7185"],
 ] as const;
 
 // Причины жалобы (Студия → публичный трек, чат плеера → комментарий). code —
@@ -365,9 +440,9 @@ export const PODCASTS = [
 ];
 
 export const GENRE_TILES = [
-  ["Synthwave", "#8b5cf6"], ["Lo-fi", "#34d399"], ["Hip-Hop", "#fb923c"], ["Ambient", "#38bdf8"],
-  ["Electronic", "#c084fc"], ["Dream Pop", "#f472b6"], ["Indie", "#f59e0b"], ["R&B", "#e879f9"],
-  ["Rock", "#ef6b61"], ["Jazz", "#f4b76a"], ["Classical", "#93c5fd"], ["House", "#22d3ee"],
+  ["Синтвейв", "#8b5cf6"], ["Лоу-фай", "#34d399"], ["Хип-хоп", "#fb923c"], ["Эмбиент", "#38bdf8"],
+  ["Электроника", "#c084fc"], ["Дрим-поп", "#f472b6"], ["Инди", "#f59e0b"], ["R&B", "#e879f9"],
+  ["Рок", "#ef6b61"], ["Джаз", "#f4b76a"], ["Классика", "#93c5fd"], ["Хаус", "#22d3ee"],
 ] as const;
 
 export const albumTracks = (album: string) => TRACKS.filter(t => t.album === album);

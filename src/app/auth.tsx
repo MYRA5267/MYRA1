@@ -260,9 +260,16 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
   const S = SLIDES[slide];
   const pickedComp = COMPANIONS.find(c => c.id === companionPick) ?? COMPANIONS[0];
   const others = COMPANIONS.filter(c => c.id !== companionPick);
+  // Правильный падеж имени спутника в кнопке (RU): «Войти с Люмой/Искрой/Эхо».
+  const enterLabel = lang === "ru"
+    ? `Войти с ${({ luma: "Люмой", spark: "Искрой", echo: "Эхо" } as Record<CompanionId, string>)[companionPick]}`
+    : t("comp.enter", pickedComp.name);
   // Бесконечные лупы отключаем на слабом железе (fx-simple) и при reduce-motion.
   const weakFx = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
   const liveMotion = !reducedMotion && !weakFx;
+  // Экраны «вокруг спутника»: спокойный аврора-фон в цвет питомца, без случайной
+  // обложки трека — так вход/настройка читаются как единый премиальный портал.
+  const companionStep = step === "companion" || step === "auth" || step === "taste";
 
   const enterWithCompanion = () => {
     // Закрепляем спутника (если ещё не связан) и уходим на регистрацию.
@@ -274,7 +281,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
   return (
     <div className="myra-onboarding fixed inset-0 z-[90] flex flex-col overflow-hidden" style={{ background: "var(--bg)", fontFamily: F.b, color: "var(--fg)" }}>
       {/* Фон */}
-      {step !== "companion" && (
+      {!companionStep && (
         <AnimatePresence>
           <motion.img
             key={step === "slides" ? slide : step}
@@ -289,7 +296,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
           />
         </AnimatePresence>
       )}
-      <DetailBackdrop variant="soft" accent={step === "companion" ? pickedComp.accent : S.c2} />
+      <DetailBackdrop variant="soft" accent={companionStep ? pickedComp.accent : S.c2} />
       <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 0%, var(--bg) var(--aurora-fade))" }} />
       <div className="absolute bottom-0 left-0 right-0 h-80" style={{ background: "linear-gradient(to top, var(--bg) 0%, transparent 100%)" }} />
 
@@ -323,9 +330,8 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
       <div className="myra-onboarding-content relative z-10 flex-1 flex flex-col justify-end md:justify-center overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           {/* ── Выбор спутника (вход) ── */}
           {step === "companion" && (
-            <motion.div key="companion" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="myra-onboarding-panel px-6 pb-9 max-w-md mx-auto w-full flex flex-col items-center text-center">
-              <div style={{ fontFamily: F.m, fontSize: 10, letterSpacing: "0.32em", textTransform: "uppercase", color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{t("comp.eyebrow")}</div>
-              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em", lineHeight: 1.05, marginTop: 8 }}>{t("comp.title")}</h1>
+            <motion.div key="companion" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="myra-onboarding-panel px-6 pb-9 pt-4 max-w-md mx-auto w-full flex flex-col items-center text-center">
+              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em", lineHeight: 1.05 }}>{t("comp.title")}</h1>
 
               {/* трио: центр — выбранный, по бокам — остальные (тап делает их центром) */}
               <div className="relative flex items-center justify-center gap-1 mt-6" style={{ height: 234 }}>
@@ -365,7 +371,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
 
               <motion.div key={pickedComp.id + "-copy"} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mt-2">
                 <h2 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 38, letterSpacing: "-0.03em", lineHeight: 1 }}>{pickedComp.name}</h2>
-                <p className="mt-2 mx-auto" style={{ maxWidth: 300, fontSize: 13.5, lineHeight: 1.5, color: "color-mix(in srgb, var(--fg) 58%, transparent)" }}>{pickedComp.copy[lang].character} — {pickedComp.copy[lang].ability}</p>
+                <p className="mt-2 mx-auto" style={{ maxWidth: 300, fontSize: 13.5, lineHeight: 1.5, color: "color-mix(in srgb, var(--fg) 58%, transparent)" }}>{pickedComp.copy[lang].ability}</p>
               </motion.div>
 
               <div className="flex items-center justify-center gap-2 mt-4">
@@ -375,7 +381,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
               </div>
 
               <motion.button whileTap={{ scale: 0.96 }} onClick={enterWithCompanion} className="w-full mt-6 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold" style={{ background: `linear-gradient(108deg, ${pickedComp.accent}, ${pickedComp.accent2})`, color: "#160f26", fontSize: 16, boxShadow: `0 16px 40px ${pickedComp.accent2}55` }}>
-                {t("comp.enter", pickedComp.name)} <MyraGlyph name="arrow" size={16} />
+                {enterLabel} <MyraGlyph name="arrow" size={16} />
               </motion.button>
               <button onClick={() => { setMode("login"); setStep("auth"); }} className="mt-4 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>
                 {t("comp.have")} <b style={{ color: pickedComp.accent }}>{t("comp.signin")}</b>
@@ -416,16 +422,25 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
           {/* ── Вход / регистрация ── */}
           {step === "auth" && (
             <motion.div key="auth" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
-              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 32, letterSpacing: "-0.04em" }} className="mb-1.5">{t("au.welcome")}</h1>
-              <p className="text-sm mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{t("au.sub")}</p>
+              {/* Портал спутника — «аватар аккаунта» в духе Yandex ID, но это твой спутник */}
+              <div className="flex flex-col items-center text-center mb-6">
+                <div className="relative" style={{ width: 104, height: 104 }}>
+                  <div className="absolute" style={{ inset: "-16%", borderRadius: 36, background: `radial-gradient(circle, ${pickedComp.accent}55, transparent 70%)`, filter: "blur(16px)" }} />
+                  <div className="relative w-full h-full flex items-center justify-center" style={{ borderRadius: 30, background: `linear-gradient(150deg, ${pickedComp.accent}26, ${pickedComp.accent2}14)`, border: `1px solid ${pickedComp.accent}44`, boxShadow: `0 18px 44px ${pickedComp.accent2}44` }}>
+                    <motion.img src={pickedComp.image} alt={pickedComp.name} animate={liveMotion ? { y: [0, -5, 0] } : undefined} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} style={{ width: "82%", height: "82%", objectFit: "contain", filter: `drop-shadow(0 10px 22px ${pickedComp.accent}99)` }} />
+                  </div>
+                </div>
+                <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em", marginTop: 16 }}>{mode === "login" ? t("au.backTitle") : t("au.welcome")}</h1>
+                <p className="text-sm mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 48%, transparent)" }}>{mode === "login" ? t("au.backSub") : t("au.sub")}</p>
 
-              <div className="flex gap-1 p-1 rounded-full mb-6 w-fit" style={GLASS}>
-                {(["signup", "login"] as const).map(m => (
-                  <button key={m} onClick={() => setMode(m)} className="relative px-5 py-2 rounded-full text-xs font-semibold" style={{ color: mode === m ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>
-                    {mode === m && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="absolute inset-0 rounded-full myra-brand-fill" />}
-                    <span className="relative z-10">{m === "signup" ? t("au.signup") : t("au.login")}</span>
-                  </button>
-                ))}
+                <div className="flex gap-1 p-1 rounded-full mt-5" style={GLASS}>
+                  {(["signup", "login"] as const).map(m => (
+                    <button key={m} onClick={() => setMode(m)} className="relative px-5 py-2 rounded-full text-xs font-semibold" style={{ color: mode === m ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>
+                      {mode === m && <motion.div layoutId="auth-mode-pill" className="absolute inset-0 rounded-full myra-brand-fill" transition={SPRING} />}
+                      <span className="relative z-10">{m === "signup" ? t("au.signup") : t("au.login")}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex flex-col gap-2.5 mb-5">
@@ -520,44 +535,30 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
             </motion.div>
           )}
 
-          {/* ── Вкусы ── */}
+          {/* ── Настройка под спутника (без выбора жанров) ── */}
           {step === "taste" && (
-            <motion.div key="taste" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
-              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em" }} className="mb-1.5">{t("ta.title")}</h1>
-              <p className="text-sm mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{t("ta.sub")}</p>
-
-              <div className="flex flex-wrap gap-2.5 mb-7">
-                {TASTE_GENRES.map(([g, c], i) => {
-                  const on = picked.has(g);
-                  return (
-                    <motion.button
-                      key={g}
-                      initial={{ opacity: 0, scale: 0.85 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.035, ...SPRING }}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => setPicked(p => { const n = new Set(p); if (n.has(g)) n.delete(g); else n.add(g); return n; })}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors"
-                      style={{ background: on ? `${c}2b` : "color-mix(in srgb, var(--wash) 5.5%, transparent)", border: `1px solid ${on ? c : "color-mix(in srgb, var(--wash) 10%, transparent)"}`, color: on ? c : "color-mix(in srgb, var(--fg) 65%, transparent)", fontFamily: F.b }}
-                    >
-                      {on && <Check size={13} />}
-                      {g}
-                    </motion.button>
-                  );
-                })}
+            <motion.div key="taste" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full flex flex-col items-center text-center">
+              <div className="relative" style={{ width: 168, height: 168, marginTop: 6 }}>
+                <div className="absolute" style={{ inset: "12%", borderRadius: "50%", background: `radial-gradient(circle, ${pickedComp.accent}66, ${pickedComp.accent2}33 46%, transparent 68%)`, filter: "blur(10px)" }} />
+                <motion.img
+                  src={pickedComp.image}
+                  alt={pickedComp.name}
+                  animate={liveMotion ? { y: [0, -7, 0], scale: [1, 1.03, 1] } : undefined}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", position: "relative", filter: `drop-shadow(0 16px 40px ${pickedComp.accent}88)` }}
+                />
               </div>
+              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 28, letterSpacing: "-0.04em", lineHeight: 1.05, marginTop: 12 }}>{t("ta.tuneTitle", pickedComp.name)}</h1>
+              <p className="text-sm mt-3" style={{ maxWidth: 320, color: "color-mix(in srgb, var(--fg) 55%, transparent)", lineHeight: 1.55 }}>{t("ta.tuneSub")}</p>
 
-              <div className="flex items-center justify-between">
-                <span className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("ta.picked", picked.size)}</span>
-                <motion.button
-                  whileTap={{ scale: 0.94 }}
-                  onClick={() => { if (picked.size >= 3) setStep("role"); }}
-                  className="flex items-center gap-2 pl-6 pr-5 py-3.5 rounded-full text-sm font-bold transition-opacity"
-                  style={{ background: "var(--myra-brand-gradient)", opacity: picked.size >= 3 ? 1 : 0.35, fontFamily: F.b }}
-                >
-                  {t("ta.continue")} <MyraGlyph name="arrow" size={15} />
-                </motion.button>
-              </div>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => setStep("role")}
+                className="w-full mt-8 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold"
+                style={{ background: `linear-gradient(108deg, ${pickedComp.accent}, ${pickedComp.accent2})`, color: "#160f26", fontSize: 16, boxShadow: `0 16px 40px ${pickedComp.accent2}55`, fontFamily: F.b }}
+              >
+                {t("ta.continue")} <MyraGlyph name="arrow" size={16} />
+              </motion.button>
             </motion.div>
           )}
 

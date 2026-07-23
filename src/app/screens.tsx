@@ -7,7 +7,7 @@ import {
   Trophy, Clock, Flame, Gift, UserPlus, Headphones, Wrench, Lock,
   SlidersHorizontal, CircleUserRound, Cast, ChevronDown, type LucideIcon,
 } from "./myraIcons";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 import { TRACKS, ARTISTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, TiltCard, Aurora, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, useProgress, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
@@ -17,11 +17,15 @@ import { useLang, type Lang } from "./i18n";
 import { track as trackEvent } from "./analytics";
 import { lastNDays, isMonthEndWindow, type ActivityItem } from "./stats";
 import { MyraBrandLockup } from "./logo";
-import { MyraGlyph, type MyraGlyphName } from "./myraIcons";
+import { MyraGlyph, MyraVerifiedBadge, type MyraGlyphName } from "./myraIcons";
 import type { UserRole } from "./auth";
-import { supabaseEnabled, paymentsEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
+import {
+  supabaseEnabled, paymentsEnabled, fetchRecentTracks,
+  fetchCreatorVerificationRequest, submitCreatorVerificationRequest,
+  type CreatorVerificationStatus, type CommunityTrackRow, type FriendFeedItem, type PublicProfile,
+} from "./supabase";
 import type { SmartPick } from "./smart";
-import { ProfileIdentityShowcase, type CompanionController } from "./companion";
+import { ProfileIdentityShowcase, companionLevel, RESONANCES, type CompanionController } from "./companion";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
 
@@ -193,9 +197,49 @@ const ACTIVITY_ICONS: Record<string, typeof Music2> = {
 /** Компактная запись счётчика: 2400 → "2.4K" */
 export const fmtCount = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K` : String(n));
 
+// Счётчик: целое число плавно набегает от 0 при появлении. Строки/дробные
+// значения (например «1.2K», «1 234₽», «—») выводятся как есть — не ломаем
+// форматирование. Одноразовый rAF (не бесконечный луп); на слабом железе
+// (fx-simple) и при prefers-reduced-motion сразу показываем итог.
+function CountUp({ value, duration = 0.9 }: { value: number | string; duration?: number }) {
+  const reduced = useReducedMotion();
+  const weak = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
+  const target = typeof value === "number"
+    ? value
+    : (/^\d+$/.test(String(value).trim()) ? parseInt(String(value), 10) : null);
+  const animatable = target !== null && !reduced && !weak;
+  const [display, setDisplay] = useState<number | null>(animatable ? 0 : null);
+  useEffect(() => {
+    if (!animatable || target === null) return;
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / (duration * 1000));
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(Math.round(eased * target));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [animatable, target, duration]);
+  if (target === null) return <>{value}</>;
+  return <>{animatable ? (display ?? target) : target}</>;
+}
+
 function SectionHeading({ title, sub, action, onAction }: { title: string; sub?: string; action?: string; onAction?: () => void }) {
+  // Секция мягко въезжает, когда попадает в зону видимости (один раз). На слабом
+  // железе и при prefers-reduced-motion эффект отключается.
+  const reduced = useReducedMotion();
+  const weak = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
+  const animate = !reduced && !weak;
   return (
-    <div className="myra-section-heading">
+    <motion.div
+      className="myra-section-heading"
+      initial={animate ? { opacity: 0, y: 16 } : false}
+      whileInView={animate ? { opacity: 1, y: 0 } : undefined}
+      viewport={{ once: true, margin: "0px 0px -12% 0px" }}
+      transition={{ duration: 0.45, ease: [0.32, 0.72, 0, 1] }}
+    >
       <div>
         <h2>{title}</h2>
         {sub && <p>{sub}</p>}
@@ -203,7 +247,7 @@ function SectionHeading({ title, sub, action, onAction }: { title: string; sub?:
       {action && onAction && (
         <button onClick={onAction}>{action}<MyraGlyph name="arrow" size={15} /></button>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -350,11 +394,11 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
     toast(t("bl.invited", link));
   };
 
-  const QUICK: { label: string; glyph: MyraGlyphName; act: () => void }[] = [
-    { label: t("home.liked"),  glyph: "heart", act: () => onNavigate("library") },
-    { label: t("home.charts"), glyph: "chart", act: () => onNavigate("rating") },
-    { label: t("home.radio"),  glyph: "radio", act: onPlayRadio },
-    { label: t("home.blend"),  glyph: "blend", act: () => (FRIENDS[0] ? onOpenBlend(FRIENDS[0]) : inviteBlend()) },
+  const QUICK: { label: string; glyph: MyraGlyphName; act: () => void; a: string; b: string }[] = [
+    { label: t("home.liked"),  glyph: "heart", act: () => onNavigate("library"), a: "#ff6fa5", b: "#c98cff" },
+    { label: t("home.charts"), glyph: "chart", act: () => onNavigate("rating"), a: "#f4a77f", b: "#ffd28a" },
+    { label: t("home.radio"),  glyph: "radio", act: onPlayRadio, a: "#5ee7ac", b: "#67d7ff" },
+    { label: t("home.blend"),  glyph: "blend", act: () => (FRIENDS[0] ? onOpenBlend(FRIENDS[0]) : inviteBlend()), a: "#9a8cff", b: "#67d7ff" },
   ];
 
   return (
@@ -429,8 +473,10 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
           <DetailBackdrop variant="soft" accent="#8b5cf6" active={waveActive} />
           <div className="myra-home-flow-main relative z-10 flex items-center justify-between p-6">
             <div className="myra-home-flow-copy">
-              <div className="myra-flow-kicker text-[10px] uppercase tracking-[0.2em] mb-2">{t("home.flow")}</div>
-              <h1>{t("home.headline")}</h1>
+              <h1 className="myra-hero-word" style={{ fontFamily: F.d, fontWeight: 900, fontSize: 46, letterSpacing: "-0.045em", lineHeight: 0.95 }}>{t("home.wave")}</h1>
+              <p style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.35, maxWidth: 190, color: "color-mix(in srgb, var(--fg) 58%, transparent)", fontFamily: F.b }}>
+                {waveActive ? `${currentTrack.title} · ${currentTrack.artist}` : t("home.flowSub")}
+              </p>
             </div>
             <div className="myra-home-flow-art" style={{ "--flow-color": currentTrack.c2 } as React.CSSProperties}>
               <img src={currentTrack.img} alt="" />
@@ -465,9 +511,10 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
               whileTap={{ scale: 0.93 }}
               onClick={q.act}
               className="myra-quick-action flex flex-col items-center gap-2 py-4 rounded-[20px]"
+              style={{ background: `linear-gradient(160deg, ${q.a}22, ${q.b}0a)`, border: `1px solid ${q.a}3a` }}
             >
-              <span className="myra-quick-glyph"><MyraGlyph name={q.glyph} size={19} /></span>
-              <span className="text-[11px] font-medium" style={{ color: "color-mix(in srgb, var(--fg) 70%, transparent)", fontFamily: F.b }}>{q.label}</span>
+              <span className="flex items-center justify-center" style={{ width: 38, height: 38, borderRadius: 13, background: `radial-gradient(circle at 50% 28%, ${q.a}, ${q.b})`, color: "#160f26", boxShadow: `0 8px 20px ${q.a}55` }}><MyraGlyph name={q.glyph} size={19} /></span>
+              <span className="text-[11px] font-semibold" style={{ color: "color-mix(in srgb, var(--fg) 82%, transparent)", fontFamily: F.b }}>{q.label}</span>
             </motion.button>
           );
         })}
@@ -799,7 +846,13 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
                 >
                   <span className="myra-talent-index">0{index + 1}</span>
                   <img src={artist.img} alt="" loading="lazy" decoding="async" />
-                  <span className="myra-talent-copy"><strong>{artist.name}</strong><small>{artist.genre}</small></span>
+                  <span className="myra-talent-copy">
+                    <strong style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      {artist.name}
+                      {artist.verified && <MyraVerifiedBadge size={15} accent={artist.c2} />}
+                    </strong>
+                    <small>{artist.genre} · {t("ar.listenersShort", artist.listeners)}</small>
+                  </span>
                   <MyraGlyph name="arrow" size={15} />
                 </motion.button>
               ))}
@@ -852,6 +905,9 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
 
   const valueFor = (u: typeof rows[number]) =>
     metric === "level" ? t("rt.lvlLabel", u.level) : metric === "minutes" ? t("rt.minLabel", u.minutesWeek) : t("rt.streakLabel", u.streak);
+
+  // Медали пьедестала — золото/серебро/бронза для топ-3 (ярче, чем плоский номер)
+  const MEDALS = [["#ffd76a", "#f4a77f"], ["#e8edf5", "#9aa7bd"], ["#ffb27a", "#d98a5a"]];
 
   return (
     <Page className="myra-experience-page myra-rating-page">
@@ -917,7 +973,7 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
               // а не div с onClick, чтобы работали клавиатура и screen reader
               const rowContent = (
                 <>
-                  <div className="myra-rating-row-rank">{i + 1}</div>
+                  <div className="myra-rating-row-rank" style={i < 3 ? { background: `linear-gradient(140deg, ${MEDALS[i][0]}, ${MEDALS[i][1]})`, color: "#160f26", fontWeight: 900, boxShadow: `0 5px 16px ${MEDALS[i][0]}66`, border: "none" } : undefined}>{i + 1}</div>
                   <img src={u.avatar} alt="" className="myra-rating-row-avatar" />
                   <div className="myra-rating-row-copy">
                     <strong>{u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}</strong>
@@ -966,13 +1022,15 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
 
 // ─── Медиатека ────────────────────────────────────────────────────────────────
 
-export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, onUploadFiles, playlists = [], onCreatePlaylist, customPlIds, onDeletePlaylist }: {
+export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, onPlayTracks, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, onUploadFiles, playlists = [], onCreatePlaylist, customPlIds, onDeletePlaylist, companionController }: {
   onPlay: (t: Track) => void; likedIds: Set<number>; onLike: (id: number) => void;
+  onPlayTracks?: (tracks: Track[], startIndex?: number) => void;
   currentTrack: Track; playing: boolean; onOpenArtist: (name: string) => void;
   onOpenAlbum?: (album: string) => void; onOpenPlaylist?: (id: string) => void;
   myTracks?: Track[]; onDeleteLocal?: (id: number) => void; onUploadFiles?: (files: FileList | File[]) => void;
   playlists?: typeof PLAYLISTS; onCreatePlaylist?: (name: string) => void;
   customPlIds?: Set<string>; onDeletePlaylist?: (id: string) => void;
+  companionController?: CompanionController;
 }) {
   const { t } = useLang();
   const [tab, setTab] = useState<"liked" | "playlists" | "podcasts">("liked");
@@ -985,6 +1043,17 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
   const matchesLibrary = useCallback((track: Track) => !deferredQuery || `${track.title} ${track.artist} ${track.album} ${track.genre}`.toLocaleLowerCase().includes(deferredQuery), [deferredQuery]);
   const visibleLocal = useMemo(() => myTracks.filter(matchesLibrary), [myTracks, matchesLibrary]);
   const visibleLiked = useMemo(() => liked.filter(matchesLibrary), [liked, matchesLibrary]);
+
+  // Награда: эксклюзивный плейлист за веху спутника (2 уровень). Треки — реальные,
+  // в открытых спутником жанрах (иначе премиальный срез каталога). Настоящая
+  // плюшка: играет настоящую музыку, открывается за реальный прогресс.
+  const compLevel = companionController ? companionLevel(companionController.state.xp).level : 1;
+  const rewardUnlocked = compLevel >= 2;
+  const rewardTracks = useMemo(() => {
+    const genres = new Set((companionController?.state.discoveredGenres ?? []).map(g => g.toLocaleLowerCase()));
+    const byGenre = TRACKS.filter(tr => genres.has(tr.genre.toLocaleLowerCase()));
+    return (byGenre.length >= 4 ? byGenre : TRACKS).slice(0, 6);
+  }, [companionController?.state.discoveredGenres]);
 
   const TABS = [
     { id: "liked" as const, label: t("lib.tracks", liked.length + myTracks.length) },
@@ -1008,10 +1077,20 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
         </motion.button>
       </header>
 
-      <section className="myra-library-overview mx-5 mb-5" style={{ "--library-accent": currentTrack.c2 } as React.CSSProperties}>
-        <div><MyraGlyph name="heart" size={19} /><strong>{liked.length}</strong><span>{t("lib.saved")}</span></div>
-        <div><MyraGlyph name="download" size={19} /><strong>{myTracks.length}</strong><span>{t("lib.local")}</span></div>
-        <div><MyraGlyph name="library" size={19} /><strong>{playlists.length}</strong><span>{t("lib.playlists")}</span></div>
+      <section className="grid grid-cols-3 gap-2.5 mx-5 mb-5">
+        {[
+          { glyph: "heart" as const, value: liked.length, label: t("lib.saved"), a: "#ff6fa5", b: "#c98cff" },
+          { glyph: "download" as const, value: myTracks.length, label: t("lib.local"), a: "#5ee7ac", b: "#67d7ff" },
+          { glyph: "library" as const, value: playlists.length, label: t("lib.playlists"), a: "#f4a77f", b: "#c98cff" },
+        ].map((o, i) => (
+          <motion.div key={o.glyph} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 8px 14px", background: `linear-gradient(158deg, ${o.a}22, ${o.b}0d)`, border: `1px solid ${o.a}38`, boxShadow: `0 12px 32px ${o.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
+            <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${o.a}, ${o.b})`, color: "#160f26", boxShadow: `0 6px 18px ${o.a}66` }}>
+              <MyraGlyph name={o.glyph} size={17} />
+            </span>
+            <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, lineHeight: 1, letterSpacing: "-0.04em", background: `linear-gradient(120deg, ${o.a}, ${o.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}><CountUp value={o.value} /></strong>
+            <span className="mt-1.5" style={{ fontSize: 11, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{o.label}</span>
+          </motion.div>
+        ))}
       </section>
 
       <div className="myra-library-search mx-5 mb-5">
@@ -1091,6 +1170,38 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
             </div>
           )}
 
+          {tab === "playlists" && rewardTracks.length > 0 && (
+            <div className="px-5 mb-5">
+              <div className="relative rounded-[24px] overflow-hidden" style={{ border: `1px solid ${currentTrack.c2}44`, boxShadow: `0 18px 46px ${currentTrack.c2}22` }}>
+                <div className="absolute inset-0 flex" aria-hidden="true">
+                  {rewardTracks.slice(0, 3).map(tr => <img key={tr.id} src={tr.img} alt="" className="flex-1 object-cover h-full" style={{ filter: rewardUnlocked ? "brightness(0.55)" : "brightness(0.3) grayscale(0.5)" }} />)}
+                </div>
+                <div className="absolute inset-0" style={{ background: `linear-gradient(118deg, rgba(10,8,20,0.9), rgba(10,8,20,0.45)), linear-gradient(160deg, ${currentTrack.c2}3a, transparent 60%)` }} />
+                <div className="relative z-10 p-5">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Sparkles size={13} style={{ color: currentTrack.c2 }} />
+                    <span style={{ fontFamily: F.m, fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: currentTrack.c2 }}>{t("reward.eyebrow")}</span>
+                  </div>
+                  <h3 className="myra-hero-word" style={{ fontFamily: F.d, fontWeight: 900, fontSize: 25, letterSpacing: "-0.03em", lineHeight: 1.05 }}>{t("reward.title")}</h3>
+                  <p className="text-xs mt-1" style={{ color: onDark(60), fontFamily: F.b }}>{t("reward.sub", rewardTracks.length)}</p>
+                  {rewardUnlocked ? (
+                    <motion.button whileTap={{ scale: 0.96 }} onClick={() => { (onPlayTracks ?? ((tracks: Track[]) => onPlay(tracks[0])))(rewardTracks); toast.success(t("reward.playing")); }} className="myra-pulse mt-4 inline-flex items-center gap-2 pl-5 pr-6 py-3 rounded-full font-bold" style={{ background: `linear-gradient(108deg, ${currentTrack.c2}, #c98cff)`, color: "#160f26", fontFamily: F.b, boxShadow: `0 12px 30px ${currentTrack.c2}55` }}>
+                      <Play size={16} fill="#160f26" stroke="none" />{t("reward.listen")}
+                    </motion.button>
+                  ) : (
+                    <div className="mt-4 flex items-center gap-2.5">
+                      <span className="flex items-center justify-center shrink-0" style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.1)", color: ON_DARK }}><Lock size={15} /></span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold" style={{ color: ON_DARK, fontFamily: F.b }}>{t("reward.locked")}</div>
+                        <div className="text-xs" style={{ color: onDark(52), fontFamily: F.b }}>{t("reward.lockedSub", compLevel)}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {tab === "playlists" && playlists.length === 0 && (
             <div className="px-5 flex flex-col items-center justify-center py-16 text-center">
               <Music2 size={28} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)" }} />
@@ -1151,11 +1262,11 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
 
 // ─── Студия ───────────────────────────────────────────────────────────────────
 
-export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onStartRelease, onPlay, myPlaysByTrack, myPlaysByDay, balance, onWithdraw, realDonationsTotal }: {
+export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onStartRelease, onPlay, myPlaysByTrack, myPlaysByDay, balance, onWithdraw, realDonationsTotal, uid }: {
   c2: string; creatorPlus: boolean; onOpenCreatorPlus: () => void;
   onOpenStats: () => void; myTracks?: Track[]; onStartRelease: (files: FileList | File[]) => void; onPlay: (t: Track) => void;
   myPlaysByTrack: Record<number, number>; myPlaysByDay: Record<string, number>;
-  balance: number; onWithdraw: (amt: number) => void; realDonationsTotal: number;
+  balance: number; onWithdraw: (amt: number) => void; realDonationsTotal: number; uid: string | null;
 }) {
   const { t } = useLang();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1181,6 +1292,69 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
     () => [...myTracks].sort((a, b) => (myPlaysByTrack[b.id] ?? 0) - (myPlaysByTrack[a.id] ?? 0)),
     [myTracks, myPlaysByTrack],
   );
+
+  // Верификация: реальные, проверяемые условия (по фактическим данным студии).
+  // Галочку в MYRA нельзя купить или включить — её подтверждает команда после
+  // выполнения условий (принцип честности: не выдаём автоматически).
+  const totalPlays = useMemo(() => Object.values(myPlaysByTrack).reduce((a, b) => a + b, 0), [myPlaysByTrack]);
+  const verifyCriteria = [
+    { label: t("verify.c1"), have: myTracks.length, need: 3 },
+    { label: t("verify.c2"), have: totalPlays, need: 500 },
+    { label: t("verify.c3"), have: realDonationsTotal > 0 ? 1 : 0, need: 1 },
+  ];
+  const verifyMet = verifyCriteria.every(c => c.have >= c.need);
+  const [verifyStatus, setVerifyStatus] = useState<CreatorVerificationStatus | null>(null);
+  const [verifyNote, setVerifyNote] = useState<string | null>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifySubmitting, setVerifySubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!supabaseEnabled || !uid) {
+      setVerifyStatus(null);
+      setVerifyNote(null);
+      return;
+    }
+    let active = true;
+    setVerifyLoading(true);
+    fetchCreatorVerificationRequest(uid)
+      .then(({ data }) => {
+        if (!active) return;
+        setVerifyStatus(data?.status ?? null);
+        setVerifyNote(data?.reviewer_note ?? null);
+      })
+      .finally(() => { if (active) setVerifyLoading(false); });
+    return () => { active = false; };
+  }, [uid]);
+
+  const requestVerify = async () => {
+    if (!verifyMet || verifyStatus === "pending" || verifyStatus === "approved" || verifySubmitting) return;
+    if (!uid) { toast.error(t("verify.signIn")); return; }
+    if (!supabaseEnabled) { toast.error(t("verify.unavailable")); return; }
+    setVerifySubmitting(true);
+    const { data, error } = await submitCreatorVerificationRequest(uid, {
+      releasesCount: myTracks.length,
+      playCount: totalPlays,
+      hasListenerSupport: realDonationsTotal > 0,
+    });
+    setVerifySubmitting(false);
+    if (error || !data) { toast.error(t("verify.error")); return; }
+    setVerifyStatus(data.status);
+    setVerifyNote(null);
+    toast.success(t("verify.requested"));
+  };
+  const verifyRequested = verifyStatus === "pending" || verifyStatus === "approved";
+  const canRequestVerify = verifyMet && !verifyRequested && !verifyLoading && !verifySubmitting;
+  const verifyButtonLabel = verifyLoading || verifySubmitting
+    ? t("verify.loading")
+    : verifyStatus === "approved"
+      ? t("verify.approved")
+      : verifyStatus === "rejected"
+        ? t("verify.retry")
+        : verifyStatus === "pending"
+          ? t("verify.pending")
+          : verifyMet
+            ? t("verify.cta")
+            : t("verify.ctaLocked");
 
   // Детальная аналитика — реальная привилегия Pro (шторка Pro её обещает
   // третьим пунктом; раньше она была открыта всем, и обещание было пустым)
@@ -1230,10 +1404,18 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
         {/* Строка статистики — тот же паттерн, что и .myra-library-overview в Полке:
             общая стеклянная плашка с разделителями между колонками вместо трёх
             отдельных карточек */}
-        <div className="myra-creator-overview" style={{ "--creator-accent": c2 } as React.CSSProperties}>
-          <button onClick={openStatsGated}><MyraGlyph name="profile" size={19} /><strong>0</strong><span>{t("cr.fans")}</span></button>
-          <button onClick={() => paymentsEnabled && setWdOpen(true)} aria-disabled={!paymentsEnabled}><MyraGlyph name="spark" size={19} /><strong>{paymentsEnabled ? `${balance.toLocaleString("ru-RU")}₽` : "—"}</strong><span>{t("cr.donations")}</span></button>
-          <button onClick={openStatsGated}><MyraGlyph name="library" size={19} /><strong>{myTracks.length}</strong><span>{t("cr.releases")}</span></button>
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { glyph: "profile" as const, value: "0", label: t("cr.fans"), a: "#9a8cff", b: "#67d7ff", onClick: openStatsGated, dim: false },
+            { glyph: "spark" as const, value: paymentsEnabled ? `${balance.toLocaleString("ru-RU")}₽` : "—", label: t("cr.donations"), a: "#ffd28a", b: "#f4a77f", onClick: () => paymentsEnabled && setWdOpen(true), dim: !paymentsEnabled },
+            { glyph: "library" as const, value: `${myTracks.length}`, label: t("cr.releases"), a: "#ff6fa5", b: "#c98cff", onClick: openStatsGated, dim: false },
+          ].map((s, i) => (
+            <motion.button key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} onClick={s.onClick} aria-disabled={s.dim || undefined} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)`, opacity: s.dim ? 0.6 : 1 }}>
+              <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
+              <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><CountUp value={s.value} /></strong>
+              <span className="mt-1" style={{ fontSize: 10.5, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{s.label}</span>
+            </motion.button>
+          ))}
         </div>
 
         {supabaseEnabled && realDonationsTotal > 0 && (
@@ -1242,6 +1424,43 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
             <span className="text-xs" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{t("cr.realDonations", realDonationsTotal.toLocaleString("ru-RU"))}</span>
           </div>
         )}
+
+        {/* Верификация — реальные условия галочки (см. requestVerify выше) */}
+        <div className="mt-3.5 rounded-[22px] p-4" style={{ ...GLASS }}>
+          <div className="flex items-center gap-2.5 mb-3">
+            <MyraVerifiedBadge size={26} accent={c2} />
+            <div className="min-w-0">
+              <div className="text-sm font-bold" style={{ fontFamily: F.b }}>{t("verify.title")}</div>
+              <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 48%, transparent)", fontFamily: F.m }}>{t("verify.sub")}</div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 mb-3.5">
+            {verifyCriteria.map(cr => {
+              const done = cr.have >= cr.need;
+              return (
+                <div key={cr.label} className="flex items-center gap-2.5">
+                  <span className="flex items-center justify-center shrink-0" style={{ width: 22, height: 22, borderRadius: "50%", background: done ? `${c2}2e` : "color-mix(in srgb, var(--fg) 8%, transparent)", color: done ? c2 : "color-mix(in srgb, var(--fg) 38%, transparent)" }}>
+                    {done ? <Check size={13} /> : <Lock size={12} />}
+                  </span>
+                  <span className="flex-1 text-xs" style={{ fontFamily: F.b, color: done ? "var(--fg)" : "color-mix(in srgb, var(--fg) 62%, transparent)" }}>{cr.label}</span>
+                  <span className="text-xs font-semibold shrink-0" style={{ fontFamily: F.m, color: done ? c2 : "color-mix(in srgb, var(--fg) 40%, transparent)" }}>{Math.min(cr.have, cr.need)}/{cr.need}</span>
+                </div>
+              );
+            })}
+          </div>
+          <button
+            onClick={requestVerify}
+            disabled={!canRequestVerify}
+            className="w-full py-3 rounded-2xl text-sm font-bold transition-opacity disabled:opacity-45"
+            style={{ background: canRequestVerify ? `linear-gradient(108deg, ${c2}, #c98cff)` : "color-mix(in srgb, var(--fg) 9%, transparent)", color: canRequestVerify ? "#160f26" : "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}
+          >
+            {verifyButtonLabel}
+          </button>
+          {verifyNote && (
+            <div className="text-[11px] mt-2.5 text-center" style={{ color: "color-mix(in srgb, var(--fg) 58%, transparent)", fontFamily: F.b, lineHeight: 1.4 }}>{verifyNote}</div>
+          )}
+          <div className="text-[11px] mt-2.5 text-center" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m, lineHeight: 1.4 }}>{t("verify.note")}</div>
+        </div>
       </section>
 
       <section className="myra-content-section px-5 mb-7">
@@ -1358,13 +1577,20 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
   // Бейджи профиля отражают публичную идентичность. Служебный статус
   // администратора намеренно не показываем.
+  // Бейджи-награды за реальный прогресс со спутником: «Знаток» (3 уровень) и
+  // «Хранитель артефактов» (собраны все артефакты). Появляются только когда
+  // реально заработаны — принцип честности.
+  const compLvlP = companionLevel(companionController.state.xp).level;
+  const allArtifacts = companionController.state.unlockedGiftIds.length >= RESONANCES.length;
   const badges = useMemo(() => [
     userRole === "artist"
       ? { icon: Mic2, label: t("bd.artist"), c: "#a78bfa" }
       : { icon: Headphones, label: t("bd.listener"), c: "#34d399" },
     ...(userRole === "artist" && creatorPlus ? [{ icon: Crown, label: "MYRA Pro", c: "#c4b5fd" }] : []),
     ...(donationCount > 0 ? [{ icon: Gift, label: t("bd.donor"), c: "#facc15" }] : []),
-  ], [userRole, creatorPlus, donationCount, t]);
+    ...(compLvlP >= 3 ? [{ icon: Sparkles, label: t("badge.connoisseur"), c: "#67d7ff" }] : []),
+    ...(allArtifacts ? [{ icon: Trophy, label: t("badge.collector"), c: "#ffd76a" }] : []),
+  ], [userRole, creatorPlus, donationCount, compLvlP, allArtifacts, t]);
 
   const QUALITIES = ["AAC 256", "FLAC", "Hi-Res 24-bit"];
 
@@ -1402,10 +1628,18 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
       </div>
 
       {/* Статистика — тот же паттерн стат-плиток, что в Медиатеке (myra-library-overview) */}
-      <section className="myra-profile-stats myra-content-section mx-5 mb-6" style={{ "--profile-accent": c2 } as React.CSSProperties}>
-        <div><MyraGlyph name="profile" size={19} /><strong>{follows}</strong><span>{t("pr.follows")}</span></div>
-        <div><MyraGlyph name="heart" size={19} /><strong>0</strong><span>{t("pr.fans")}</span></div>
-        <div><MyraGlyph name="chart" size={19} /><strong>{fmtCount(totalPlays)}</strong><span>{t("pr.plays")}</span></div>
+      <section className="myra-content-section grid grid-cols-3 gap-2.5 mx-5 mb-6">
+        {[
+          { glyph: "profile" as const, value: `${follows}`, label: t("pr.follows"), a: "#9a8cff", b: "#67d7ff" },
+          { glyph: "heart" as const, value: "0", label: t("pr.fans"), a: "#ff6fa5", b: "#c98cff" },
+          { glyph: "chart" as const, value: fmtCount(totalPlays), label: t("pr.plays"), a: "#f4a77f", b: "#ffd28a" },
+        ].map((s, i) => (
+          <motion.div key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
+            <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
+            <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 24, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><CountUp value={s.value} /></strong>
+            <span className="mt-1" style={{ fontSize: 10.5, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{s.label}</span>
+          </motion.div>
+        ))}
       </section>
 
       <div className="px-5 flex flex-col gap-1.5">
@@ -1732,7 +1966,7 @@ function AccountSummaryCard({ c2, avatar, userName, handle, badges, onAvatarTap,
         </div>
         <img src={avatar} alt="" className="myra-profile-avatar" style={{ borderColor: c2, boxShadow: `0 0 44px ${c2}45` }} />
       </motion.button>
-      <div className="myra-profile-name break-words">{userName}</div>
+      <div className="myra-profile-name myra-hero-word break-words">{userName}</div>
       <div className="text-xs mt-1.5 break-words" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
       <div className="myra-profile-badge-labels">
         {badges.map(b => {

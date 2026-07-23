@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo, useEffect } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat,
   ChevronDown, Share2, Volume2, VolumeX, Globe, Flag,
-  MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2, Flame, Blend,
+  MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2, Flame, Blend, Sparkles,
 } from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -17,10 +17,11 @@ import { supabaseEnabled, fetchComments, postComment } from "./supabase";
 import { enqueueSyncOp, isNetworkError } from "./syncQueue";
 import { useTrackStructure, sectionForPct } from "./structure";
 import { ReportSheet } from "./overlays";
+import type { ResonanceDefinition } from "./companion";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
-export function FullPlayer({ track, playing, onToggle, onClose, progress, buffered, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid, crossfade, onToggleCrossfade, shuffle, onToggleShuffle, repeat, onToggleRepeat, queue }: {
+export function FullPlayer({ track, playing, onToggle, onClose, progress, buffered, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid, crossfade, onToggleCrossfade, shuffle, onToggleShuffle, repeat, onToggleRepeat, queue, artifact }: {
   track: Track; playing: boolean; onToggle: () => void; onClose: () => void;
   progress: number; buffered: number; duration: number; onSeek: (p: number) => void; onNext: () => void; onPrev: () => void;
   liked: boolean; onLike: () => void; volume: number; onVolume: (v: number) => void;
@@ -31,6 +32,9 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
   // Перемешивание/повтор живут в App и реально управляют переходами треков
   shuffle: boolean; onToggleShuffle: () => void; repeat: boolean; onToggleRepeat: () => void;
   queue: Track[];
+  // Надетый артефакт-награда: реально оформляет плеер (свечение + герб),
+  // а не остаётся значком в профиле. null — ничего не надето.
+  artifact?: ResonanceDefinition | null;
 }) {
   const { t, lang } = useLang();
   const [tab, setTab] = useState<"player" | "lyrics" | "comments" | "queue">("player");
@@ -184,6 +188,8 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
             главная витрина, где он должен быть особенно заметен (см. план) */}
         <DetailBackdrop variant="full" accent={track.c2} active={playing} />
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 46%, ${track.c2}18 0%, transparent 34%), linear-gradient(115deg, rgba(2,2,7,0.66), rgba(2,2,7,0.94) 70%)` }} />
+        {/* Оформление от надетого артефакта — реальное свечение в его цвете */}
+        {artifact && <div className="fx-heavy absolute inset-0" style={{ background: `radial-gradient(circle at 82% 12%, ${artifact.accent}33 0%, transparent 42%)` }} />}
         <div className="myra-player-noise absolute inset-0" />
       </div>
 
@@ -223,9 +229,24 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
               <div className="absolute inset-0" style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.13), inset 0 0 0 1px rgba(255,255,255,0.07)" }} />
 
               <div className="absolute left-5 right-5 top-5 flex items-center justify-between z-10">
-                <div className="myra-player-kicker">
-                  <span className="myra-live-dot" style={{ background: track.c2, boxShadow: `0 0 14px ${track.c2}` }} />
-                  {t("pl.nowPlays")}
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="myra-player-kicker">
+                    <span className="myra-live-dot" style={{ background: track.c2, boxShadow: `0 0 14px ${track.c2}` }} />
+                    {t("pl.nowPlays")}
+                  </div>
+                  {/* Надетый артефакт-награда — герб виден, пока ты слушаешь */}
+                  {artifact && (
+                    <span
+                      className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full shrink-0"
+                      title={artifact.name[lang]}
+                      style={{ background: `${artifact.accent}22`, border: `1px solid ${artifact.accent}55` }}
+                    >
+                      <span className="flex items-center justify-center" style={{ width: 16, height: 16, borderRadius: "50%", background: `radial-gradient(circle, ${artifact.accent}, ${artifact.accent}44)`, boxShadow: `0 0 10px ${artifact.accent}aa` }}>
+                        <Sparkles size={9} style={{ color: "#160f26" }} />
+                      </span>
+                      <span className="truncate" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.02em", color: artifact.accent, fontFamily: F.m, maxWidth: 108 }}>{artifact.name[lang]}</span>
+                    </span>
+                  )}
                 </div>
                 <SectionBadge section={sectionForPct(structure, progressRounded)} />
               </div>
@@ -243,7 +264,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
                   <div className="flex items-center gap-2 mt-2.5 min-w-0">
                     <button onClick={() => onOpenArtist(track.artist)} className="myra-player-artist">
                       {track.artist}
-                      {verified && <BadgeCheck size={15} style={{ color: track.c2 }} />}
+                      {verified && <MyraVerifiedBadge size={19} accent={track.c2} title={t("verify.badge")} />}
                     </button>
                     {track.album !== "Local" && <><span className="text-white/20">·</span><button onClick={() => onOpenAlbum(track.album)} className="myra-player-album">{track.album}</button></>}
                   </div>
@@ -268,7 +289,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
                 <motion.button aria-label={t("pl.previous")} title={t("pl.previous")} whileTap={{ scale: 0.86 }} onClick={onPrev} className="myra-player-control">
                   <SkipBack size={23} fill="currentColor" />
                 </motion.button>
-                <motion.button aria-label={playing ? t("pl.pause") : t("pl.play")} title={playing ? t("pl.pause") : t("pl.play")} whileTap={{ scale: 0.91 }} whileHover={{ scale: 1.035 }} onClick={onToggle} className="myra-player-play" style={{ background: `linear-gradient(145deg, ${track.c2}, ${track.c2}b8)`, boxShadow: `0 18px 55px ${track.c2}42, inset 0 1px 0 rgba(255,255,255,0.34)` }}>
+                <motion.button aria-label={playing ? t("pl.pause") : t("pl.play")} title={playing ? t("pl.pause") : t("pl.play")} whileTap={{ scale: 0.91 }} whileHover={{ scale: 1.035 }} onClick={onToggle} className="myra-player-play" style={{ background: `radial-gradient(115% 82% at 50% 15%, rgba(255,255,255,0.62), rgba(255,255,255,0) 46%), linear-gradient(162deg, ${track.c2}, ${track.c2}c2 52%, ${track.c2}8c)`, boxShadow: `0 22px 55px ${track.c2}52, inset 0 2px 3px rgba(255,255,255,0.6), inset 0 -8px 15px rgba(0,0,0,0.22)` }}>
                   {playing ? <Pause size={29} fill="white" stroke="none" /> : <Play size={30} fill="white" stroke="none" className="ml-1" />}
                 </motion.button>
                 <motion.button aria-label={t("pl.next")} title={t("pl.next")} whileTap={{ scale: 0.86 }} onClick={onNext} className="myra-player-control">
@@ -520,7 +541,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
 
 // ─── Плавающий остров (mobile) ────────────────────────────────────────────────
 
-import { MyraGlyph, MyraHomeIcon, MyraDiscoverIcon, MyraBetweenIcon, MyraLibraryIcon, MyraStudioIcon, MyraProfileIcon } from "./myraIcons";
+import { MyraGlyph, MyraNavIcon3D, MyraVerifiedBadge, MyraHomeIcon, MyraDiscoverIcon, MyraBetweenIcon, MyraLibraryIcon, MyraStudioIcon, MyraProfileIcon } from "./myraIcons";
 
 const MOBILE_NAV = [
   { id: "home",    icon: MyraHomeIcon,     label: "nav.home" },
@@ -553,6 +574,10 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
 }) {
   const { t } = useLang();
   const seekRef = useRef<HTMLDivElement>(null);
+  // Свечение объёмных нав-иконок (SVG-фильтр) гасим на слабых устройствах —
+  // fx-simple выставляется один раз при старте (isWeakEnvironment), поэтому
+  // разовое чтение здесь корректно.
+  const navWeakFx = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
 
   return (
     <div className="myra-mobile-dock absolute bottom-0 inset-x-0 z-40 px-3 pb-3 flex flex-col gap-2 pointer-events-none" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
@@ -621,11 +646,10 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
       <nav className="myra-mobile-nav pointer-events-auto mx-auto flex items-center gap-1 p-1.5 rounded-full" aria-label={t("pl.playerNav")}>
         {navItems(showStudio, "mobile").map(n => {
           const active = activeTab === n.id;
-          const Icon = n.icon;
           return (
             <motion.button key={n.id} layout onClick={() => onTab(n.id)} aria-label={t(n.label)} data-active={active || undefined} className="myra-mobile-nav-item relative flex items-center gap-1.5 rounded-full px-3.5 py-2.5" transition={SPRING}>
               {active && <motion.div layoutId="mobnav" className="myra-mobile-nav-active absolute inset-0 rounded-full" transition={SPRING} />}
-              <span className="myra-mobile-nav-glyph relative z-10"><Icon size={18} style={{ color: active ? "var(--myra-pearl)" : "color-mix(in srgb, var(--fg) 42%, transparent)" }} /></span>
+              <span className="myra-mobile-nav-glyph relative z-10" style={{ color: active ? undefined : "color-mix(in srgb, var(--fg) 46%, transparent)" }}><MyraNavIcon3D name={n.id} active={active} size={22} weak={navWeakFx} /></span>
               {active && (
                 <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 text-xs font-semibold whitespace-nowrap" style={{ color: "var(--myra-pearl)", fontFamily: F.b }}>
                   {t(n.label)}

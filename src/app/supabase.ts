@@ -544,6 +544,98 @@ export async function fetchFriendsFeed(followingIds: string[], limit = 30): Prom
   });
 }
 
+// ─── Верификация артистов ───────────────────────────────────────────────────
+
+export type CreatorVerificationStatus = "pending" | "approved" | "rejected";
+
+export interface CreatorVerificationRequestRow {
+  id: string;
+  user_id: string;
+  status: CreatorVerificationStatus;
+  releases_count: number;
+  play_count: number;
+  has_listener_support: boolean;
+  reviewer_note: string | null;
+  created_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
+}
+
+export interface CreatorVerificationRequestPreview extends CreatorVerificationRequestRow {
+  username: string | null;
+}
+
+export async function fetchCreatorVerificationRequest(userId: string) {
+  if (!supabaseEnabled || !supabase) {
+    return { data: null as CreatorVerificationRequestRow | null, error: new Error("Supabase is not configured") };
+  }
+  const { data, error } = await supabase
+    .from("creator_verification_requests")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return { data: data as CreatorVerificationRequestRow | null, error };
+}
+
+export async function submitCreatorVerificationRequest(
+  userId: string,
+  evidence: { releasesCount: number; playCount: number; hasListenerSupport: boolean },
+) {
+  if (!supabaseEnabled || !supabase) {
+    return { data: null as CreatorVerificationRequestRow | null, error: new Error("Supabase is not configured") };
+  }
+  const { data, error } = await supabase
+    .from("creator_verification_requests")
+    .insert({
+      user_id: userId,
+      releases_count: Math.max(0, Math.trunc(evidence.releasesCount)),
+      play_count: Math.max(0, Math.trunc(evidence.playCount)),
+      has_listener_support: evidence.hasListenerSupport,
+      status: "pending",
+    })
+    .select()
+    .single();
+  return { data: data as CreatorVerificationRequestRow | null, error };
+}
+
+export async function fetchPendingCreatorVerificationRequests(): Promise<CreatorVerificationRequestPreview[]> {
+  if (!supabaseEnabled || !supabase) return [];
+  const { data, error } = await supabase
+    .from("creator_verification_requests")
+    .select("*")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+  if (error || !data) return [];
+  const rows = data as CreatorVerificationRequestRow[];
+  const userIds = rows.map(row => row.user_id);
+  const { data: profilesData } = userIds.length
+    ? await supabase.from("profiles").select("id, username").in("id", userIds)
+    : { data: [] as { id: string; username: string | null }[] };
+  const usernames = new Map((profilesData ?? []).map(profile => [profile.id, profile.username]));
+  return rows.map(row => ({ ...row, username: usernames.get(row.user_id) ?? null }));
+}
+
+export async function reviewCreatorVerificationRequest(
+  requestId: string,
+  status: Extract<CreatorVerificationStatus, "approved" | "rejected">,
+  reviewerNote?: string,
+) {
+  if (!supabaseEnabled || !supabase) return { error: new Error("Supabase is not configured") };
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("creator_verification_requests")
+    .update({
+      status,
+      reviewer_note: reviewerNote?.trim() || null,
+      reviewed_at: now,
+      updated_at: now,
+    })
+    .eq("id", requestId);
+  return { error };
+}
+
 // ─── Модерация: жалобы на треки/комментарии + скрытие трека ────────────────
 // MVP-модерация (см. schema.sql, секции 12-13): раньше не было вообще
 // никакого способа пожаловаться на контент или снять трек с публикации,

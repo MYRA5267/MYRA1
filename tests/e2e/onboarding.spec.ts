@@ -25,8 +25,9 @@ test("ссылка входа переводит на шаг входа/реги
 
   await page.getByRole("button", { name: /Войти в аккаунт/ }).click();
 
-  // Шаг auth: заголовок "Привет!" (au.welcome) и переключатель Регистрация/Вход
-  await expect(page.getByText("Привет!")).toBeVisible();
+  // Шаг auth в режиме входа: заголовок "С возвращением" (au.backTitle) и
+  // переключатель Регистрация/Вход
+  await expect(page.getByText("С возвращением")).toBeVisible();
   await expect(page.getByRole("button", { name: "Регистрация" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Вход" })).toBeVisible();
 
