@@ -52,26 +52,62 @@ export const svgCover = (c1: string, c2: string, seed: number) => {
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
 };
 
+// «Характер» артиста для образа: причёска/головной убор, аксессуар, наушники.
+export interface ArtistLook {
+  hair: "buzz" | "afro" | "curls" | "long" | "cap" | "beanie" | "bun" | "hood";
+  acc?: "glasses" | "shades" | "visor" | "chain";
+  phones?: boolean;   // наушники (чашки на ушах)
+  band?: boolean;     // дужка наушников над головой (только когда макушка свободна)
+  side?: -1 | 1;      // сторона света
+}
+
 /**
- * Стилизованный образ артиста для демо-каталога: силуэт в наушниках под
- * «прожектором» его цвета. Это заведомо ИЛЛЮСТРАЦИЯ (не фото реального
- * человека) — демо-каталог вымышленный. Нужен, чтобы на профиле артиста было
- * видно образ, а не пустой градиент. data-URI, работает офлайн, без фильтров
- * (надёжно рендерится в Android WebView).
+ * Стилизованный образ артиста для демо-каталога: силуэт с индивидуальным
+ * характером (причёска/убор + аксессуар + опц. наушники) под «прожектором»
+ * его цвета. Это заведомо ИЛЛЮСТРАЦИЯ (не фото реального человека) —
+ * демо-каталог вымышленный. Нужен, чтобы на профиле артиста и в списках было
+ * видно узнаваемый образ, а не пустой градиент. data-URI, офлайн, без
+ * SVG-фильтров (надёжно рендерится в Android WebView).
  */
-export const svgArtistPortrait = (c1: string, c2: string, seed: number) => {
+export const svgArtistPortrait = (c1: string, c2: string, seed: number, look: ArtistLook) => {
   const r = rnd(seed * 13 + 5);
-  const side = r() < 0.5 ? -1 : 1;          // сторона света
-  const hair = Math.floor(r() * 3);         // вариант силуэта причёски
-  const tilt = (r() * 8 - 4).toFixed(1);    // лёгкий наклон головы
+  const side = look.side ?? (r() < 0.5 ? -1 : 1);
+  const tilt = (r() * 7 - 3.5).toFixed(1);
   const glowX = (50 + side * 15).toFixed(0);
   const hx = 250, hy = 210, hr = 84;
+  const FIG = "url(#fig)";
 
-  const hairShapes = [
-    "",                                                                                     // 0 — коротко
-    `<circle cx="${hx}" cy="${hy - 20}" r="${hr + 22}" fill="url(#fig)"/>`,                  // 1 — объёмная
-    `<path d="M${hx - hr - 8},${hy + 6} Q${hx},${hy - hr - 46} ${hx + hr + 8},${hy + 6} Z" fill="url(#fig)"/>`, // 2 — «шапка»
-  ];
+  // Причёски/уборы, которые рисуются ЗА головой (объём, обрамление лица)
+  const back: Record<string, string> = {
+    buzz: "",
+    afro: `<circle cx="${hx}" cy="${hy - 16}" r="${hr + 28}" fill="${FIG}"/>`,
+    curls: `<g fill="${FIG}"><circle cx="${hx}" cy="${hy - 66}" r="44"/><circle cx="${hx - 54}" cy="${hy - 42}" r="40"/><circle cx="${hx + 54}" cy="${hy - 42}" r="40"/><circle cx="${hx - 82}" cy="${hy}" r="32"/><circle cx="${hx + 82}" cy="${hy}" r="32"/><circle cx="${hx - 28}" cy="${hy - 76}" r="32"/><circle cx="${hx + 28}" cy="${hy - 76}" r="32"/></g>`,
+    long: `<path d="M162,192 C118,200 128,362 178,398 L216,398 C198,322 198,240 212,192 Z" fill="${FIG}"/><path d="M338,192 C382,200 372,362 322,398 L284,398 C302,322 302,240 288,192 Z" fill="${FIG}"/><path d="M168,188 Q250,118 332,188 Q250,166 168,188 Z" fill="${FIG}"/>`,
+    hood: "",
+    cap: "",
+    beanie: "",
+    bun: "",
+  };
+  // Уборы, которые рисуются ПЕРЕД головой (сидят сверху)
+  const front: Record<string, string> = {
+    buzz: "", afro: "", curls: "", long: "", hood: "",
+    cap: `<path d="M172,196 Q250,116 328,196 Q250,178 172,196 Z" fill="${FIG}"/><rect x="170" y="188" width="160" height="20" rx="10" fill="${c2}"/><path d="M250,200 Q${hx + side * 128},188 ${hx + side * 150},207 Q${hx + side * 120},215 250,208 Z" fill="${c2}"/>`,
+    beanie: `<path d="M164,206 Q250,118 336,206 Z" fill="${c2}"/><rect x="160" y="196" width="180" height="24" rx="12" fill="${c2}"/><circle cx="${hx}" cy="122" r="13" fill="${c2}"/>`,
+    bun: `<circle cx="${hx}" cy="118" r="28" fill="${FIG}"/>`,
+  };
+  // Аксессуары на лице/шее (после головы)
+  const accEls: Record<string, string> = {
+    glasses: `<g fill="none" stroke="#ece7ff" stroke-width="6" stroke-opacity="0.92"><rect x="192" y="180" width="44" height="36" rx="13"/><rect x="264" y="180" width="44" height="36" rx="13"/><path d="M236,198 L264,198"/></g>`,
+    shades: `<g><rect x="190" y="178" width="48" height="38" rx="14" fill="#080610" stroke="${c2}" stroke-width="4"/><rect x="262" y="178" width="48" height="38" rx="14" fill="#080610" stroke="${c2}" stroke-width="4"/><path d="M238,190 L262,190" stroke="${c2}" stroke-width="5"/></g>`,
+    visor: `<rect x="188" y="184" width="124" height="24" rx="12" fill="${c2}" opacity="0.92"/><rect x="196" y="188" width="58" height="6" rx="3" fill="#ffffff" opacity="0.5"/>`,
+    chain: `<path d="M198,350 Q250,398 302,350" fill="none" stroke="${c2}" stroke-width="7" stroke-linecap="round"/><circle cx="${hx}" cy="392" r="8" fill="${c2}"/>`,
+  };
+
+  const phones = look.phones
+    ? (look.band ? `<path d="M${hx - hr + 4},${hy + 4} Q${hx},${hy - hr - 30} ${hx + hr - 4},${hy + 4}" stroke="${c2}" stroke-width="15" fill="none" stroke-linecap="round"/>` : "")
+      + `<rect x="${hx - hr - 10}" y="${hy - 22}" width="30" height="58" rx="13" fill="${c2}"/>`
+      + `<rect x="${hx + hr - 20}" y="${hy - 22}" width="30" height="58" rx="13" fill="${c2}"/>`
+    : "";
 
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">` +
@@ -79,21 +115,23 @@ export const svgArtistPortrait = (c1: string, c2: string, seed: number) => {
       `<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="0.55" stop-color="#0c0716"/><stop offset="1" stop-color="#05040a"/></linearGradient>` +
       `<radialGradient id="glow" cx="${glowX}%" cy="34%" r="56%"><stop offset="0" stop-color="${c2}" stop-opacity="0.95"/><stop offset="0.45" stop-color="${c2}" stop-opacity="0.3"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></radialGradient>` +
       `<linearGradient id="fig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1230"/><stop offset="0.5" stop-color="#0b0716"/><stop offset="1" stop-color="#050409"/></linearGradient>` +
+      `<linearGradient id="grm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="#070510"/></linearGradient>` +
       `<radialGradient id="cheek" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>` +
       `<radialGradient id="vig" cx="0.5" cy="0.42" r="0.78"><stop offset="0.55" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.55"/></radialGradient>` +
     `</defs>` +
     `<rect width="500" height="500" fill="url(#bg)"/>` +
     `<rect width="500" height="500" fill="url(#glow)"/>` +
     `<g transform="rotate(${tilt} ${hx} ${hy + 60})">` +
-      `<circle cx="${hx + side * 8}" cy="${hy}" r="${hr + 6}" fill="${c2}" opacity="0.85"/>` +
-      `<path d="M74,500 C74,384 154,340 ${hx},340 C346,340 426,384 426,500 Z" fill="url(#fig)"/>` +
-      `<rect x="${hx - 34}" y="252" width="68" height="116" rx="24" fill="url(#fig)"/>` +
-      hairShapes[hair] +
-      `<circle cx="${hx}" cy="${hy}" r="${hr}" fill="url(#fig)"/>` +
+      `<circle cx="${hx + side * 8}" cy="${hy}" r="${hr + 6}" fill="${c2}" opacity="0.82"/>` +
+      `<path d="M74,500 C74,384 154,340 ${hx},340 C346,340 426,384 426,500 Z" fill="${FIG}"/>` +
+      (look.hair === "hood" ? `<path d="M120,500 C108,300 150,204 ${hx},190 C350,204 392,300 380,500 Z" fill="url(#grm)"/>` : "") +
+      `<rect x="${hx - 34}" y="252" width="68" height="116" rx="24" fill="${FIG}"/>` +
+      back[look.hair] +
+      `<circle cx="${hx}" cy="${hy}" r="${hr}" fill="${FIG}"/>` +
       `<ellipse cx="${hx + side * 30}" cy="${hy + 6}" rx="38" ry="52" fill="url(#cheek)"/>` +
-      `<path d="M${hx - hr + 4},${hy + 4} Q${hx},${hy - hr - 30} ${hx + hr - 4},${hy + 4}" stroke="${c2}" stroke-width="15" fill="none" stroke-linecap="round"/>` +
-      `<rect x="${hx - hr - 10}" y="${hy - 22}" width="30" height="58" rx="13" fill="${c2}"/>` +
-      `<rect x="${hx + hr - 20}" y="${hy - 22}" width="30" height="58" rx="13" fill="${c2}"/>` +
+      front[look.hair] +
+      (look.acc ? accEls[look.acc] : "") +
+      phones +
     `</g>` +
     `<rect width="500" height="500" fill="url(#vig)"/>` +
     `</svg>`;
@@ -273,18 +311,19 @@ export interface Artist {
   similar: string[];
 }
 
-// img — стилизованный образ артиста (силуэт в наушниках под светом его цвета),
-// не абстрактная обложка: на профиле артиста должно быть видно образ. Палитра
-// берётся из фирменного трека артиста, seed разный — силуэты чуть отличаются.
+// img — стилизованный образ артиста со СВОИМ характером (причёска/убор +
+// аксессуар + опц. наушники), не абстрактная обложка: на профиле и в списках
+// артист должен быть узнаваем и не похож на других. Палитра — из его
+// фирменного трека.
 export const ARTISTS: Artist[] = [
-  { name: "Luna Wave",   listeners: "1.2M", genre: "Синтвейв",  verified: true,  img: svgArtistPortrait(TRACKS[0].c1, TRACKS[0].c2, 71), c2: TRACKS[0].c2, similar: ["Solstice", "KRVT"] },
-  { name: "KRVT",        listeners: "640K", genre: "Электроника", verified: true,  img: svgArtistPortrait(TRACKS[1].c1, TRACKS[1].c2, 82), c2: TRACKS[1].c2, similar: ["Luna Wave", "Axel Rune"] },
-  { name: "Solstice",    listeners: "2.8M", genre: "Лоу-фай",      verified: true,  img: svgArtistPortrait(TRACKS[2].c1, TRACKS[2].c2, 93), c2: TRACKS[2].c2, similar: ["Mara Dell", "Luna Wave"] },
-  { name: "Mara Dell",   listeners: "890K", genre: "Эмбиент",    verified: false, img: svgArtistPortrait(TRACKS[3].c1, TRACKS[3].c2, 104), c2: TRACKS[3].c2, similar: ["Solstice", "Yara Voss"] },
-  { name: "Yara Voss",   listeners: "410K", genre: "Дрим-поп",  verified: false, img: svgArtistPortrait(TRACKS[4].c1, TRACKS[4].c2, 115), c2: TRACKS[4].c2, similar: ["Nadia Sol", "Mara Dell"] },
-  { name: "Axel Rune",   listeners: "1.9M", genre: "Инди",      verified: true,  img: svgArtistPortrait(TRACKS[5].c1, TRACKS[5].c2, 126), c2: TRACKS[5].c2, similar: ["Echo & Glow", "KRVT"] },
-  { name: "Echo & Glow", listeners: "8K",   genre: "Инди",      verified: false, img: svgArtistPortrait(TRACKS[6].c1, TRACKS[6].c2, 137), c2: TRACKS[6].c2, similar: ["Axel Rune", "Nadia Sol"] },
-  { name: "Nadia Sol",   listeners: "5K",   genre: "Поп",        verified: false, img: svgArtistPortrait(TRACKS[7].c1, TRACKS[7].c2, 148), c2: TRACKS[7].c2, similar: ["Yara Voss", "Echo & Glow"] },
+  { name: "Luna Wave",   listeners: "1.2M", genre: "Синтвейв",  verified: true,  img: svgArtistPortrait(TRACKS[0].c1, TRACKS[0].c2, 71,  { hair: "long",   acc: "shades", side: 1 }),               c2: TRACKS[0].c2, similar: ["Solstice", "KRVT"] },
+  { name: "KRVT",        listeners: "640K", genre: "Электроника", verified: true,  img: svgArtistPortrait(TRACKS[1].c1, TRACKS[1].c2, 82,  { hair: "buzz",   acc: "visor", phones: true, band: true, side: -1 }), c2: TRACKS[1].c2, similar: ["Luna Wave", "Axel Rune"] },
+  { name: "Solstice",    listeners: "2.8M", genre: "Лоу-фай",      verified: true,  img: svgArtistPortrait(TRACKS[2].c1, TRACKS[2].c2, 93,  { hair: "beanie", phones: true, side: 1 }),                    c2: TRACKS[2].c2, similar: ["Mara Dell", "Luna Wave"] },
+  { name: "Mara Dell",   listeners: "890K", genre: "Эмбиент",    verified: false, img: svgArtistPortrait(TRACKS[3].c1, TRACKS[3].c2, 104, { hair: "bun",    acc: "glasses", side: -1 }),               c2: TRACKS[3].c2, similar: ["Solstice", "Yara Voss"] },
+  { name: "Yara Voss",   listeners: "410K", genre: "Дрим-поп",  verified: false, img: svgArtistPortrait(TRACKS[4].c1, TRACKS[4].c2, 115, { hair: "curls",  side: 1 }),                                 c2: TRACKS[4].c2, similar: ["Nadia Sol", "Mara Dell"] },
+  { name: "Axel Rune",   listeners: "1.9M", genre: "Инди",      verified: true,  img: svgArtistPortrait(TRACKS[5].c1, TRACKS[5].c2, 126, { hair: "cap",    phones: true, side: -1 }),                   c2: TRACKS[5].c2, similar: ["Echo & Glow", "KRVT"] },
+  { name: "Echo & Glow", listeners: "8K",   genre: "Инди",      verified: false, img: svgArtistPortrait(TRACKS[6].c1, TRACKS[6].c2, 137, { hair: "hood",   side: 1 }),                                 c2: TRACKS[6].c2, similar: ["Axel Rune", "Nadia Sol"] },
+  { name: "Nadia Sol",   listeners: "5K",   genre: "Поп",        verified: false, img: svgArtistPortrait(TRACKS[7].c1, TRACKS[7].c2, 148, { hair: "afro",   acc: "chain", side: -1 }),                 c2: TRACKS[7].c2, similar: ["Yara Voss", "Echo & Glow"] },
 ];
 
 export const artistByName = (name: string) => ARTISTS.find(a => a.name === name);
