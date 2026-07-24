@@ -231,6 +231,11 @@ export const ArtistSheet = React.memo(function ArtistSheet({ name, onClose, onPl
           <div className="myra-artist-poster-frame">
             <img src={artist.img} alt={artist.name} />
           </div>
+          {own[0] && (
+            <div className="myra-artist-poster-release" title={own[0].title}>
+              <img src={own[0].img} alt="" />
+            </div>
+          )}
           <div className="myra-artist-poster-meta">
             <span className="myra-artist-genre">{artist.genre}</span>
             <span className="myra-artist-poster-listeners">{artist.listeners} {t("ar.listeners")}</span>
@@ -377,6 +382,11 @@ export const RealArtistSheet = React.memo(function RealArtistSheet({ artistId, o
         <div className="myra-artist-poster-stage">
           <div className="myra-artist-poster-name"><span>{name || "…"}</span></div>
           <div className="myra-artist-poster-frame"><img src={avatar} alt={name} /></div>
+          {tracks[0] && (
+            <div className="myra-artist-poster-release" title={tracks[0].title}>
+              <img src={tracks[0].img} alt="" />
+            </div>
+          )}
           {profile?.handle && <div className="myra-artist-poster-meta"><span className="myra-artist-poster-listeners">@{profile.handle.replace(/^@/, "")}</span></div>}
         </div>
       </div>
